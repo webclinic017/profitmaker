@@ -2,6 +2,7 @@ import React from 'react';
 import SettingsDrawer from './SettingsDrawer';
 import { useSettingsDrawerStore } from '@/store/settingsDrawerStore';
 import ChartSettingsWrapper from './widgets/ChartSettingsWrapper';
+import TradesSettingsWrapper from './widgets/TradesSettingsWrapper';
 
 const WidgetSettingsManager: React.FC = () => {
   const { isOpen, widgetId, widgetType, widgetTitle, closeDrawer } = useSettingsDrawerStore();
@@ -17,7 +18,7 @@ const WidgetSettingsManager: React.FC = () => {
       case 'portfolio':
         return <div className="text-terminal-muted">Portfolio settings coming soon...</div>;
       case 'trades':
-        return <div className="text-terminal-muted">Trades settings coming soon...</div>;
+        return <TradesSettingsWrapper widgetId={widgetId} />;
       case 'orderForm':
         return <div className="text-terminal-muted">Order Form settings coming soon...</div>;
       default:

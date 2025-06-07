@@ -1,14 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Switch } from '../ui/switch';
-import { Separator } from '../ui/separator';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { Trade } from '../../types/dataProviders';
-import { Filter, ArrowUp, ArrowDown, DollarSign, Hash, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { DollarSign, Hash, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface TradesWidgetV2Props {
   dashboardId?: string;
@@ -24,23 +19,13 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
   initialSymbol = 'BTC/USDT'
 }) => {
   const { 
-    subscribe, 
-    unsubscribe, 
     getTrades, 
-    providers,
-    activeProviderId,
-    dataFetchSettings,
     getActiveSubscriptionsList
   } = useDataProviderStore();
 
-  // Settings state
-  const [exchange, setExchange] = useState(initialExchange);
-  const [symbol, setSymbol] = useState(initialSymbol);
-  const [isSubscribed, setIsSubscribed] = useState(false);
-
-  // Filters state
-  const [filters, setFilters] = useState({
-    side: 'all', // 'all', 'buy', 'sell'
+  // Temporary filters (will be moved to settings later)
+  const [filters] = useState({
+    side: 'all',
     minPrice: '',
     maxPrice: '',
     minAmount: '',
@@ -48,22 +33,18 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
     showLastN: '100'
   });
 
-  // Sorting state
-  const [sortBy, setSortBy] = useState<'timestamp' | 'price' | 'amount'>('timestamp');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  // Temporary sorting (will be moved to settings later)
+  const [sortBy] = useState<'timestamp' | 'price' | 'amount'>('timestamp');
+  const [sortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Display state
-  const [autoScroll, setAutoScroll] = useState(true);
-
-  // Get data from store (automatically updated)
-  const rawTrades = getTrades(exchange, symbol);
+  // Get data from store (using hardcoded values for now)
+  const rawTrades = getTrades(initialExchange, initialSymbol);
   const activeSubscriptions = getActiveSubscriptionsList();
   
   // Check if there's an active subscription for current exchange/symbol
-  const currentSubscriptionKey = `${exchange}:${symbol}:trades`;
   const currentSubscription = activeSubscriptions.find(sub => 
-    sub.key.exchange === exchange && 
-    sub.key.symbol === symbol && 
+    sub.key.exchange === initialExchange && 
+    sub.key.symbol === initialSymbol && 
     sub.key.dataType === 'trades'
   );
 
@@ -145,42 +126,6 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
     return { totalAmount, totalVolume, avgPrice, buyCount, sellCount };
   }, [processedTrades]);
 
-  // Automatic data subscription (store manages the fetch method itself)
-  useEffect(() => {
-    if (isSubscribed && activeProviderId) {
-      const subscriberId = `${dashboardId}-${widgetId}`;
-      
-      // Just subscribe - store will decide whether to use REST or WebSocket
-      subscribe(subscriberId, exchange, symbol, 'trades');
-      console.log(`📊 Widget subscribed to data: ${exchange} ${symbol} (method: ${dataFetchSettings.method})`);
-
-      return () => {
-        unsubscribe(subscriberId, exchange, symbol, 'trades');
-        console.log(`📊 Widget unsubscribed from data: ${exchange} ${symbol}`);
-      };
-    }
-  }, [isSubscribed, exchange, symbol, activeProviderId, subscribe, unsubscribe, dashboardId, widgetId, dataFetchSettings.method]);
-
-  const handleSubscribe = async () => {
-    if (!activeProviderId) {
-      console.error('❌ No active provider');
-      return;
-    }
-
-    try {
-      setIsSubscribed(true);
-      console.log(`🚀 Starting trades subscription: ${exchange} ${symbol}`);
-    } catch (error) {
-      console.error('❌ Error subscribing to trades:', error);
-      setIsSubscribed(false);
-    }
-  };
-
-  const handleUnsubscribe = () => {
-    setIsSubscribed(false);
-    console.log(`🛑 Stopping trades subscription: ${exchange} ${symbol}`);
-  };
-
   const formatPrice = (price: number): string => {
     return price.toFixed(8).replace(/\.?0+$/, '');
   };
@@ -200,280 +145,89 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
   };
 
   return (
-    <div className="w-full space-y-4">
-      {/* Connection settings */}
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-sm">Exchange</Label>
-            <Input
-              value={exchange}
-              onChange={(e) => setExchange(e.target.value)}
-              placeholder="binance"
-              disabled={isSubscribed}
-            />
-          </div>
-          <div>
-            <Label className="text-sm">Trading pair</Label>
-            <Input
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              placeholder="BTC/USDT"
-              disabled={isSubscribed}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {!isSubscribed ? (
-            <Button onClick={handleSubscribe} className="flex-1" disabled={!activeProviderId}>
-              {activeProviderId ? 'Subscribe to trades' : 'No active provider'}
-            </Button>
-          ) : (
-            <Button onClick={handleUnsubscribe} variant="destructive" className="flex-1">
-              Unsubscribe
-            </Button>
-          )}
-        </div>
-
-        {isSubscribed && currentSubscription && (
-          <div className={`text-xs p-2 rounded space-y-1 ${
-            currentSubscription.isFallback 
-              ? 'text-orange-700 bg-orange-50 border border-orange-200' 
-              : 'text-gray-500 bg-blue-50'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span>
-                📡 Fetch method: <strong>
-                  {currentSubscription.method === 'websocket' 
-                    ? 'WebSocket (real-time)' 
-                    : currentSubscription.isFallback 
-                      ? '🔄 REST (fallback from WebSocket)'
-                      : 'REST (interval)'
-                  }
-                </strong>
-              </span>
-              <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-            </div>
-            
-            {currentSubscription.isFallback && (
-              <div className="text-orange-600 bg-orange-100 p-1 rounded text-xs">
-                ⚠️ WebSocket unavailable for this exchange/pair, using REST as fallback method
-              </div>
-            )}
-            
-            {currentSubscription.method === 'rest' && (
-              <div>⏱️ Update interval: <strong>{dataFetchSettings.restIntervals.trades}ms</strong></div>
-            )}
-            <div>👥 Subscribers to this data: <strong>{currentSubscription.subscriberCount}</strong></div>
-            {currentSubscription.lastUpdate > 0 && (
-              <div>🕐 Last update: <strong>{new Date(currentSubscription.lastUpdate).toLocaleTimeString()}</strong></div>
-            )}
-          </div>
-        )}
-        
-        {isSubscribed && !currentSubscription && (
-          <div className="text-xs text-yellow-600 bg-yellow-50 p-2 rounded">
-            ⚠️ Subscription is being created... Please wait for connection.
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Filters */}
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4" />
-          <Label className="text-sm font-medium">Filters</Label>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs">Side</Label>
-            <Select value={filters.side} onValueChange={(value) => setFilters(prev => ({ ...prev, side: value }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="buy">Buy</SelectItem>
-                <SelectItem value="sell">Sell</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Show last</Label>
-            <Input
-              type="number"
-              value={filters.showLastN}
-              onChange={(e) => setFilters(prev => ({ ...prev, showLastN: e.target.value }))}
-              placeholder="100"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs">Min. price</Label>
-            <Input
-              type="number"
-              value={filters.minPrice}
-              onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Max. price</Label>
-            <Input
-              type="number"
-              value={filters.maxPrice}
-              onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
-              placeholder="No limit"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <Label className="text-xs">Min. volume</Label>
-            <Input
-              type="number"
-              value={filters.minAmount}
-              onChange={(e) => setFilters(prev => ({ ...prev, minAmount: e.target.value }))}
-              placeholder="0"
-            />
-          </div>
-          <div>
-            <Label className="text-xs">Max. volume</Label>
-            <Input
-              type="number"
-              value={filters.maxAmount}
-              onChange={(e) => setFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
-              placeholder="No limit"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Sorting */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Sorting</Label>
-        <div className="flex items-center gap-2">
-          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-            <SelectTrigger className="flex-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="timestamp">By time</SelectItem>
-              <SelectItem value="price">By price</SelectItem>
-              <SelectItem value="amount">By volume</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-          >
-            {sortOrder === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Switch
-          id="auto-scroll"
-          checked={autoScroll}
-          onCheckedChange={setAutoScroll}
-        />
-        <Label htmlFor="auto-scroll" className="text-sm">Auto-scroll to new trades</Label>
-      </div>
-
-      <Separator />
-
-      {/* Statistics */}
-      {processedTrades.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Statistics ({processedTrades.length} trades)</Label>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-gray-50 p-2 rounded">
-              <div className="flex items-center gap-1">
-                <Hash className="h-3 w-3" />
-                <span>Total volume:</span>
-              </div>
-              <div className="font-mono">{formatAmount(stats.totalAmount)}</div>
-            </div>
-            <div className="bg-gray-50 p-2 rounded">
-              <div className="flex items-center gap-1">
-                <DollarSign className="h-3 w-3" />
-                <span>Total amount:</span>
-              </div>
-              <div className="font-mono">{formatVolume(stats.totalVolume)}</div>
-            </div>
-            <div className="bg-gray-50 p-2 rounded">
-              <div className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-green-500" />
-                <span>Buys:</span>
-              </div>
-              <div className="font-mono">{stats.buyCount}</div>
-            </div>
-            <div className="bg-gray-50 p-2 rounded">
-              <div className="flex items-center gap-1">
-                <TrendingDown className="h-3 w-3 text-red-500" />
-                <span>Sells:</span>
-              </div>
-              <div className="font-mono">{stats.sellCount}</div>
-            </div>
-          </div>
-          <div className="bg-blue-50 p-2 rounded">
-            <div className="text-xs text-blue-700">
-              💰 Average price: <span className="font-mono">{formatPrice(stats.avgPrice)}</span>
-            </div>
+    <div className="w-full h-full flex flex-col space-y-4">
+      {/* Connection Status (minimal) */}
+      {currentSubscription && (
+        <div className="text-xs text-terminal-muted bg-terminal-widget p-2 rounded border border-terminal-border">
+          <div className="flex items-center justify-between">
+            <span>📡 {initialExchange.toUpperCase()} {initialSymbol}</span>
+            <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
           </div>
         </div>
       )}
 
-      <Separator />
-
-      {/* Trades list */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-medium">Trades</Label>
-          <div className="text-xs text-gray-500">
-            {rawTrades.length} total / {processedTrades.length} filtered
+      {/* Quick Statistics */}
+      {processedTrades.length > 0 && (
+        <div className="grid grid-cols-4 gap-2 text-xs">
+          <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
+            <div className="flex items-center gap-1 text-terminal-muted">
+              <Hash className="h-3 w-3" />
+              <span>Volume:</span>
+            </div>
+            <div className="font-mono text-terminal-text">{formatAmount(stats.totalAmount)}</div>
+          </div>
+          <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
+            <div className="flex items-center gap-1 text-terminal-muted">
+              <DollarSign className="h-3 w-3" />
+              <span>Total:</span>
+            </div>
+            <div className="font-mono text-terminal-text">{formatVolume(stats.totalVolume)}</div>
+          </div>
+          <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
+            <div className="flex items-center gap-1 text-green-500">
+              <TrendingUp className="h-3 w-3" />
+              <span>Buys:</span>
+            </div>
+            <div className="font-mono text-terminal-text">{stats.buyCount}</div>
+          </div>
+          <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
+            <div className="flex items-center gap-1 text-red-500">
+              <TrendingDown className="h-3 w-3" />
+              <span>Sells:</span>
+            </div>
+            <div className="font-mono text-terminal-text">{stats.sellCount}</div>
           </div>
         </div>
+      )}
 
-        <div className="max-h-64 overflow-y-auto space-y-1">
+      {/* Trades list header */}
+      <div className="flex items-center justify-between">
+        <Label className="text-sm font-medium text-terminal-text">Trades</Label>
+        <div className="text-xs text-terminal-muted">
+          {rawTrades.length} total / {processedTrades.length} filtered
+        </div>
+      </div>
+
+      {/* Trades list */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto space-y-1">
           {processedTrades.length === 0 ? (
-            <div className="text-center text-gray-400 py-4">
-              {isSubscribed ? 'Waiting for data...' : 'Subscribe to receive trade data'}
+            <div className="text-center text-terminal-muted py-8">
+              {currentSubscription ? 'Waiting for trade data...' : 'No active subscription'}
             </div>
           ) : (
             processedTrades.map((trade, index) => (
               <div
                 key={`${trade.id || index}-${trade.timestamp}`}
-                className={`flex items-center justify-between text-xs p-2 rounded ${
+                className={`flex items-center justify-between text-xs p-2 rounded border-l-2 ${
                   trade.side === 'buy' 
-                    ? 'bg-green-50 border-l-2 border-green-500' 
-                    : 'bg-red-50 border-l-2 border-red-500'
-                }`}
+                    ? 'bg-green-500/5 border-green-500 hover:bg-green-500/10' 
+                    : 'bg-red-500/5 border-red-500 hover:bg-red-500/10'
+                } transition-colors`}
               >
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${trade.side === 'buy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                   <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-gray-400" />
-                    <span className="font-mono text-gray-600">{formatTime(trade.timestamp)}</span>
+                    <Clock className="h-3 w-3 text-terminal-muted" />
+                    <span className="font-mono text-terminal-muted">{formatTime(trade.timestamp)}</span>
                   </div>
                 </div>
                 
                 <div className="text-right">
-                  <div className="font-mono font-medium">
+                  <div className="font-mono font-medium text-terminal-text">
                     {formatPrice(trade.price)} × {formatAmount(trade.amount)}
                   </div>
-                  <div className="text-gray-500">
+                  <div className="text-terminal-muted">
                     ≈ {formatVolume(trade.price * trade.amount)}
                   </div>
                 </div>
@@ -483,9 +237,10 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
         </div>
       </div>
 
-      {!isSubscribed && (
-        <div className="text-xs text-gray-400 text-center pt-2 border-t">
-          💡 Widget automatically deduplicates subscriptions - if multiple widgets request the same data, only one connection is created.
+      {/* Footer info */}
+      {!currentSubscription && (
+        <div className="text-xs text-terminal-muted text-center py-2 border-t border-terminal-border">
+          💡 Use settings to configure data source and filters
         </div>
       )}
     </div>
