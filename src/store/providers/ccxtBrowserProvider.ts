@@ -57,6 +57,11 @@ export class CCXTBrowserProviderImpl {
               // For spot markets: type should be 'spot' OR symbol should not contain derivatives patterns
               return marketTypeValue === 'spot' || 
                      (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+            } else if (marketTypeToFilter === 'margin') {
+              // Margin trading uses the same pairs as spot but with leverage capability
+              // Show all spot-type pairs for margin trading
+              return marketTypeValue === 'spot' || marketTypeValue === 'margin' ||
+                     (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
             } else if (marketTypeToFilter === 'futures' || marketTypeToFilter === 'future') {
               // For futures: explicit type OR contains ':' but not options patterns
               return marketTypeValue === 'future' || marketTypeValue === 'futures' || 
@@ -68,8 +73,6 @@ export class CCXTBrowserProviderImpl {
               // For options: explicit type OR contains Call/Put patterns
               return marketTypeValue === 'option' || marketTypeValue === 'options' ||
                      symbol.includes('-C') || symbol.includes('-P');
-            } else if (marketTypeToFilter === 'margin') {
-              return marketTypeValue === 'margin';
             } else {
               // For exact matching of any other types
               return marketTypeValue === marketTypeToFilter;
