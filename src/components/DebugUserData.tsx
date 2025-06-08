@@ -6,52 +6,50 @@ export const DebugUserData: React.FC = () => {
   const activeUser = users.find(u => u.id === activeUserId);
 
   return (
-    <div className="p-4 bg-terminal-widget border border-terminal-border rounded">
-      <h3 className="text-lg font-bold mb-4 text-terminal-text">Debug User Data</h3>
+    <div className="space-y-4">
+      <div>
+        <h4 className="font-semibold text-blue-600 dark:text-blue-400">Active User ID:</h4>
+        <p className="text-gray-800 dark:text-gray-200">{activeUserId || 'None'}</p>
+      </div>
       
-      <div className="space-y-4">
+      <div>
+        <h4 className="font-semibold text-blue-600 dark:text-blue-400">Total Users:</h4>
+        <p className="text-gray-800 dark:text-gray-200">{users.length}</p>
+      </div>
+      
+      {activeUser && (
         <div>
-          <h4 className="font-semibold text-terminal-accent">Active User ID:</h4>
-          <p className="text-terminal-text">{activeUserId || 'None'}</p>
-        </div>
-        
-        <div>
-          <h4 className="font-semibold text-terminal-accent">Total Users:</h4>
-          <p className="text-terminal-text">{users.length}</p>
-        </div>
-        
-        {activeUser && (
-          <div>
-            <h4 className="font-semibold text-terminal-accent">Active User:</h4>
-            <div className="ml-4 space-y-2">
-              <p className="text-terminal-text">Email: {activeUser.email}</p>
-              <p className="text-terminal-text">Name: {activeUser.name || 'Not set'}</p>
-              <p className="text-terminal-text">Accounts: {activeUser.accounts.length}</p>
-              
-              {activeUser.accounts.length > 0 && (
+          <h4 className="font-semibold text-blue-600 dark:text-blue-400">Active User:</h4>
+          <div className="ml-4 space-y-2">
+            <p className="text-gray-800 dark:text-gray-200">Email: {activeUser.email}</p>
+            <p className="text-gray-800 dark:text-gray-200">Name: {activeUser.name || 'Not set'}</p>
+            <p className="text-gray-800 dark:text-gray-200">Accounts: {activeUser.accounts.length}</p>
+            
+                          {activeUser.accounts.length > 0 && (
                 <div>
-                  <h5 className="font-semibold text-terminal-accent mt-2">Accounts:</h5>
-                  {activeUser.accounts.map((account, index) => (
-                    <div key={account.id} className="ml-4 p-2 bg-terminal-bg rounded border border-terminal-border">
-                      <p className="text-terminal-text">#{index + 1}</p>
-                      <p className="text-terminal-text">Exchange: {account.exchange}</p>
-                      <p className="text-terminal-text">Email: {account.email}</p>
-                      <p className="text-terminal-text">Has API Key: {account.key ? 'Yes' : 'No'}</p>
-                      <p className="text-terminal-text">Has Secret: {account.privateKey ? 'Yes' : 'No'}</p>
-                    </div>
-                  ))}
+                  <h5 className="font-semibold text-blue-600 dark:text-blue-400 mt-2 mb-3">Accounts:</h5>
+                  <div className="space-y-3">
+                    {activeUser.accounts.map((account, index) => (
+                      <div key={account.id} className="ml-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <p className="text-gray-700 dark:text-gray-300 font-medium">#{index + 1}</p>
+                        <p className="text-gray-800 dark:text-gray-200">Exchange: {account.exchange}</p>
+                        <p className="text-gray-800 dark:text-gray-200">Email: {account.email}</p>
+                        <p className="text-gray-800 dark:text-gray-200">Has API Key: {account.key ? 'Yes' : 'No'}</p>
+                        <p className="text-gray-800 dark:text-gray-200">Has Secret: {account.privateKey ? 'Yes' : 'No'}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
           </div>
-        )}
-        
-        {!activeUser && (
-          <div>
-            <p className="text-terminal-muted">No active user selected</p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
+      
+      {!activeUser && (
+        <div>
+          <p className="text-gray-500 dark:text-gray-400">No active user selected</p>
+        </div>
+      )}
     </div>
   );
 }; 
