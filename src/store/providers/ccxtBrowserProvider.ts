@@ -61,13 +61,16 @@ export class CCXTBrowserProviderImpl {
               // Show all spot-type pairs for margin trading
               return marketTypeValue === 'spot' || marketTypeValue === 'margin';
             } else if (marketTypeToFilter === 'futures' || marketTypeToFilter === 'future') {
-              // For delivery futures: explicit type OR contains ':' with date pattern (but not options)
+              // For delivery futures: explicit type OR contains ':' with date pattern AFTER colon (but not options)
               return marketTypeValue === 'future' || marketTypeValue === 'futures' || 
-                     (symbol.includes(':') && /\d{6}/.test(symbol) && !symbol.includes('-C') && !symbol.includes('-P'));
+                     (symbol.includes(':') && /:.*\d{6}/.test(symbol) && !symbol.includes('-C') && !symbol.includes('-P'));
             } else if (marketTypeToFilter === 'swap' || marketTypeToFilter === 'perpetual') {
-              // For perpetual swaps: explicit type OR no specific derivative patterns
+              // For perpetual swaps: explicit type OR symbols with ':' but WITHOUT date pattern OR basic symbols
               return marketTypeValue === 'swap' || marketTypeValue === 'perpetual' ||
-                     (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+                     (!marketTypeValue && (
+                       (symbol.includes(':') && !/:.*\d{6}/.test(symbol)) || // Has colon but no date = perpetual
+                       (!symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P')) // Basic symbol
+                     ));
             } else if (marketTypeToFilter === 'options' || marketTypeToFilter === 'option') {
               // For options: explicit type OR contains Call/Put patterns
               return marketTypeValue === 'option' || marketTypeValue === 'options' ||
