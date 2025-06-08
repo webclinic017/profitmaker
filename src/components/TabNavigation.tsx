@@ -141,10 +141,10 @@ const TabNavigation: React.FC = () => {
 
   return (
     <div className="flex flex-col h-auto bg-terminal-bg border-b border-terminal-border mb-0 pb-0">
-      <div className="flex items-center justify-between h-12 px-2">
-        <div className="flex items-center">
+      <div className="flex justify-between h-12 px-2">
+        <div className="flex h-full">
           {/* Animated Logo */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex items-center px-2">
             <AnimatedLogo 
               width={32} 
               height={32} 
@@ -152,7 +152,7 @@ const TabNavigation: React.FC = () => {
             />
           </div>
           {/* Dashboard Tabs */}
-            <div className="flex overflow-x-auto hide-scrollbar ml-2">
+            <div className="flex overflow-x-auto hide-scrollbar h-full">
             {dashboards.map((dashboard) => (
               <div
                 key={dashboard.id}
@@ -204,7 +204,7 @@ const TabNavigation: React.FC = () => {
           </div>
         </div>
         {/* Block with three icons */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 h-full">
           <button 
             className="p-2 rounded-full hover:bg-terminal-accent/50 transition-colors relative"
             onClick={handleNotificationClick}
