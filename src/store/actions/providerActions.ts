@@ -30,7 +30,7 @@ export interface ProviderActions {
   updateProviderPriority: (providerId: string, priority: number) => void;
   
   // NEW: Get symbols and markets from provider
-  getSymbolsForExchange: (exchange: string) => Promise<string[]>;
+  getSymbolsForExchange: (exchange: string, limit?: number) => Promise<string[]>;
   getMarketsForExchange: (exchange: string) => Promise<string[]>;
   getAllSupportedExchanges: () => string[];
 }
@@ -250,7 +250,7 @@ export const createProviderActions: StateCreator<
   },
 
      // NEW: Get symbols and markets from provider
-   getSymbolsForExchange: async (exchange: string): Promise<string[]> => {
+   getSymbolsForExchange: async (exchange: string, limit?: number): Promise<string[]> => {
      const provider = get().getProviderForExchange(exchange);
      if (!provider) {
        console.warn(`❌ No suitable provider found for exchange: ${exchange}`);
@@ -262,7 +262,7 @@ export const createProviderActions: StateCreator<
        switch (provider.type) {
          case 'ccxt-browser': {
            const ccxtProvider = createCCXTBrowserProvider(provider);
-           return await ccxtProvider.getSymbolsForExchange(exchange);
+           return await ccxtProvider.getSymbolsForExchange(exchange, limit);
          }
          case 'ccxt-server':
            // CCXT Server provider will implement its own logic

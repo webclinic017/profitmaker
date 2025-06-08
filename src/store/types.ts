@@ -70,7 +70,7 @@ export interface DataProviderActions {
   updateProviderPriority: (providerId: string, priority: number) => void;
   
   // NEW: Get symbols and markets from provider
-  getSymbolsForExchange: (exchange: string) => Promise<string[]>;
+  getSymbolsForExchange: (exchange: string, limit?: number) => Promise<string[]>;
   getMarketsForExchange: (exchange: string) => Promise<string[]>;
   getAllSupportedExchanges: () => string[];
   

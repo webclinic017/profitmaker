@@ -16,7 +16,7 @@ export class CCXTBrowserProviderImpl {
   /**
    * Получает все доступные символы для биржи
    */
-  async getSymbolsForExchange(exchange: string): Promise<string[]> {
+  async getSymbolsForExchange(exchange: string, limit?: number): Promise<string[]> {
     try {
       // Используем кэшированный instance
       const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(exchange, this.provider);
@@ -42,11 +42,13 @@ export class CCXTBrowserProviderImpl {
           if (a.includes('ETH')) return -1;
           if (b.includes('ETH')) return 1;
           return a.localeCompare(b);
-        })
-        .slice(0, 50); // Limit to 50 most popular
+        });
 
-      console.log(`📊 [CCXTBrowser] Retrieved ${activeSymbols.length} symbols for ${exchange} (from cache)`);
-      return activeSymbols;
+      // Apply limit only if specified, otherwise return all pairs
+      const resultSymbols = limit && limit > 0 ? activeSymbols.slice(0, limit) : activeSymbols;
+
+      console.log(`📊 [CCXTBrowser] Retrieved ${resultSymbols.length} symbols for ${exchange} (total available: ${activeSymbols.length})`);
+      return resultSymbols;
     } catch (error) {
       console.error(`❌ [CCXTBrowser] Error getting symbols for exchange: ${exchange}`, error);
       return [];
