@@ -41,9 +41,11 @@ export const DebugCCXTCache: React.FC = () => {
   };
 
   return (
-    <div className="p-4 bg-terminal-widget border border-terminal-border rounded">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-terminal-text">CCXT Cache Debug</h3>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold text-blue-600 dark:text-blue-400">
+          Cached Instances: {stats?.totalInstances || 0}
+        </h4>
         <div className="flex gap-2">
           <Button
             size="sm"
@@ -65,60 +67,58 @@ export const DebugCCXTCache: React.FC = () => {
       </div>
       
       {stats && (
-        <div className="space-y-4">
-          <div>
-            <h4 className="font-semibold text-terminal-accent">
-              Cached Instances: {stats.totalInstances}
-            </h4>
-          </div>
-          
+        <>
           {stats.instances.length === 0 ? (
-            <p className="text-terminal-muted">No cached instances</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-4">No cached instances</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {stats.instances.map((instance: any, index: number) => (
                 <div 
                   key={instance.key} 
-                  className="p-3 bg-terminal-bg rounded border border-terminal-border"
+                  className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
                 >
-                  <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="text-terminal-muted">Exchange:</span>
-                      <span className="text-terminal-text ml-2 font-semibold">
+                      <span className="text-gray-600 dark:text-gray-400">Exchange:</span>
+                      <span className="text-gray-900 dark:text-gray-100 ml-2 font-semibold">
                         {instance.exchange}
                       </span>
                     </div>
                     <div>
-                      <span className="text-terminal-muted">Provider:</span>
-                      <span className="text-terminal-text ml-2">
+                      <span className="text-gray-600 dark:text-gray-400">Provider:</span>
+                      <span className="text-gray-800 dark:text-gray-200 ml-2">
                         {instance.providerId}
                       </span>
                     </div>
                     <div>
-                      <span className="text-terminal-muted">Mode:</span>
+                      <span className="text-gray-600 dark:text-gray-400">Mode:</span>
                       <span className={`ml-2 font-semibold ${
-                        instance.sandbox ? 'text-yellow-400' : 'text-green-400'
+                        instance.sandbox 
+                          ? 'text-yellow-600 dark:text-yellow-400' 
+                          : 'text-green-600 dark:text-green-400'
                       }`}>
                         {instance.sandbox ? 'Sandbox' : 'Live'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-terminal-muted">Age:</span>
-                      <span className="text-terminal-text ml-2">
+                      <span className="text-gray-600 dark:text-gray-400">Age:</span>
+                      <span className="text-gray-800 dark:text-gray-200 ml-2">
                         {formatDuration(instance.age)}
                       </span>
                     </div>
                     <div>
-                      <span className="text-terminal-muted">Markets:</span>
-                      <span className={`ml-2 ${
-                        instance.marketsLoaded ? 'text-green-400' : 'text-red-400'
+                      <span className="text-gray-600 dark:text-gray-400">Markets:</span>
+                      <span className={`ml-2 font-medium ${
+                        instance.marketsLoaded 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
                       }`}>
                         {instance.marketsLoaded ? 'Loaded' : 'Not loaded'}
                       </span>
                     </div>
                     <div>
-                      <span className="text-terminal-muted">Last Access:</span>
-                      <span className="text-terminal-text ml-2">
+                      <span className="text-gray-600 dark:text-gray-400">Last Access:</span>
+                      <span className="text-gray-800 dark:text-gray-200 ml-2">
                         {new Date(instance.lastAccess).toLocaleTimeString()}
                       </span>
                     </div>
@@ -127,7 +127,7 @@ export const DebugCCXTCache: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );
