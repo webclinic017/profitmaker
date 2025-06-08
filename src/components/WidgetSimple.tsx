@@ -18,6 +18,7 @@ interface WidgetSimpleProps {
   isActive: boolean;
   groupId?: string;
   widgetType?: string; // widget type for determining trading pair
+  showGroupSelector?: boolean; // optional display of group selector circle
   onRemove: () => void;
 }
 
@@ -40,6 +41,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   isActive,
   groupId,
   widgetType,
+  showGroupSelector = true, // default to true for backward compatibility
   onRemove
 }) => {
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -529,7 +531,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
         onMouseDown={(!isMaximized && !isCollapsed) ? handleDragStart : undefined}
       >
         <div className="flex items-center flex-1 min-w-0 space-x-2">
-          {!isCollapsed && (
+          {!isCollapsed && showGroupSelector && (
             <GroupSelector
               selectedGroupId={groupId}
               onGroupSelect={handleGroupChange}

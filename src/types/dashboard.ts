@@ -24,6 +24,7 @@ export const WidgetSchema = z.object({
   position: WidgetPositionSchema,
   config: WidgetConfigSchema,
   groupId: z.string().optional(), // Widget group ID
+  showGroupSelector: z.boolean().optional().default(true), // optional display of group selector circle
   isVisible: z.boolean().default(true),
   isMinimized: z.boolean().default(false),
   // Store previous state before collapsing for restoration

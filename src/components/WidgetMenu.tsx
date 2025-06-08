@@ -102,6 +102,14 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       pairs: 'Pairs Diagnostic'
     };
     
+    // Widgets that don't need group selector (diagnostic, portfolio, settings, etc.)
+    const widgetsWithoutGroupSelector = [
+      'markets', 'exchanges', 'pairs', 'dataProviderDebug', 'dataProviderDemo', 'dataProviderSetup', 
+      'debugUserData', 'debugCCXTCache', 'notificationTest',
+      'portfolio', 'transactionHistory', 'deals', 'dataProviderSettings'
+    ];
+    const shouldHideGroupSelector = widgetsWithoutGroupSelector.includes(type);
+    
     addWidget(activeDashboardId, {
       type,
       title: widgetTitles[type], // deprecated
@@ -109,6 +117,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       userTitle: undefined,
       position: { x, y, width: size.width, height: size.height, zIndex: newZIndex },
       config: {},
+      showGroupSelector: !shouldHideGroupSelector, // Hide group selector for widgets that don't need it
       isVisible: true,
       isMinimized: false
     });

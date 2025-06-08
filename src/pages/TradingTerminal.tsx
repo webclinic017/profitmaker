@@ -141,6 +141,7 @@ const TradingTerminal: React.FC = () => {
               isActive={true} // Dashboard widgets are always "active" in their context
               groupId={widget.groupId}
               widgetType={widget.type}
+              showGroupSelector={widget.showGroupSelector}
               onRemove={() => activeDashboard && removeWidget(activeDashboard.id, widget.id)}
             >
               <WidgetComponent />
