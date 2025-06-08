@@ -54,21 +54,20 @@ export class CCXTBrowserProviderImpl {
             
             // Handle different market type naming conventions
             if (marketTypeToFilter === 'spot') {
-              // For spot markets: type should be 'spot' OR symbol should not contain derivatives patterns
-              return marketTypeValue === 'spot' || 
-                     (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+              // For spot markets: explicitly marked as spot type only
+              return marketTypeValue === 'spot';
             } else if (marketTypeToFilter === 'margin') {
               // Margin trading uses the same pairs as spot but with leverage capability
               // Show all spot-type pairs for margin trading
-              return marketTypeValue === 'spot' || marketTypeValue === 'margin' ||
-                     (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+              return marketTypeValue === 'spot' || marketTypeValue === 'margin';
             } else if (marketTypeToFilter === 'futures' || marketTypeToFilter === 'future') {
-              // For futures: explicit type OR contains ':' but not options patterns
+              // For delivery futures: explicit type OR contains ':' with date pattern (but not options)
               return marketTypeValue === 'future' || marketTypeValue === 'futures' || 
-                     (symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+                     (symbol.includes(':') && /\d{6}/.test(symbol) && !symbol.includes('-C') && !symbol.includes('-P'));
             } else if (marketTypeToFilter === 'swap' || marketTypeToFilter === 'perpetual') {
-              // For perpetual swaps
-              return marketTypeValue === 'swap' || marketTypeValue === 'perpetual';
+              // For perpetual swaps: explicit type OR no specific derivative patterns
+              return marketTypeValue === 'swap' || marketTypeValue === 'perpetual' ||
+                     (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
             } else if (marketTypeToFilter === 'options' || marketTypeToFilter === 'option') {
               // For options: explicit type OR contains Call/Put patterns
               return marketTypeValue === 'option' || marketTypeValue === 'options' ||
