@@ -31,6 +31,7 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
   const {
     exchange,
     symbol,
+    market,
     displayDepth,
     showCumulative,
     priceDecimals,
@@ -46,24 +47,25 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
     return activeSubscriptions.find(sub => 
       sub.key.exchange === exchange && 
       sub.key.symbol === symbol && 
-      sub.key.dataType === 'orderbook'
+      sub.key.dataType === 'orderbook' &&
+      sub.key.market === market
     );
-  }, [activeSubscriptions, exchange, symbol]);
+  }, [activeSubscriptions, exchange, symbol, market]);
 
   // Handle subscription
   useEffect(() => {
     if (isSubscribed && activeProviderId) {
       const subscriberId = `${widgetId}-settings`;
       
-      subscribe(subscriberId, exchange, symbol, 'orderbook');
-      console.log(`📊 OrderBook Settings: subscribed to data: ${exchange} ${symbol}`);
+      subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
+      console.log(`📊 OrderBook Settings: subscribed to data: ${exchange} ${symbol} ${market} market`);
 
       return () => {
-        unsubscribe(subscriberId, exchange, symbol, 'orderbook');
-        console.log(`📊 OrderBook Settings: unsubscribed from data: ${exchange} ${symbol}`);
+        unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
+        console.log(`📊 OrderBook Settings: unsubscribed from data: ${exchange} ${symbol} ${market} market`);
       };
     }
-  }, [isSubscribed, exchange, symbol, activeProviderId, subscribe, unsubscribe, widgetId]);
+  }, [isSubscribed, exchange, symbol, market, activeProviderId, subscribe, unsubscribe, widgetId]);
 
   const handleSubscribe = async () => {
     if (!activeProviderId) {
@@ -75,7 +77,7 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
       updateWidget(widgetId, { isSubscribed: true, isLoading: true, error: null });
       
       const subscriberId = `${widgetId}-settings`;
-      const result = await subscribe(subscriberId, exchange, symbol, 'orderbook');
+      const result = await subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
       
       if (result.success) {
         updateWidget(widgetId, { isLoading: false });
@@ -143,6 +145,28 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
               disabled={isSubscribed}
               className="bg-terminal-widget border-terminal-border text-terminal-text"
             />
+          </div>
+
+          <div>
+            <Label className="text-sm text-terminal-text">Market</Label>
+            <Select 
+              value={market} 
+              onValueChange={(value) => setWidgetSettings(widgetId, { 
+                ...widget, 
+                market: value 
+              })}
+              disabled={isSubscribed}
+            >
+              <SelectTrigger className="bg-terminal-widget border-terminal-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="spot">Spot</SelectItem>
+                <SelectItem value="future">Futures</SelectItem>
+                <SelectItem value="margin">Margin</SelectItem>
+                <SelectItem value="option">Options</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
@@ -312,6 +336,7 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
             setWidgetSettings(widgetId, {
               exchange: 'binance',
               symbol: 'BTC/USDT',
+              market: 'spot',
               displayDepth: 10,
               showCumulative: true,
               priceDecimals: 2,

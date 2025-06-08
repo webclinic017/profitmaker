@@ -3,6 +3,7 @@ import { create } from 'zustand';
 interface OrderBookWidgetState {
   exchange: string;
   symbol: string;
+  market: string;
   displayDepth: number;
   showCumulative: boolean;
   priceDecimals: number;
@@ -20,6 +21,7 @@ interface OrderBookWidgetsStore {
   setWidgetSettings: (widgetId: string, settings: {
     exchange: string;
     symbol: string;
+    market: string;
     displayDepth: number;
     showCumulative: boolean;
     priceDecimals: number;
@@ -30,6 +32,7 @@ interface OrderBookWidgetsStore {
 const defaultOrderBookState: OrderBookWidgetState = {
   exchange: 'binance',
   symbol: 'BTC/USDT',
+  market: 'spot',
   displayDepth: 10,
   showCumulative: true,
   priceDecimals: 2,

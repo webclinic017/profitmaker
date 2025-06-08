@@ -35,6 +35,7 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
   const {
     exchange,
     symbol,
+    market,
     displayDepth,
     showCumulative,
     priceDecimals,
@@ -44,8 +45,8 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
     error
   } = widget;
 
-  // Get data from store (automatically updated)
-  const rawOrderBook = getOrderBook(exchange, symbol);
+  // Get data from store (automatically updated) with market from store
+  const rawOrderBook = getOrderBook(exchange, symbol, market as any);
   const activeSubscriptions = getActiveSubscriptionsList();
   
   // Detailed logging of orderbook data
@@ -53,6 +54,7 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
     console.log(`📊 [OrderBook-${widgetId}] Raw data received:`, {
       exchange,
       symbol,
+      market,
       rawOrderBook,
       hasData: !!rawOrderBook,
       dataKeys: rawOrderBook ? Object.keys(rawOrderBook) : null,
@@ -62,14 +64,14 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
       firstBid: rawOrderBook?.bids?.[0],
       firstAsk: rawOrderBook?.asks?.[0]
     });
-  }, [rawOrderBook, exchange, symbol, widgetId]);
+  }, [rawOrderBook, exchange, symbol, market, widgetId]);
   
-  // Check if there's an active subscription for current exchange/symbol
-  const currentSubscriptionKey = `${exchange}:${symbol}:orderbook`;
+  // Check if there's an active subscription for current exchange/symbol/market
   const currentSubscription = activeSubscriptions.find(sub => 
     sub.key.exchange === exchange && 
     sub.key.symbol === symbol && 
-    sub.key.dataType === 'orderbook'
+    sub.key.dataType === 'orderbook' &&
+    sub.key.market === market
   );
 
   // Processing and formatting orderbook data
@@ -250,16 +252,16 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
     if (isSubscribed && activeProviderId) {
       const subscriberId = `${dashboardId}-${widgetId}`;
       
-      // Just subscribe - store will decide whether to use REST or WebSocket
-      subscribe(subscriberId, exchange, symbol, 'orderbook');
-      console.log(`📊 OrderBook widget subscribed to data: ${exchange} ${symbol} (method: ${dataFetchSettings.method})`);
+      // Just subscribe - store will decide whether to use REST or WebSocket, using market from store
+      subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
+      console.log(`📊 OrderBook widget subscribed to data: ${exchange} ${symbol} ${market} market (method: ${dataFetchSettings.method})`);
 
       return () => {
-        unsubscribe(subscriberId, exchange, symbol, 'orderbook');
-        console.log(`📊 OrderBook widget unsubscribed from data: ${exchange} ${symbol}`);
+        unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
+        console.log(`📊 OrderBook widget unsubscribed from data: ${exchange} ${symbol} ${market} market`);
       };
     }
-  }, [isSubscribed, exchange, symbol, activeProviderId, subscribe, unsubscribe, dashboardId, widgetId, dataFetchSettings.method]);
+  }, [isSubscribed, exchange, symbol, market, activeProviderId, subscribe, unsubscribe, dashboardId, widgetId, dataFetchSettings.method]);
 
   const handleSubscribe = async () => {
     if (!activeProviderId) {
