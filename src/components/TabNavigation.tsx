@@ -156,9 +156,10 @@ const TabNavigation: React.FC = () => {
             {dashboards.map((dashboard) => (
               <div
                 key={dashboard.id}
-                className={`flex items-center px-4 h-full cursor-pointer border-r border-terminal-border whitespace-nowrap ${
-                  activeDashboardId === dashboard.id ? 'bg-terminal-accent/90 text-terminal-text border-b-2 border-b-terminal-accent shadow-sm' : 'text-terminal-muted hover:bg-terminal-accent/10'
+                className={`flex items-center px-4 h-full cursor-pointer whitespace-nowrap ${
+                  activeDashboardId === dashboard.id ? 'text-terminal-text border-b-2' : 'text-terminal-muted hover:bg-terminal-accent/10'
                 }`}
+                style={activeDashboardId === dashboard.id ? { borderBottomColor: 'hsl(349.8deg 92.59% 78.82%)' } : {}}
                 onClick={() => {
                   if (editingDashboardId !== dashboard.id) {
                     console.log('TabNavigation: Switching to dashboard', dashboard.id, dashboard.title);
