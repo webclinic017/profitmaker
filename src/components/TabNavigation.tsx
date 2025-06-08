@@ -187,7 +187,7 @@ const TabNavigation: React.FC = () => {
                 )}
                 {dashboards.length > 1 && editingDashboardId !== dashboard.id && (
                   <button 
-                    className="ml-2 p-0.5 rounded-full hover:bg-terminal-accent/50"
+                    className="ml-2 p-1 rounded-sm hover:bg-terminal-widget/50 text-terminal-muted hover:text-terminal-negative transition-colors"
                     onClick={(e) => handleRemoveDashboard(dashboard.id, e)}
                   >
                     <X size={14} />
