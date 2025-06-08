@@ -500,7 +500,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   }, [id, widgetType, userTitle, defaultTitle, openSettingsDrawer]);
 
   // Check if widget has settings available
-  const hasSettings = widgetType && ['chart', 'orderBook', 'portfolio', 'trades', 'orderForm'].includes(widgetType);
+  const hasSettings = widgetType && ['chart', 'orderbook', 'orderBook', 'portfolio', 'trades', 'orderForm'].includes(widgetType);
 
   return (
     <div
