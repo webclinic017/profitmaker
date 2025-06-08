@@ -14,9 +14,9 @@ export class CCXTBrowserProviderImpl {
   }
 
   /**
-   * Получает все доступные символы для биржи
+   * Получает все доступные символы для биржи с фильтрацией по типу рынка
    */
-  async getSymbolsForExchange(exchange: string, limit?: number): Promise<string[]> {
+  async getSymbolsForExchange(exchange: string, limit?: number, marketType?: string): Promise<string[]> {
     try {
       // Используем кэшированный instance
       const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(exchange, this.provider);
@@ -29,11 +29,54 @@ export class CCXTBrowserProviderImpl {
       // Get all symbols from markets
       const symbols = Object.keys(exchangeInstance.markets);
       
-      // Filter to get only active symbols and sort by popularity
+      // Filter to get only active symbols and apply market type filter
       const activeSymbols = symbols
         .filter(symbol => {
           const market = exchangeInstance.markets[symbol];
-          return market && market.active !== false;
+          if (!market || market.active === false) {
+            return false;
+          }
+
+          // Apply market type filter if specified
+          if (marketType) {
+            const marketTypeToFilter = marketType.toLowerCase();
+            const marketTypeValue = market.type?.toLowerCase();
+            
+            // Console log for debugging first few symbols
+            if (symbols.indexOf(symbol) < 5) {
+              console.log(`🔍 [CCXTBrowser] Filtering ${symbol}: type='${marketTypeValue}', filter='${marketTypeToFilter}', symbol pattern:`, {
+                hasColon: symbol.includes(':'),
+                hasCall: symbol.includes('-C'),
+                hasPut: symbol.includes('-P'),
+                hasDate: /\d{6}/.test(symbol)
+              });
+            }
+            
+            // Handle different market type naming conventions
+            if (marketTypeToFilter === 'spot') {
+              // For spot markets: type should be 'spot' OR symbol should not contain derivatives patterns
+              return marketTypeValue === 'spot' || 
+                     (!marketTypeValue && !symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+            } else if (marketTypeToFilter === 'futures' || marketTypeToFilter === 'future') {
+              // For futures: explicit type OR contains ':' but not options patterns
+              return marketTypeValue === 'future' || marketTypeValue === 'futures' || 
+                     (symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'));
+            } else if (marketTypeToFilter === 'swap' || marketTypeToFilter === 'perpetual') {
+              // For perpetual swaps
+              return marketTypeValue === 'swap' || marketTypeValue === 'perpetual';
+            } else if (marketTypeToFilter === 'options' || marketTypeToFilter === 'option') {
+              // For options: explicit type OR contains Call/Put patterns
+              return marketTypeValue === 'option' || marketTypeValue === 'options' ||
+                     symbol.includes('-C') || symbol.includes('-P');
+            } else if (marketTypeToFilter === 'margin') {
+              return marketTypeValue === 'margin';
+            } else {
+              // For exact matching of any other types
+              return marketTypeValue === marketTypeToFilter;
+            }
+          }
+
+          return true;
         })
         .sort((a, b) => {
           // Sort by popularity (BTC and ETH first)
@@ -47,7 +90,20 @@ export class CCXTBrowserProviderImpl {
       // Apply limit only if specified, otherwise return all pairs
       const resultSymbols = limit && limit > 0 ? activeSymbols.slice(0, limit) : activeSymbols;
 
-      console.log(`📊 [CCXTBrowser] Retrieved ${resultSymbols.length} symbols for ${exchange} (total available: ${activeSymbols.length})`);
+      console.log(`📊 [CCXTBrowser] Retrieved ${resultSymbols.length} symbols for ${exchange}${marketType ? ` (${marketType} market)` : ''} (total available: ${activeSymbols.length})`);
+      
+      // Debug info for market types
+      if (marketType && resultSymbols.length > 0) {
+        const sampleMarket = exchangeInstance.markets[resultSymbols[0]];
+        console.log(`🔍 [CCXTBrowser] Sample market info for ${resultSymbols[0]}:`, {
+          type: sampleMarket?.type,
+          spot: sampleMarket?.spot,
+          swap: sampleMarket?.swap,
+          future: sampleMarket?.future,
+          option: sampleMarket?.option
+        });
+      }
+
       return resultSymbols;
     } catch (error) {
       console.error(`❌ [CCXTBrowser] Error getting symbols for exchange: ${exchange}`, error);

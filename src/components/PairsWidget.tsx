@@ -72,7 +72,7 @@ export const PairsWidget: React.FC = () => {
     const loadPairs = async () => {
       setLoading(true);
       try {
-        const pairs = await getSymbolsForExchange(selectedExchange);
+        const pairs = await getSymbolsForExchange(selectedExchange, undefined, selectedMarket);
         setAvailablePairs(pairs);
       } catch (error) {
         console.error('Failed to load pairs:', error);

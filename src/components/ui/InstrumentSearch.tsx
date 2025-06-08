@@ -53,7 +53,7 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
         if (!newExchangeData[account.exchange]) {
           try {
             const [symbols, markets] = await Promise.all([
-              getSymbolsForExchange(account.exchange),
+              getSymbolsForExchange(account.exchange, undefined, 'spot'), // Используем spot по умолчанию для поиска
               getMarketsForExchange(account.exchange)
             ]);
             
