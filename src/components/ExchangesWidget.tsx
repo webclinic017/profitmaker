@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDataProviderStore } from '../store/dataProviderStore';
 import { getCCXT } from '../store/utils/ccxtUtils';
 import { ChevronDown, Server, Globe, Database } from 'lucide-react';
@@ -9,6 +9,28 @@ export const ExchangesWidget: React.FC = () => {
   const [availableExchanges, setAvailableExchanges] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+
+  // Ref for handling clicks outside
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  // Function to close all dropdowns
+  const closeAllDropdowns = () => {
+    setIsProviderDropdownOpen(false);
+  };
+
+  // Handle clicks outside to close all dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+        closeAllDropdowns();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const enabledProviders = getEnabledProviders();
 
@@ -78,7 +100,7 @@ export const ExchangesWidget: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div ref={widgetRef} className="h-full flex flex-col space-y-4">
       {/* Provider Selection */}
       <div>
         <label className="block text-sm font-medium text-terminal-text mb-2">
@@ -86,7 +108,10 @@ export const ExchangesWidget: React.FC = () => {
         </label>
         <div className="relative">
           <button
-            onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+            onClick={() => {
+              closeAllDropdowns();
+              setIsProviderDropdownOpen(!isProviderDropdownOpen);
+            }}
             className="w-full flex items-center justify-between px-3 py-2 bg-terminal-bg border border-terminal-border rounded text-sm focus:outline-none focus:border-terminal-accent"
           >
             <div className="flex items-center space-x-2">

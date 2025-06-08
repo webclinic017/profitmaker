@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDataProviderStore } from '../store/dataProviderStore';
 import { useUserStore } from '../store/userStore';
 import { ChevronDown, User, ArrowUpDown, TrendingUp, Search } from 'lucide-react';
@@ -19,6 +19,30 @@ export const PairsWidget: React.FC = () => {
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const [isExchangeDropdownOpen, setIsExchangeDropdownOpen] = useState(false);
   const [isMarketDropdownOpen, setIsMarketDropdownOpen] = useState(false);
+
+  // Ref for handling clicks outside
+  const widgetRef = useRef<HTMLDivElement>(null);
+
+  // Function to close all dropdowns
+  const closeAllDropdowns = () => {
+    setIsAccountDropdownOpen(false);
+    setIsExchangeDropdownOpen(false);
+    setIsMarketDropdownOpen(false);
+  };
+
+  // Handle clicks outside to close all dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (widgetRef.current && !widgetRef.current.contains(event.target as Node)) {
+        closeAllDropdowns();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const activeUser = users.find(u => u.id === activeUserId);
   const availableAccounts = activeUser?.accounts || [];
@@ -103,7 +127,7 @@ export const PairsWidget: React.FC = () => {
     : null;
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div ref={widgetRef} className="h-full flex flex-col space-y-4">
       {/* Account Selection (Optional) */}
       <div>
         <label className="block text-sm font-medium text-terminal-text mb-2">
@@ -111,7 +135,10 @@ export const PairsWidget: React.FC = () => {
         </label>
         <div className="relative">
           <button
-            onClick={() => setIsAccountDropdownOpen(!isAccountDropdownOpen)}
+            onClick={() => {
+              closeAllDropdowns();
+              setIsAccountDropdownOpen(!isAccountDropdownOpen);
+            }}
             className="w-full flex items-center justify-between px-3 py-2 bg-terminal-bg border border-terminal-border rounded text-sm focus:outline-none focus:border-terminal-accent"
           >
             <div className="flex items-center space-x-2">
@@ -168,7 +195,10 @@ export const PairsWidget: React.FC = () => {
         </label>
         <div className="relative">
           <button
-            onClick={() => setIsExchangeDropdownOpen(!isExchangeDropdownOpen)}
+            onClick={() => {
+              closeAllDropdowns();
+              setIsExchangeDropdownOpen(!isExchangeDropdownOpen);
+            }}
             className="w-full flex items-center justify-between px-3 py-2 bg-terminal-bg border border-terminal-border rounded text-sm focus:outline-none focus:border-terminal-accent"
           >
             <div className="flex items-center space-x-2">
@@ -206,7 +236,10 @@ export const PairsWidget: React.FC = () => {
         </label>
         <div className="relative">
           <button
-            onClick={() => setIsMarketDropdownOpen(!isMarketDropdownOpen)}
+            onClick={() => {
+              closeAllDropdowns();
+              setIsMarketDropdownOpen(!isMarketDropdownOpen);
+            }}
             disabled={!selectedExchange}
             className="w-full flex items-center justify-between px-3 py-2 bg-terminal-bg border border-terminal-border rounded text-sm focus:outline-none focus:border-terminal-accent disabled:opacity-50"
           >
