@@ -71,8 +71,7 @@ const GroupSelector: React.FC<GroupSelectorProps> = ({
         account: selectedGroup.account,
         exchange: selectedGroup.exchange,
         market: selectedGroup.market,
-        pair: selectedGroup.tradingPair,
-        searchText: `${selectedGroup.account} ${selectedGroup.exchange} ${selectedGroup.market} ${selectedGroup.tradingPair}`.toLowerCase()
+        pair: selectedGroup.tradingPair
       });
     } else if (!selectedGroup && firstAccount) {
       // If no group selected, set default from first account
@@ -80,8 +79,7 @@ const GroupSelector: React.FC<GroupSelectorProps> = ({
         account: firstAccount.email,
         exchange: firstAccount.exchange,
         market: 'spot',
-        pair: 'BTC/USDT',
-        searchText: `${firstAccount.email} ${firstAccount.exchange} spot BTC/USDT`.toLowerCase()
+        pair: 'BTC/USDT'
       });
     } else {
       setSelectedInstrument(null);
@@ -145,7 +143,7 @@ const GroupSelector: React.FC<GroupSelectorProps> = ({
           }}
           title={selectedGroup ? `Group: ${selectedGroup.name}` : 'Select group'}
         >
-          {!selectedGroup && (
+          {(!selectedGroup || selectedGroup?.color === 'transparent') && (
             <Plus size={8} className="text-terminal-muted" />
           )}
         </button>
