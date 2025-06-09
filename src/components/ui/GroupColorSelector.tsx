@@ -74,6 +74,8 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
     return colorMap[color] || 'Unknown';
   };
 
+  const isTransparent = !selectedGroup || selectedGroup?.color === 'transparent';
+
   return (
     <>
       <div className={`relative ${className}`}>
@@ -82,10 +84,14 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
           onClick={handleButtonClick}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          className="w-3 h-3 rounded-full border border-terminal-border hover:border-terminal-accent transition-colors flex items-center justify-center relative"
+          className={`w-3 h-3 rounded-full transition-colors flex items-center justify-center relative ${
+            isTransparent 
+              ? 'border border-terminal-muted hover:border-terminal-text' 
+              : 'border hover:border-terminal-accent'
+          }`}
           style={{
             backgroundColor: selectedGroup?.color === 'transparent' ? 'transparent' : (selectedGroup ? selectedGroup.color : 'transparent'),
-            borderColor: selectedGroup?.color === 'transparent' ? 'hsl(var(--terminal-border))' : (selectedGroup ? selectedGroup.color : 'hsl(var(--terminal-border))'),
+            borderColor: isTransparent ? undefined : (selectedGroup ? selectedGroup.color : 'hsl(var(--terminal-border))'),
           }}
           title={
             isGroupSelected 
@@ -94,7 +100,7 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
           }
         >
           {/* Show Plus icon for empty/transparent groups */}
-          {(!selectedGroup || selectedGroup?.color === 'transparent') && (
+          {isTransparent && (
             <Plus size={6} className="text-terminal-muted" />
           )}
           
