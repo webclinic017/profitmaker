@@ -25,7 +25,7 @@ const TimeframeSelect: React.FC<TimeframeSelectProps> = ({
 }) => {
   return (
     <div 
-      className={`absolute top-2 right-2 z-10 flex items-center gap-1 bg-terminal-bg/90 backdrop-blur-sm border border-terminal-border rounded-lg p-1 shadow-lg ${className}`}
+      className={`absolute top-2 left-1/2 transform -translate-x-1/2 z-10 flex items-center gap-1 bg-terminal-bg/90 backdrop-blur-sm border border-terminal-border rounded-lg p-1 shadow-lg ${className}`}
     >
       <Clock className="w-3 h-3 text-terminal-muted ml-1 pointer-events-none" />
       <select
