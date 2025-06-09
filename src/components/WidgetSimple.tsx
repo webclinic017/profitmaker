@@ -2,7 +2,8 @@ import React, { useRef, useState, useCallback } from 'react';
 import { X, Maximize2, Minimize2, Settings, Minus } from 'lucide-react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { cn } from '@/lib/utils';
-import GroupSelector from './ui/GroupSelector';
+import GroupColorSelector from './ui/GroupColorSelector';
+import InstrumentHeaderControl from './ui/InstrumentHeaderControl';
 import { useGroupStore } from '@/store/groupStore';
 import { useSettingsDrawerStore } from '@/store/settingsDrawerStore';
 
@@ -79,8 +80,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   const activeDashboardId = useDashboardStore(s => s.activeDashboardId);
   const dashboards = useDashboardStore(s => s.dashboards);
   
-  // Group store
-  const setTradingPair = useGroupStore(s => s.setTradingPair);
+  // Group store - removed setTradingPair import since we no longer auto-assign instruments
   
   // Settings drawer store
   const openSettingsDrawer = useSettingsDrawerStore(s => s.openDrawer);
@@ -136,63 +136,16 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
     handleTitleSubmit();
   };
 
-  // Function to get trading instrument from first widget in dashboard
-  const getDefaultTradingInstrument = () => {
-    if (!activeDashboard || activeDashboard.widgets.length === 0) {
-      return 'USDRUB'; // fallback
-    }
-
-    // Take first widget in dashboard
-    const firstWidget = activeDashboard.widgets[0];
-    
-    // Try to extract trading instrument from title
-    const title = firstWidget.userTitle || firstWidget.defaultTitle || firstWidget.title;
-    
-    // Look for trading pair patterns
-    const tradingPairMatch = title.match(/([A-Z]{3,}[A-Z]{3,})/); // e.g. USDRUB, EURUSD
-    if (tradingPairMatch) {
-      return tradingPairMatch[1];
-    }
-    
-    // If title contains USD, EUR etc.
-    if (title.includes('USD')) return 'USDRUB';
-    if (title.includes('EUR')) return 'EURRUB';
-    if (title.includes('BTC')) return 'BTCUSD';
-    
-    // Default
-    return 'USDRUB';
-  };
+  // Removed getDefaultTradingInstrument function since we no longer auto-assign trading pairs
 
   // Function to update widget group
   const handleGroupChange = (newGroupId: string | undefined) => {
     if (activeDashboardId) {
       updateWidget(activeDashboardId, id, { groupId: newGroupId });
       
-      // Automatically set trading pair for group
-      if (newGroupId && widgetType) {
-        let tradingPair = '';
-        
-        // Determine trading pair by widget type
-        switch (widgetType) {
-          case 'chart':
-          case 'orderForm':
-            tradingPair = getDefaultTradingInstrument();
-            break;
-          case 'portfolio':
-            tradingPair = 'pair';
-            break;
-          case 'transactionHistory':
-            tradingPair = 'pair';
-            break;
-          default:
-            // Try to extract from current widget title
-            const currentTitle = userTitle || defaultTitle;
-            const match = currentTitle.match(/([A-Z]{3,}[A-Z]{3,})/);
-            tradingPair = match ? match[1] : getDefaultTradingInstrument();
-        }
-        
-        setTradingPair(newGroupId, tradingPair);
-      }
+      // NOTE: Removed automatic instrument assignment to preserve user choices
+      // Groups should retain their existing instrument settings when selected
+      // Users should explicitly choose instruments through the search interface
     }
   };
 
@@ -532,11 +485,17 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
       >
         <div className="flex items-center flex-1 min-w-0 space-x-2">
           {!isCollapsed && showGroupSelector && (
-            <GroupSelector
-              selectedGroupId={groupId}
-              onGroupSelect={handleGroupChange}
-              className="flex-shrink-0"
-            />
+            <div className="flex items-center space-x-2 flex-shrink-0">
+              <GroupColorSelector
+                selectedGroupId={groupId}
+                onGroupSelect={handleGroupChange}
+                className="flex-shrink-0"
+              />
+              <InstrumentHeaderControl
+                selectedGroupId={groupId}
+                className="flex-shrink-0"
+              />
+            </div>
           )}
           <div className="flex-1 min-w-0">
             {isEditingTitle ? (

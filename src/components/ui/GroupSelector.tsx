@@ -66,34 +66,54 @@ const GroupSelector: React.FC<GroupSelectorProps> = ({
   // Initialize selected instrument based on user and group data
   React.useEffect(() => {
     if (selectedGroup && selectedGroup.account && selectedGroup.exchange && selectedGroup.market && selectedGroup.tradingPair) {
-      // If group has all instrument data, set it
-      setSelectedInstrument({
+      // If group has all instrument data, set it (only if it's different to avoid loops)
+      const currentInstrument = {
         account: selectedGroup.account,
         exchange: selectedGroup.exchange,
         market: selectedGroup.market,
         pair: selectedGroup.tradingPair
+      };
+      
+      setSelectedInstrument(prev => {
+        // Only update if the data is actually different
+        if (!prev || 
+            prev.account !== currentInstrument.account ||
+            prev.exchange !== currentInstrument.exchange ||
+            prev.market !== currentInstrument.market ||
+            prev.pair !== currentInstrument.pair) {
+          return currentInstrument;
+        }
+        return prev;
       });
-    } else if (!selectedGroup && firstAccount) {
-      // If no group selected, set default from first account
+    } else if (!selectedGroup && firstAccount && !selectedInstrument) {
+      // If no group selected and no instrument set yet, set default from first account
       setSelectedInstrument({
         account: firstAccount.email,
         exchange: firstAccount.exchange,
         market: 'spot',
         pair: 'BTC/USDT'
       });
-    } else {
-      setSelectedInstrument(null);
     }
-  }, [firstAccount, activeUser, selectedGroup]);
+    // Note: removed the else case that was setting null, as it was clearing valid selections
+  }, [firstAccount, selectedGroup]); // Removed activeUser to avoid unnecessary re-runs
 
   // Instrument change handler with store synchronization
   const handleInstrumentChange = (instrument: Instrument | null) => {
     setSelectedInstrument(instrument);
+    // Only update group if user explicitly changed the instrument AND it's actually different
     if (selectedGroup && instrument) {
-      setAccount(selectedGroup.id, instrument.account);
-      setExchange(selectedGroup.id, instrument.exchange);
-      setMarket(selectedGroup.id, instrument.market);
-      setTradingPair(selectedGroup.id, instrument.pair);
+      const hasChanges = 
+        selectedGroup.account !== instrument.account ||
+        selectedGroup.exchange !== instrument.exchange ||
+        selectedGroup.market !== instrument.market ||
+        selectedGroup.tradingPair !== instrument.pair;
+      
+      if (hasChanges) {
+        setAccount(selectedGroup.id, instrument.account);
+        setExchange(selectedGroup.id, instrument.exchange);
+        setMarket(selectedGroup.id, instrument.market);
+        setTradingPair(selectedGroup.id, instrument.pair);
+      }
     }
   };
 
