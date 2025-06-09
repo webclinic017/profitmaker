@@ -183,19 +183,28 @@ const InstrumentHeaderControl: React.FC<InstrumentHeaderControlProps> = ({
 
   const handleInstrumentChange = (instrument: Instrument | null) => {
     setSelectedInstrument(instrument);
-    // Update group data if group is selected and instrument changed
-    if (selectedGroup && instrument) {
-      const hasChanges = 
-        selectedGroup.account !== instrument.account ||
-        selectedGroup.exchange !== instrument.exchange ||
-        selectedGroup.market !== instrument.market ||
-        selectedGroup.tradingPair !== instrument.pair;
-      
-      if (hasChanges) {
-        setAccount(selectedGroup.id, instrument.account);
-        setExchange(selectedGroup.id, instrument.exchange);
-        setMarket(selectedGroup.id, instrument.market);
-        setTradingPair(selectedGroup.id, instrument.pair);
+    
+    if (selectedGroup) {
+      if (instrument) {
+        // Update group data if instrument is selected
+        const hasChanges = 
+          selectedGroup.account !== instrument.account ||
+          selectedGroup.exchange !== instrument.exchange ||
+          selectedGroup.market !== instrument.market ||
+          selectedGroup.tradingPair !== instrument.pair;
+        
+        if (hasChanges) {
+          setAccount(selectedGroup.id, instrument.account);
+          setExchange(selectedGroup.id, instrument.exchange);
+          setMarket(selectedGroup.id, instrument.market);
+          setTradingPair(selectedGroup.id, instrument.pair);
+        }
+      } else {
+        // Clear group data if instrument is cleared
+        setAccount(selectedGroup.id, '');
+        setExchange(selectedGroup.id, '');
+        setMarket(selectedGroup.id, '');
+        setTradingPair(selectedGroup.id, '');
       }
     }
   };
@@ -218,7 +227,7 @@ const InstrumentHeaderControl: React.FC<InstrumentHeaderControlProps> = ({
     }
   };
 
-  const handleInstrumentSelect = (instrument: Instrument) => {
+  const handleInstrumentSelect = (instrument: Instrument | null) => {
     handleInstrumentChange(instrument);
     setIsOpen(false);
     setSearchQuery('');
@@ -320,7 +329,7 @@ const VirtualizedInstrumentsList: React.FC<{
   instruments: Instrument[];
   totalFound: number;
   highlightedIndex: number;
-  onSelect: (instrument: Instrument) => void;
+  onSelect: (instrument: Instrument | null) => void;
   selectedInstrument: Instrument | null;
 }> = ({ instruments, totalFound, highlightedIndex, onSelect, selectedInstrument }) => {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -388,8 +397,18 @@ const VirtualizedInstrumentsList: React.FC<{
                 >
                   <div className="grid grid-cols-1 gap-1 text-xs">
                     {isCurrentSelection && (
-                      <div className="text-xs text-green-400 font-medium mb-1">
-                        ✓ Current Selection
+                      <div className="flex items-center justify-between text-xs text-green-400 font-medium mb-1">
+                        <span>✓ Current Selection</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelect(null);
+                          }}
+                          className="p-1 rounded hover:bg-terminal-accent/20 transition-colors ml-2"
+                          title="Clear selection"
+                        >
+                          <X size={12} className="text-green-400 hover:text-terminal-text" />
+                        </button>
                       </div>
                     )}
                     <div className="text-terminal-text font-medium">
