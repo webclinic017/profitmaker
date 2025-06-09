@@ -467,6 +467,9 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
     selectedGroup.tradingPair;
   const shouldHideTitle = hasCompleteInstrument;
 
+  // Check if selected group is transparent
+  const isTransparentGroup = !selectedGroup || selectedGroup?.color === 'transparent';
+
   return (
     <div
       ref={widgetRef}
@@ -488,7 +491,8 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
     >
       <div 
         className={cn(
-          "widget-header h-10 px-3 py-2 bg-terminal-accent/60 flex items-center justify-between",
+          "widget-header h-10 px-3 py-2 flex items-center justify-between",
+          isTransparentGroup ? "bg-transparent" : "bg-terminal-accent/60",
           !isMaximized && !isCollapsed && "cursor-move"
         )}
         onMouseDown={(!isMaximized && !isCollapsed) ? handleDragStart : undefined}

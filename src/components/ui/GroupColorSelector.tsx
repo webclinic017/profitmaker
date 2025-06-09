@@ -84,8 +84,8 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
           onMouseLeave={() => setIsHovered(false)}
           className="w-3 h-3 rounded-full border border-terminal-border hover:border-terminal-accent transition-colors flex items-center justify-center relative"
           style={{
-            backgroundColor: selectedGroup ? selectedGroup.color : 'transparent',
-            borderColor: selectedGroup ? selectedGroup.color : undefined,
+            backgroundColor: selectedGroup?.color === 'transparent' ? 'transparent' : (selectedGroup ? selectedGroup.color : 'transparent'),
+            borderColor: selectedGroup?.color === 'transparent' ? 'hsl(var(--terminal-border))' : (selectedGroup ? selectedGroup.color : 'hsl(var(--terminal-border))'),
           }}
           title={
             isGroupSelected 
