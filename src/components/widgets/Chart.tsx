@@ -4,6 +4,7 @@ import { NightVision } from 'night-vision';
 import { useTheme } from '../../hooks/useTheme';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { Timeframe, MarketType, ChartUpdateEvent, Candle } from '../../types/dataProviders';
+import TimeframeSelect from '../ui/TimeframeSelect';
 
 // Theme-aware chart colors
 const getChartColors = (theme: 'dark' | 'light') => {
@@ -31,16 +32,6 @@ const getChartColors = (theme: 'dark' | 'light') => {
     };
   }
 };
-
-const TIMEFRAMES: { id: Timeframe; label: string }[] = [
-  { id: '1m', label: '1M' },
-  { id: '5m', label: '5M' },
-  { id: '15m', label: '15M' },
-  { id: '30m', label: '30M' },
-  { id: '1h', label: '1H' },
-  { id: '4h', label: '4H' },
-  { id: '1d', label: '1D' },
-];
 
 const EXCHANGES = [
   { id: 'binance', label: 'Binance' },
@@ -597,7 +588,7 @@ const Chart: React.FC<ChartProps> = ({
       {/* Settings Panel */}
       {showSettings && (
         <div className="p-3 border-b border-terminal-border bg-terminal-surface">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {/* Exchange Selector */}
             <div>
               <label className="block text-xs text-terminal-muted mb-1">Exchange</label>
@@ -636,20 +627,6 @@ const Chart: React.FC<ChartProps> = ({
                 placeholder="BTC/USDT"
                 className="w-full px-2 py-1 text-sm bg-terminal-bg border border-terminal-border rounded text-terminal-text focus:border-terminal-accent focus:outline-none"
               />
-            </div>
-
-            {/* Timeframe Selector */}
-            <div>
-              <label className="block text-xs text-terminal-muted mb-1">Timeframe</label>
-              <select
-                value={timeframe}
-                onChange={(e) => setTimeframe(e.target.value as Timeframe)}
-                className="w-full px-2 py-1 text-sm bg-terminal-bg border border-terminal-border rounded text-terminal-text focus:border-terminal-accent focus:outline-none"
-              >
-                {TIMEFRAMES.map(tf => (
-                  <option key={tf.id} value={tf.id}>{tf.label}</option>
-                ))}
-              </select>
             </div>
 
             {/* Controls */}
@@ -694,25 +671,16 @@ const Chart: React.FC<ChartProps> = ({
         </div>
       )}
 
-      {/* Timeframe Quick Selector */}
-      <div className="flex items-center gap-1 p-2 border-b border-terminal-border">
-        {TIMEFRAMES.map(tf => (
-          <button
-            key={tf.id}
-            onClick={() => setTimeframe(tf.id)}
-            className={`px-2 py-1 text-xs rounded transition-colors ${
-              timeframe === tf.id
-                ? 'bg-terminal-accent text-terminal-bg'
-                : 'text-terminal-muted hover:text-terminal-text hover:bg-terminal-hover'
-            }`}
-          >
-            {tf.label}
-          </button>
-        ))}
-      </div>
+
 
       {/* Chart Container */}
       <div className="flex-1 relative">
+        {/* Timeframe Selector - Absolutely positioned */}
+        <TimeframeSelect 
+          value={timeframe}
+          onChange={setTimeframe}
+        />
+        
         <div 
           ref={chartRef} 
           className="absolute inset-0 w-full h-full"
