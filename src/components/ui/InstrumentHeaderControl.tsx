@@ -404,10 +404,10 @@ const VirtualizedInstrumentsList: React.FC<{
                             e.stopPropagation();
                             onSelect(null);
                           }}
-                          className="p-1 rounded hover:bg-terminal-accent/20 transition-colors ml-2"
+                          className="p-1 rounded-sm hover:bg-terminal-widget/50 text-terminal-muted hover:text-terminal-negative transition-colors ml-2"
                           title="Clear selection"
                         >
-                          <X size={12} className="text-green-400 hover:text-terminal-text" />
+                          <X size={14} />
                         </button>
                       </div>
                     )}
