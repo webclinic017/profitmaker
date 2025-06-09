@@ -1,0 +1,100 @@
+# Cursor Rules для проекта ProfitMaker
+
+## Виртуализация и производительность
+
+### Virtual Scroll для больших списков и таблиц
+- Для всех списков с более чем 100 элементами ОБЯЗАТЕЛЬНО используй виртуальную прокрутку
+- Для таблиц с более чем 50 строками ОБЯЗАТЕЛЬНО используй виртуализацию
+- Используй библиотеки: @tanstack/react-virtual, react-window или react-virtualized
+- **Документация**: TanStack Virtual - https://tanstack.com/virtual/ (@ReactVirtual)
+- Всегда рассчитывай высоту элементов заранее для лучшей производительности
+- Реализуй динамическую высоту только когда это критически необходимо
+- Добавляй индикаторы загрузки для виртуализированных списков
+- Используй мемоизацию (React.memo, useMemo, useCallback) для элементов списка
+- Оптимизируй рендеринг: избегай создания новых объектов в render функциях
+
+### Примеры реализации
+
+#### Базовый виртуальный список:
+```tsx
+import { useVirtualizer } from '@tanstack/react-virtual'
+
+const VirtualList = ({ items }) => {
+  const parentRef = useRef()
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 50, // фиксированная высота элемента
+  })
+
+  return (
+    <div ref={parentRef} style={{ height: '400px', overflow: 'auto' }}>
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={virtualRow.index}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: virtualRow.size,
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            {items[virtualRow.index]}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+#### Виртуализированная таблица:
+```tsx
+import { useVirtualizer } from '@tanstack/react-virtual'
+
+const VirtualTable = ({ data, columns }) => {
+  const parentRef = useRef()
+  const rowVirtualizer = useVirtualizer({
+    count: data.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 40,
+  })
+
+  return (
+    <div ref={parentRef} className="h-96 overflow-auto">
+      <div style={{ height: rowVirtualizer.getTotalSize() }}>
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={virtualRow.index}
+            className="absolute w-full flex"
+            style={{
+              height: virtualRow.size,
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+          >
+            {columns.map((column) => (
+              <div key={column.key} className="flex-1 p-2">
+                {data[virtualRow.index][column.key]}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
+
+### Критерии применения:
+- Список > 100 элементов → Virtual Scroll ОБЯЗАТЕЛЬНО
+- Таблица > 50 строк → Виртуализация ОБЯЗАТЕЛЬНО
+- Сложные элементы списка → Virtual Scroll рекомендуется с 50+ элементов
+- Бесконечная прокрутка → Всегда с виртуализацией
+
+### Исключения:
+- Пагинированные списки с небольшими страницами (< 50 элементов)
+- Статические меню и навигация
+- Список с редким изменением данных и < 50 элементов 
