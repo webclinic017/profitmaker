@@ -388,7 +388,7 @@ const VirtualizedInstrumentsList: React.FC<{
                 >
                   <div className="grid grid-cols-1 gap-1 text-xs">
                     {isCurrentSelection && (
-                      <div className="text-xs text-terminal-accent font-medium mb-1">
+                      <div className="text-xs text-green-400 font-medium mb-1">
                         ✓ Current Selection
                       </div>
                     )}
