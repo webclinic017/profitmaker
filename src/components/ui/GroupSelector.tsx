@@ -23,6 +23,7 @@ const GroupSelector: React.FC<GroupSelectorProps> = ({
   const { 
     groups, 
     getGroupById, 
+    getTransparentGroup,
     initializeDefaultGroups,
     setTradingPair,
     setAccount,
@@ -199,9 +200,12 @@ const GroupSelector: React.FC<GroupSelectorProps> = ({
                   {/* Cross for group reset - only if group is selected */}
                   {selectedGroup && (
                     <button
-                      onClick={() => handleGroupSelect(null)}
+                      onClick={() => {
+                        const transparentGroup = getTransparentGroup();
+                        handleGroupSelect(transparentGroup || null);
+                      }}
                       className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded hover:bg-terminal-accent/20 transition-colors z-10"
-                      title="Remove group binding"
+                      title="Switch to transparent group"
                     >
                       <X size={12} className="text-terminal-muted hover:text-terminal-text" />
                     </button>

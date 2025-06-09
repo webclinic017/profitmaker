@@ -21,6 +21,7 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
   const { 
     groups, 
     getGroupById, 
+    getTransparentGroup,
     initializeDefaultGroups
   } = useGroupStore();
 
@@ -39,9 +40,10 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // If group is selected (has color), clear it
+    // If group is selected (has color), switch to transparent group
     if (selectedGroup && selectedGroup.color !== 'transparent') {
-      onGroupSelect(undefined);
+      const transparentGroup = getTransparentGroup();
+      onGroupSelect(transparentGroup?.id);
       return;
     }
     

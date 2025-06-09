@@ -14,6 +14,7 @@ interface GroupStoreActions {
   
   // Data retrieval
   getGroupById: (id: string) => Group | undefined;
+  getTransparentGroup: () => Group | undefined;
   setTradingPair: (groupId: string, tradingPair: string | undefined) => void;
   setAccount: (groupId: string, account: string | undefined) => void;
   setExchange: (groupId: string, exchange: string | undefined) => void;
@@ -62,9 +63,10 @@ export const useGroupStore = create<GroupStore>()(
       
       // Delete group
       deleteGroup: (id: string) => {
+        const transparentGroup = get().getTransparentGroup();
         set((state) => ({
           groups: state.groups.filter(group => group.id !== id),
-          selectedGroupId: state.selectedGroupId === id ? undefined : state.selectedGroupId
+          selectedGroupId: state.selectedGroupId === id ? transparentGroup?.id : state.selectedGroupId
         }));
       },
       
@@ -76,6 +78,11 @@ export const useGroupStore = create<GroupStore>()(
       // Get group by ID
       getGroupById: (id: string) => {
         return get().groups.find(group => group.id === id);
+      },
+
+      // Get transparent group (always exists)
+      getTransparentGroup: () => {
+        return get().groups.find(group => group.color === 'transparent');
       },
       
       // Set trading pair for group
