@@ -74,6 +74,13 @@ const Chart: React.FC<ChartProps> = ({
   const chartRef = useRef<HTMLDivElement>(null);
   const nightVisionRef = useRef<any>(null);
   
+  // Generate meaningful overlay name
+  const generateOverlayName = (symbol: string, exchange: string, market: MarketType) => {
+    const exchangeName = exchange.charAt(0).toUpperCase() + exchange.slice(1);
+    const marketType = market === 'spot' ? 'Spot' : 'Futures';
+    return `${symbol} (${exchangeName}:${marketType})`;
+  };
+  
   // Theme integration
   const { theme } = useTheme();
   const chartColors = useMemo(() => getChartColors(theme), [theme]);
@@ -256,7 +263,7 @@ const Chart: React.FC<ChartProps> = ({
             {
               overlays: [
                 {
-                  name: 'OHLCV',
+                  name: generateOverlayName(symbol, exchange, market),
                   type: 'Candles',
                   data: ohlcvData,
                   main: true,
