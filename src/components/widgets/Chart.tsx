@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
-import { BarChart2, Maximize, RefreshCw, Clock, Settings, Play, Pause } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { NightVision } from 'night-vision';
 import { useTheme } from '../../hooks/useTheme';
 import { useDataProviderStore } from '../../store/dataProviderStore';
@@ -33,17 +33,7 @@ const getChartColors = (theme: 'dark' | 'light') => {
   }
 };
 
-const EXCHANGES = [
-  { id: 'binance', label: 'Binance' },
-  { id: 'bybit', label: 'Bybit' },
-  { id: 'okx', label: 'OKX' },
-  { id: 'kucoin', label: 'KuCoin' },
-];
 
-const MARKETS: { id: MarketType; label: string }[] = [
-  { id: 'spot', label: 'Spot' },
-  { id: 'futures', label: 'Futures' },
-];
 
 interface ChartProps {
   dashboardId?: string;
@@ -101,7 +91,6 @@ const Chart: React.FC<ChartProps> = ({
   // Chart state
   const [chartDimensions, setChartDimensions] = useState({ width: 600, height: 400 });
   const [showVolume, setShowVolume] = useState(true);
-  const [showSettings, setShowSettings] = useState(false);
 
   const activeSubscriptions = getActiveSubscriptionsList();
   
@@ -542,137 +531,12 @@ const Chart: React.FC<ChartProps> = ({
     };
   }, []);
 
-  // Format display values
 
-
-  const getConnectionStatus = () => {
-    if (!currentSubscription) return 'disconnected';
-    if (!currentSubscription.isActive) return 'connecting';
-    return 'connected';
-  };
-
-  const getStatusColor = () => {
-    const status = getConnectionStatus();
-    switch (status) {
-      case 'connected': return 'text-green-400';
-      case 'connecting': return 'text-yellow-400';
-      default: return 'text-red-400';
-    }
-  };
 
 
 
   return (
     <div className="flex flex-col h-full bg-terminal-bg border border-terminal-border rounded-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-terminal-border">
-        <div className="flex items-center gap-3">
-          <BarChart2 className="w-5 h-5 text-terminal-accent" />
-          <div className="flex items-center gap-2">
-            <span className="text-terminal-text font-medium">{symbol}</span>
-            <span className="text-terminal-muted text-sm">({exchange.toUpperCase()})</span>
-            <span className={`w-2 h-2 rounded-full ${getConnectionStatus() === 'connected' ? 'bg-green-400' : getConnectionStatus() === 'connecting' ? 'bg-yellow-400' : 'bg-red-400'}`} />
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="p-1.5 text-terminal-muted hover:text-terminal-text hover:bg-terminal-hover rounded transition-colors"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="p-3 border-b border-terminal-border bg-terminal-surface">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {/* Exchange Selector */}
-            <div>
-              <label className="block text-xs text-terminal-muted mb-1">Exchange</label>
-              <select
-                value={exchange}
-                onChange={(e) => setExchange(e.target.value)}
-                className="w-full px-2 py-1 text-sm bg-terminal-bg border border-terminal-border rounded text-terminal-text focus:border-terminal-accent focus:outline-none"
-              >
-                {EXCHANGES.map(ex => (
-                  <option key={ex.id} value={ex.id}>{ex.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Market Selector */}
-            <div>
-              <label className="block text-xs text-terminal-muted mb-1">Market</label>
-              <select
-                value={market}
-                onChange={(e) => setMarket(e.target.value as MarketType)}
-                className="w-full px-2 py-1 text-sm bg-terminal-bg border border-terminal-border rounded text-terminal-text focus:border-terminal-accent focus:outline-none"
-              >
-                {MARKETS.map(m => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Symbol Input */}
-            <div>
-              <label className="block text-xs text-terminal-muted mb-1">Symbol</label>
-              <input
-                type="text"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="BTC/USDT"
-                className="w-full px-2 py-1 text-sm bg-terminal-bg border border-terminal-border rounded text-terminal-text focus:border-terminal-accent focus:outline-none"
-              />
-            </div>
-
-            {/* Controls */}
-            <div className="flex items-end gap-2">
-              <button
-                onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
-                disabled={isLoading}
-                className={`flex items-center gap-1 px-3 py-1 text-sm rounded transition-colors ${
-                  isSubscribed 
-                    ? 'bg-red-600 hover:bg-red-700 text-white' 
-                    : 'bg-terminal-accent hover:bg-terminal-accent/80 text-terminal-bg'
-                } disabled:opacity-50`}
-              >
-                {isLoading ? (
-                  <RefreshCw className="w-3 h-3 animate-spin" />
-                ) : isSubscribed ? (
-                  <Pause className="w-3 h-3" />
-                ) : (
-                  <Play className="w-3 h-3" />
-                )}
-                {isLoading ? 'Loading...' : isSubscribed ? 'Stop' : 'Start'}
-              </button>
-            </div>
-          </div>
-
-          {/* Status Info */}
-          <div className="mt-3 flex items-center justify-between text-xs text-terminal-muted">
-            <div className="flex items-center gap-4">
-              <span>Method: {dataFetchSettings.method.toUpperCase()}</span>
-              <span>Chart: {isChartInitialized ? 'Ready' : 'Initializing'}</span>
-              {currentSubscription && (
-                <span className={getStatusColor()}>
-                  {currentSubscription.isFallback ? 'Fallback' : 'Primary'} • 
-                  {currentSubscription.ccxtMethod || 'Standard'}
-                </span>
-              )}
-            </div>
-            {error && (
-              <span className="text-red-400">{error}</span>
-            )}
-          </div>
-        </div>
-      )}
-
-
-
       {/* Chart Container */}
       <div className="flex-1 relative">
         {/* Timeframe Selector - Absolutely positioned */}
