@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDataProviderStore } from '../store/dataProviderStore';
 import { getCCXT } from '../store/utils/ccxtUtils';
 import { ChevronDown, Server, Globe, Database } from 'lucide-react';
@@ -62,13 +63,17 @@ export const ExchangesWidget: React.FC = () => {
               exchanges = Object.keys(ccxt.exchanges || {}).sort();
             }
             break;
-          case 'stocksharp':
-            // StockSharp exchanges (example)
-            exchanges = ['moex', 'spbex', 'plaza2', 'quik'];
-            break;
           case 'custom':
-            // Use provider's configured exchanges
-            exchanges = provider.exchanges.filter(ex => ex !== '*');
+          case 'custom-server-with-adapter':
+          case 'marketmaker.cc':
+          default:
+            // Use provider's configured exchanges or default examples
+            if (provider.exchanges.includes('*')) {
+              // If universal provider, use common exchanges as example
+              exchanges = ['binance', 'bybit', 'okx', 'kucoin', 'moex', 'spbex'];
+            } else {
+              exchanges = provider.exchanges.filter(ex => ex !== '*');
+            }
             break;
         }
 
@@ -161,27 +166,7 @@ export const ExchangesWidget: React.FC = () => {
             <span className="ml-2 text-sm">Loading exchanges...</span>
           </div>
         ) : (
-          <div className="flex-1 bg-terminal-bg border border-terminal-border rounded overflow-y-auto">
-            {availableExchanges.length === 0 ? (
-              <div className="p-4 text-center text-terminal-muted text-sm">
-                No exchanges available
-              </div>
-            ) : (
-              <div className="divide-y divide-terminal-border/50">
-                {availableExchanges.map((exchange, index) => (
-                  <div
-                    key={exchange}
-                    className="px-3 py-2 hover:bg-terminal-accent/10 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-terminal-text">{exchange}</span>
-                      <span className="text-xs text-terminal-muted">#{index + 1}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <VirtualizedExchangesList exchanges={availableExchanges} />
         )}
       </div>
 
@@ -201,6 +186,74 @@ export const ExchangesWidget: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Virtualized exchanges list component
+const VirtualizedExchangesList: React.FC<{
+  exchanges: string[];
+}> = ({ exchanges }) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: exchanges.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 40, // Fixed height for each exchange item
+    overscan: 10, // Render 10 extra items outside visible area
+  });
+
+  if (exchanges.length === 0) {
+    return (
+      <div className="flex-1 bg-terminal-bg border border-terminal-border rounded">
+        <div className="p-4 text-center text-terminal-muted text-sm">
+          No exchanges available
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 bg-terminal-bg border border-terminal-border rounded overflow-hidden">
+      <div
+        ref={parentRef}
+        className="h-full overflow-auto"
+        style={{ contain: 'strict' }}
+      >
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const exchange = exchanges[virtualRow.index];
+            
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="px-3 py-2 hover:bg-terminal-accent/10 transition-colors border-b border-terminal-border/50 last:border-b-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-terminal-text">{exchange}</span>
+                    <span className="text-xs text-terminal-muted">#{virtualRow.index + 1}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }; 
