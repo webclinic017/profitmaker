@@ -380,7 +380,7 @@ const VirtualizedInstrumentsList: React.FC<{
                   onClick={() => onSelect(instrument)}
                   className={`px-3 py-3 cursor-pointer border-b border-terminal-border/50 last:border-b-0 ${
                     isCurrentSelection
-                      ? 'bg-terminal-accent/30 border-l-2 border-l-terminal-accent'
+                      ? 'bg-terminal-accent/30 border-l-2 border-l-green-400 pl-2'
                       : isHighlighted 
                         ? 'bg-terminal-accent/20' 
                         : 'hover:bg-terminal-accent/10'
