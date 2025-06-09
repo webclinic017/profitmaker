@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Search, X } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { useDataProviderStore } from '../../store/dataProviderStore';
@@ -111,14 +112,14 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
     return instruments;
   }, [activeUser, exchangeData]);
 
-  // Filter instruments based on search query
+  // Filter instruments based on search query - remove limit for virtualization
   const filteredInstruments = useMemo(() => {
-    if (!searchQuery.trim()) return allInstruments.slice(0, 20); // Show first 20 if no search
+    if (!searchQuery.trim()) return allInstruments.slice(0, 100); // Show first 100 if no search
     
     const query = searchQuery.toLowerCase().trim();
     return allInstruments
       .filter(instrument => instrument.searchText.includes(query))
-      .slice(0, 20); // Limit to 20 results
+      .slice(0, 200); // Allow more results for virtualization
   }, [allInstruments, searchQuery]);
 
   // Handle keyboard navigation
@@ -226,21 +227,80 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
         )}
       </div>
 
-      {/* Dropdown with results */}
+      {/* Dropdown with virtualized results */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-terminal-widget border border-terminal-border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
-          <div ref={listRef}>
-            {filteredInstruments.length === 0 ? (
-              <div className="px-3 py-4 text-sm text-terminal-muted text-center">
-                No instruments found
-              </div>
-            ) : (
-              filteredInstruments.map((instrument, index) => (
+        <VirtualizedInstrumentsList
+          instruments={filteredInstruments}
+          highlightedIndex={highlightedIndex}
+          onSelect={handleSelect}
+          listRef={listRef}
+        />
+      )}
+    </div>
+  );
+};
+
+// Virtualized instruments list component
+const VirtualizedInstrumentsList: React.FC<{
+  instruments: Instrument[];
+  highlightedIndex: number;
+  onSelect: (instrument: Instrument) => void;
+  listRef: React.RefObject<HTMLDivElement>;
+}> = ({ instruments, highlightedIndex, onSelect, listRef }) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: instruments.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 80, // Fixed height for each instrument item (4 lines of text)
+    overscan: 5, // Render 5 extra items outside visible area
+  });
+
+  if (instruments.length === 0) {
+    return (
+      <div className="absolute top-full left-0 right-0 mt-1 bg-terminal-widget border border-terminal-border rounded-md shadow-lg z-50">
+        <div className="px-3 py-4 text-sm text-terminal-muted text-center">
+          No instruments found
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute top-full left-0 right-0 mt-1 bg-terminal-widget border border-terminal-border rounded-md shadow-lg z-50 max-h-80 overflow-hidden">
+      <div
+        ref={parentRef}
+        className="h-80 overflow-auto"
+        style={{ contain: 'strict' }}
+      >
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const instrument = instruments[virtualRow.index];
+            const isHighlighted = virtualRow.index === highlightedIndex;
+            
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
                 <div
-                  key={`${instrument.account}-${instrument.exchange}-${instrument.market}-${instrument.pair}`}
-                  onClick={() => handleSelect(instrument)}
+                  onClick={() => onSelect(instrument)}
                   className={`px-3 py-3 cursor-pointer border-b border-terminal-border/50 last:border-b-0 ${
-                    index === highlightedIndex 
+                    isHighlighted 
                       ? 'bg-terminal-accent/20' 
                       : 'hover:bg-terminal-accent/10'
                   }`}
@@ -260,11 +320,11 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
                     </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
+              </div>
+            );
+          })}
         </div>
-      )}
+      </div>
     </div>
   );
 };

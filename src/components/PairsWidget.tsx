@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDataProviderStore } from '../store/dataProviderStore';
 import { useUserStore } from '../store/userStore';
 import { ChevronDown, User, ArrowUpDown, TrendingUp, Search } from 'lucide-react';
@@ -308,39 +309,12 @@ export const PairsWidget: React.FC = () => {
             <span className="ml-2 text-sm">Loading pairs...</span>
           </div>
         ) : (
-          <div className="bg-terminal-bg border border-terminal-border rounded max-h-80 overflow-y-auto">
-            {filteredPairs.length === 0 ? (
-              <div className="p-4 text-center text-terminal-muted text-sm">
-                {searchQuery ? `No pairs found for "${searchQuery}"` : `No pairs available for ${selectedExchange}/${selectedMarket}`}
-              </div>
-            ) : (
-              <div className="divide-y divide-terminal-border/50">
-                {filteredPairs.map((pair, index) => {
-                  // Parse pair to extract base and quote
-                  const parts = pair.split('/');
-                  const base = parts[0] || '';
-                  const quote = parts[1] || '';
-                  
-                  return (
-                    <div
-                      key={pair}
-                      className="px-3 py-2 hover:bg-terminal-accent/10 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="text-sm text-terminal-text font-medium">{pair}</span>
-                          <div className="text-xs text-terminal-muted">
-                            {base && quote ? `${base} to ${quote}` : 'Trading pair'}
-                          </div>
-                        </div>
-                        <span className="text-xs text-terminal-muted">#{index + 1}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <VirtualizedPairsList 
+            pairs={filteredPairs} 
+            searchQuery={searchQuery}
+            selectedExchange={selectedExchange}
+            selectedMarket={selectedMarket}
+          />
         )}
       </div>
 
@@ -355,6 +329,86 @@ export const PairsWidget: React.FC = () => {
           {searchQuery && (
             <div><strong>Search:</strong> "{searchQuery}"</div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Virtualized pairs list component
+const VirtualizedPairsList: React.FC<{
+  pairs: string[];
+  searchQuery: string;
+  selectedExchange: string | null;
+  selectedMarket: string | null;
+}> = ({ pairs, searchQuery, selectedExchange, selectedMarket }) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: pairs.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 50, // Fixed height for each pair item
+    overscan: 10, // Render 10 extra items outside visible area
+  });
+
+  if (pairs.length === 0) {
+    return (
+      <div className="bg-terminal-bg border border-terminal-border rounded max-h-80">
+        <div className="p-4 text-center text-terminal-muted text-sm">
+          {searchQuery ? `No pairs found for "${searchQuery}"` : `No pairs available for ${selectedExchange}/${selectedMarket}`}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-terminal-bg border border-terminal-border rounded max-h-80 overflow-hidden">
+      <div
+        ref={parentRef}
+        className="h-80 overflow-auto"
+        style={{ contain: 'strict' }}
+      >
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const pair = pairs[virtualRow.index];
+            // Parse pair to extract base and quote
+            const parts = pair.split('/');
+            const base = parts[0] || '';
+            const quote = parts[1] || '';
+            
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="px-3 py-2 hover:bg-terminal-accent/10 transition-colors border-b border-terminal-border/50 last:border-b-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm text-terminal-text font-medium">{pair}</span>
+                      <div className="text-xs text-terminal-muted">
+                        {base && quote ? `${base} to ${quote}` : 'Trading pair'}
+                      </div>
+                    </div>
+                    <span className="text-xs text-terminal-muted">#{virtualRow.index + 1}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

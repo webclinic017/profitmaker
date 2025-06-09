@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Label } from '../ui/label';
 import { useDataProviderStore } from '../../store/dataProviderStore';
@@ -198,49 +199,113 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
         </div>
       </div>
 
-      {/* Trades list */}
-      <div className="flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto space-y-1">
-          {processedTrades.length === 0 ? (
-            <div className="text-center text-terminal-muted py-8">
-              {currentSubscription ? 'Waiting for trade data...' : 'No active subscription'}
-            </div>
-          ) : (
-            processedTrades.map((trade, index) => (
-              <div
-                key={`${trade.id || index}-${trade.timestamp}`}
-                className={`flex items-center justify-between text-xs p-2 rounded border-l-2 ${
-                  trade.side === 'buy' 
-                    ? 'bg-green-500/5 border-green-500 hover:bg-green-500/10' 
-                    : 'bg-red-500/5 border-red-500 hover:bg-red-500/10'
-                } transition-colors`}
-              >
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${trade.side === 'buy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 text-terminal-muted" />
-                    <span className="font-mono text-terminal-muted">{formatTime(trade.timestamp)}</span>
-                  </div>
-                </div>
-                
-                <div className="text-right">
-                  <div className="font-mono font-medium text-terminal-text">
-                    {formatPrice(trade.price)} × {formatAmount(trade.amount)}
-                  </div>
-                  <div className="text-terminal-muted">
-                    ≈ {formatVolume(trade.price * trade.amount)}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      {/* Virtualized Trades List */}
+      <VirtualizedTradesList trades={processedTrades} currentSubscription={currentSubscription} />
 
       {/* Footer info */}
       {!currentSubscription && (
         <div className="text-xs text-terminal-muted text-center py-2 border-t border-terminal-border">
           💡 Use settings to configure data source and filters
+        </div>
+      )}
+    </div>
+  );
+};
+
+// New virtualized trades list component
+const VirtualizedTradesList: React.FC<{
+  trades: Trade[];
+  currentSubscription: any;
+}> = ({ trades, currentSubscription }) => {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: trades.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60, // Fixed height for each trade item
+    overscan: 5, // Render 5 extra items outside visible area
+  });
+
+  const formatPrice = (price: number): string => {
+    return price.toFixed(8).replace(/\.?0+$/, '');
+  };
+
+  const formatAmount = (amount: number): string => {
+    return amount.toFixed(8).replace(/\.?0+$/, '');
+  };
+
+  const formatTime = (timestamp: number): string => {
+    return new Date(timestamp).toLocaleTimeString();
+  };
+
+  const formatVolume = (volume: number): string => {
+    if (volume >= 1000000) return (volume / 1000000).toFixed(2) + 'M';
+    if (volume >= 1000) return (volume / 1000).toFixed(2) + 'K';
+    return volume.toFixed(2);
+  };
+
+  return (
+    <div className="flex-1 overflow-hidden">
+      {trades.length === 0 ? (
+        <div className="text-center text-terminal-muted py-8">
+          {currentSubscription ? 'Waiting for trade data...' : 'No active subscription'}
+        </div>
+      ) : (
+        <div
+          ref={parentRef}
+          className="h-full overflow-auto"
+          style={{ contain: 'strict' }}
+        >
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const trade = trades[virtualRow.index];
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <div
+                    className={`flex items-center justify-between text-xs p-2 mx-1 my-1 rounded border-l-2 ${
+                      trade.side === 'buy' 
+                        ? 'bg-green-500/5 border-green-500 hover:bg-green-500/10' 
+                        : 'bg-red-500/5 border-red-500 hover:bg-red-500/10'
+                    } transition-colors`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${trade.side === 'buy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3 text-terminal-muted" />
+                        <span className="font-mono text-terminal-muted">{formatTime(trade.timestamp)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="font-mono font-medium text-terminal-text">
+                        {formatPrice(trade.price)} × {formatAmount(trade.amount)}
+                      </div>
+                      <div className="text-terminal-muted">
+                        ≈ {formatVolume(trade.price * trade.amount)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
