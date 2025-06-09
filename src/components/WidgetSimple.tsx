@@ -80,7 +80,8 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   const activeDashboardId = useDashboardStore(s => s.activeDashboardId);
   const dashboards = useDashboardStore(s => s.dashboards);
   
-  // Group store - removed setTradingPair import since we no longer auto-assign instruments
+  // Group store
+  const getGroupById = useGroupStore(s => s.getGroupById);
   
   // Settings drawer store
   const openSettingsDrawer = useSettingsDrawerStore(s => s.openDrawer);
@@ -457,6 +458,15 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   // Check if widget has settings available
   const hasSettings = widgetType && ['chart', 'orderbook', 'orderBook', 'portfolio', 'trades', 'orderForm'].includes(widgetType);
 
+  // Check if group has complete instrument data to hide widget title
+  const selectedGroup = groupId ? getGroupById(groupId) : undefined;
+  const hasCompleteInstrument = selectedGroup && 
+    selectedGroup.account && 
+    selectedGroup.exchange && 
+    selectedGroup.market && 
+    selectedGroup.tradingPair;
+  const shouldHideTitle = hasCompleteInstrument;
+
   return (
     <div
       ref={widgetRef}
@@ -497,28 +507,30 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
               />
             </div>
           )}
-          <div className="flex-1 min-w-0">
-            {isEditingTitle ? (
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={editTitleValue}
-                onChange={handleTitleChange}
-                onKeyDown={handleTitleKeyDown}
-                onBlur={handleTitleBlur}
-                className="text-xs font-medium bg-transparent border-none outline-none text-terminal-text w-full min-w-0"
-                style={{ margin: 0, padding: 0 }}
-              />
-            ) : (
-              <h3 
-                className="text-xs font-medium truncate text-terminal-text cursor-pointer"
-                onDoubleClick={handleTitleDoubleClick}
-                title="Double click to edit"
-              >
-                {userTitle || defaultTitle}
-              </h3>
-            )}
-          </div>
+          {!shouldHideTitle && (
+            <div className="flex-1 min-w-0">
+              {isEditingTitle ? (
+                <input
+                  ref={titleInputRef}
+                  type="text"
+                  value={editTitleValue}
+                  onChange={handleTitleChange}
+                  onKeyDown={handleTitleKeyDown}
+                  onBlur={handleTitleBlur}
+                  className="text-xs font-medium bg-transparent border-none outline-none text-terminal-text w-full min-w-0"
+                  style={{ margin: 0, padding: 0 }}
+                />
+              ) : (
+                <h3 
+                  className="text-xs font-medium truncate text-terminal-text cursor-pointer"
+                  onDoubleClick={handleTitleDoubleClick}
+                  title="Double click to edit"
+                >
+                  {userTitle || defaultTitle}
+                </h3>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex items-center space-x-1">
           {!isCollapsed && hasSettings && (
