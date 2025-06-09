@@ -84,22 +84,22 @@ const InstrumentHeaderControl: React.FC<InstrumentHeaderControlProps> = ({
 
   return (
     <>
-      <div className={`flex items-center space-x-2 ${className}`}>
-        {/* Search icon button */}
+      <div className={`flex items-center ${className}`}>
+        {/* Unified search button with icon and pair */}
         <button
           onClick={handleSearchClick}
-          className="p-1 rounded-sm hover:bg-terminal-widget/50 transition-colors flex-shrink-0"
+          className="flex items-center space-x-2 px-1 py-1 rounded-sm hover:bg-terminal-widget/50 transition-colors flex-shrink-0"
           title="Search trading instrument"
         >
-          <Search size={14} className="text-terminal-muted hover:text-terminal-text transition-colors" />
+          <Search size={14} className="text-terminal-muted hover:text-terminal-text transition-colors flex-shrink-0" />
+          
+          {/* Display pair if instrument is selected */}
+          {selectedInstrument && (
+            <span className="text-xs font-medium text-terminal-text truncate">
+              {selectedInstrument.pair}
+            </span>
+          )}
         </button>
-        
-        {/* Display pair if instrument is selected */}
-        {selectedInstrument && (
-          <span className="text-xs font-medium text-terminal-text truncate">
-            {selectedInstrument.pair}
-          </span>
-        )}
       </div>
 
       {/* Portal for instrument search popover */}
