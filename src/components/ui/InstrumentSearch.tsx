@@ -9,7 +9,8 @@ export interface Instrument {
   exchange: string;
   market: string;
   pair: string;
-  searchText: string; // for filtering
+  // This represents accountInstrumentId (account + exchange + market + pair)
+  // Note: instrumentId would be just (exchange + market + pair) without account
 }
 
 interface InstrumentSearchProps {
@@ -22,7 +23,7 @@ interface InstrumentSearchProps {
 const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
   value,
   onChange,
-  placeholder = "Search instrument...",
+  placeholder = "Search account | exchange | market | pair...",
   className = "",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -101,8 +102,7 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
             account: account.email,
             exchange: account.exchange,
             market,
-            pair,
-            searchText: `${account.email} ${account.exchange} ${market} ${pair}`.toLowerCase()
+            pair
           };
           instruments.push(instrument);
         });
@@ -112,14 +112,36 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
     return instruments;
   }, [activeUser, exchangeData]);
 
-  // Filter instruments based on search query - remove limit for virtualization
-  const filteredInstruments = useMemo(() => {
-    if (!searchQuery.trim()) return allInstruments.slice(0, 100); // Show first 100 if no search
+  // Smart multi-word search: each word must match any field
+  const { filteredInstruments, totalFound } = useMemo(() => {
+    if (!searchQuery.trim()) {
+      const limited = allInstruments.slice(0, 100);
+      return { filteredInstruments: limited, totalFound: allInstruments.length };
+    }
     
-    const query = searchQuery.toLowerCase().trim();
-    return allInstruments
-      .filter(instrument => instrument.searchText.includes(query))
-      .slice(0, 200); // Allow more results for virtualization
+    // Split search query into individual words
+    const searchWords = searchQuery.toLowerCase().trim().split(/\s+/).filter(word => word.length > 0);
+    
+    if (searchWords.length === 0) {
+      const limited = allInstruments.slice(0, 100);
+      return { filteredInstruments: limited, totalFound: allInstruments.length };
+    }
+    
+    const allMatches = allInstruments
+      .filter(instrument => {
+        // Every search word must match at least one field
+        return searchWords.every(word => 
+          instrument.account.toLowerCase().includes(word) ||
+          instrument.exchange.toLowerCase().includes(word) ||
+          instrument.market.toLowerCase().includes(word) ||
+          instrument.pair.toLowerCase().includes(word)
+        );
+      });
+    
+    return { 
+      filteredInstruments: allMatches.slice(0, 200), // Show max 200 for performance
+      totalFound: allMatches.length 
+    };
   }, [allInstruments, searchQuery]);
 
   // Handle keyboard navigation
@@ -231,6 +253,7 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
       {isOpen && (
         <VirtualizedInstrumentsList
           instruments={filteredInstruments}
+          totalFound={totalFound}
           highlightedIndex={highlightedIndex}
           onSelect={handleSelect}
           listRef={listRef}
@@ -243,10 +266,11 @@ const InstrumentSearch: React.FC<InstrumentSearchProps> = ({
 // Virtualized instruments list component
 const VirtualizedInstrumentsList: React.FC<{
   instruments: Instrument[];
+  totalFound: number;
   highlightedIndex: number;
   onSelect: (instrument: Instrument) => void;
   listRef: React.RefObject<HTMLDivElement>;
-}> = ({ instruments, highlightedIndex, onSelect, listRef }) => {
+}> = ({ instruments, totalFound, highlightedIndex, onSelect, listRef }) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -260,7 +284,12 @@ const VirtualizedInstrumentsList: React.FC<{
     return (
       <div className="absolute top-full left-0 right-0 mt-1 bg-terminal-widget border border-terminal-border rounded-md shadow-lg z-50">
         <div className="px-3 py-4 text-sm text-terminal-muted text-center">
-          No instruments found
+          No accountInstrumentIds found
+        </div>
+        <div className="px-3 py-2 border-t border-terminal-border/50 bg-terminal-bg/50">
+          <div className="text-xs text-terminal-muted text-center">
+            Found <span className="text-slate-600 dark:text-slate-300 font-medium">0</span> of <span className="text-slate-600 dark:text-slate-300 font-medium">{totalFound}</span> accountInstrumentIds
+          </div>
         </div>
       </div>
     );
@@ -270,7 +299,7 @@ const VirtualizedInstrumentsList: React.FC<{
     <div className="absolute top-full left-0 right-0 mt-1 bg-terminal-widget border border-terminal-border rounded-md shadow-lg z-50 max-h-80 overflow-hidden">
       <div
         ref={parentRef}
-        className="h-80 overflow-auto"
+        className="h-72 overflow-auto" 
         style={{ contain: 'strict' }}
       >
         <div
@@ -323,6 +352,13 @@ const VirtualizedInstrumentsList: React.FC<{
               </div>
             );
           })}
+        </div>
+      </div>
+      
+      {/* Results counter footer */}
+      <div className="px-3 py-2 border-t border-terminal-border/50 bg-terminal-bg/50">
+        <div className="text-xs text-terminal-muted text-center">
+          Showing <span className="text-slate-600 dark:text-slate-300 font-medium">{instruments.length}</span> of <span className="text-slate-600 dark:text-slate-300 font-medium">{totalFound}</span> accountInstrumentIds
         </div>
       </div>
     </div>
