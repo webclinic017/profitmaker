@@ -314,7 +314,7 @@ const Chart: React.FC<ChartProps> = ({
 
   // autoResize: true автоматически управляет размерами
   // Оставляем только простое логирование для диагностики
-  // Handle container resize by RECREATING NightVision instance
+  // Handle container resize by RECREATING NightVision instance (with debouncing)
   useEffect(() => {
     if (!nightVisionRef.current || !isChartInitialized) {
       console.log(`⏸️ [Chart] Skipping resize - chart not ready:`, { 
@@ -325,32 +325,49 @@ const Chart: React.FC<ChartProps> = ({
     }
 
     console.log(`📐 [Chart] Container dimensions changed: ${chartDimensions.width}x${chartDimensions.height}`);
-    console.log(`🔄 [Chart] Recreating NightVision instance for new dimensions...`);
+    console.log(`⏳ [Chart] Scheduling NightVision recreation with 200ms debounce...`);
     
-    // Store current chart data before recreation
-    const currentData = nightVisionRef.current.data;
-    
-    // Destroy old instance
-    if (nightVisionRef.current.destroy) {
-      nightVisionRef.current.destroy();
-    }
-    
-    // Create new instance with new dimensions
-    const chartId = `chart-${Date.now()}`;
-    if (chartRef.current) {
-      chartRef.current.id = chartId;
-      nightVisionRef.current = new NightVision(chartId, {
-        width: chartDimensions.width,
-        height: chartDimensions.height,
-        colors: {
-          back: chartColors.back,
-          grid: chartColors.grid
-        },
-        data: currentData // Restore data
-      });
+    // Debounce resize with 200ms delay to avoid excessive recreations
+    const timeoutId = setTimeout(() => {
+      console.log(`🔄 [Chart] Executing debounced NightVision recreation...`);
       
-      console.log(`✅ [Chart] NightVision instance recreated with dimensions: ${chartDimensions.width}x${chartDimensions.height}`);
-    }
+      if (!nightVisionRef.current) {
+        console.log(`❌ [Chart] NightVision ref lost during debounce`);
+        return;
+      }
+      
+      // Store current chart data before recreation
+      const currentData = nightVisionRef.current.data;
+      
+      // Destroy old instance
+      if (nightVisionRef.current.destroy) {
+        nightVisionRef.current.destroy();
+      }
+      
+      // Create new instance with new dimensions
+      const chartId = `chart-${Date.now()}`;
+      if (chartRef.current) {
+        chartRef.current.id = chartId;
+        nightVisionRef.current = new NightVision(chartId, {
+          width: chartDimensions.width,
+          height: chartDimensions.height,
+          autoResize: true,
+          colors: {
+            back: chartColors.back,
+            grid: chartColors.grid
+          },
+          data: currentData // Restore data
+        });
+        
+        console.log(`✅ [Chart] NightVision instance recreated with dimensions: ${chartDimensions.width}x${chartDimensions.height}`);
+      }
+    }, 200); // 200ms debounce
+    
+    // Cleanup timeout if effect runs again before completion
+    return () => {
+      clearTimeout(timeoutId);
+      console.log(`🧹 [Chart] Cleared pending resize timeout`);
+    };
   }, [chartDimensions]);
 
   // Event-driven chart updates (заменяем polling на events из store)
