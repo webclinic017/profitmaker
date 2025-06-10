@@ -171,13 +171,14 @@ const Chart: React.FC<ChartProps> = ({
       const chartId = `chart-${Date.now()}`;
       chartRef.current.id = chartId;
       nightVisionRef.current = new NightVision(chartId, {
-        autoResize: true,  // ← ПРАВИЛЬНЫЙ СИНТАКСИС из документации!
+        width: chartDimensions.width,
+        height: chartDimensions.height,
+        autoResize: true,
         colors: {
           back: chartColors.back,
           grid: chartColors.grid
         },
         data: { panes: [] } // Empty data initially
-        // Убираем width/height - autoResize сам их определит
       });
 
       console.log(`📊 Empty NightVision chart initialized for ${exchange}:${symbol}:${timeframe}`);
