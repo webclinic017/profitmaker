@@ -4,6 +4,7 @@ import type { DataProvider, DataType, CCXTBrowserProvider, CCXTServerProvider, T
 import { getCCXT, getCCXTPro } from '../utils/ccxtUtils';
 import { useUserStore } from '../userStore';
 import { getAccountForExchange, convertAccountForProvider, createExchangeInstance } from '../utils/providerUtils';
+import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
 
 export interface FetchingActions {
   startDataFetching: (subscriptionKey: string) => Promise<void>;
@@ -184,7 +185,10 @@ export const createFetchingActions: StateCreator<
           const ccxt = getCCXT();
           if (ccxt) {
             const restInstance = createExchangeInstance(exchange, provider, ccxt);
-            const historicalCandles = await restInstance.fetchOHLCV(symbol, timeframe, undefined, 100);
+            // Get optimal limit for WebSocket pre-load
+            const optimalLimit = getOHLCVLimit(exchange);
+            logExchangeLimits(exchange, optimalLimit, 'ohlcv');
+            const historicalCandles = await restInstance.fetchOHLCV(symbol, timeframe, undefined, optimalLimit);
             if (historicalCandles && historicalCandles.length > 0) {
               const formattedCandles = historicalCandles.map((c: any[]) => ({
                 timestamp: c[0],
@@ -320,7 +324,10 @@ export const createFetchingActions: StateCreator<
 
           switch (dataType) {
             case 'candles':
-              const candles = await exchangeInstance.fetchOHLCV(symbol, timeframe, undefined, 100);
+              // Get optimal limit for REST candles
+              const candleLimit = getOHLCVLimit(exchange);
+              logExchangeLimits(exchange, candleLimit, 'ohlcv');
+              const candles = await exchangeInstance.fetchOHLCV(symbol, timeframe, undefined, candleLimit);
               if (candles && candles.length > 0) {
                 const formattedCandles = candles.map((c: any[]) => ({
                   timestamp: c[0],
@@ -334,7 +341,10 @@ export const createFetchingActions: StateCreator<
               }
               break;
             case 'trades':
-              const trades = await exchangeInstance.fetchTrades(symbol, undefined, 100);
+              // Get optimal limit for REST trades
+              const tradeLimit = getTradesLimit(exchange);
+              logExchangeLimits(exchange, tradeLimit, 'trades');
+              const trades = await exchangeInstance.fetchTrades(symbol, undefined, tradeLimit);
               if (trades && trades.length > 0) {
                 get().updateTrades(exchange, symbol, trades, market);
               }

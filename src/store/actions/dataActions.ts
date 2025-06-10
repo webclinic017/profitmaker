@@ -3,6 +3,7 @@ import type { DataProviderStore } from '../types';
 import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, ActiveSubscription, Timeframe, MarketType } from '../../types/dataProviders';
 import { getCCXT } from '../utils/ccxtUtils';
 import { createExchangeInstance } from '../utils/providerUtils';
+import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
 
 export interface DataActions {
   // Data fetch settings management
@@ -315,8 +316,12 @@ export const createDataActions: StateCreator<
       
       const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
       
-      // Load historical data (last 100 candles)
-      const ohlcvData = await exchangeInstance.fetchOHLCV(symbol, timeframe, undefined, 100);
+      // Get optimal limit for this exchange
+      const optimalLimit = getOHLCVLimit(exchange);
+      logExchangeLimits(exchange, optimalLimit, 'ohlcv');
+      
+      // Load historical data with optimal limit
+      const ohlcvData = await exchangeInstance.fetchOHLCV(symbol, timeframe, undefined, optimalLimit);
       
       if (!ohlcvData || ohlcvData.length === 0) {
         throw new Error('No data received from exchange');
