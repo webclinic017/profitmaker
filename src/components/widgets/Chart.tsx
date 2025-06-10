@@ -108,20 +108,19 @@ const Chart: React.FC<ChartProps> = ({
   const [isChartInitialized, setIsChartInitialized] = useState(false);
   const [chartDataLoaded, setChartDataLoaded] = useState(false);
 
-  // Handle chart resize with ResizeObserver
+  // Handle chart resize with ResizeObserver + force update after container changes
   useLayoutEffect(() => {
     const updateDimensions = () => {
       if (chartRef.current) {
         const rect = chartRef.current.getBoundingClientRect();
         const newDimensions = {
-          width: Math.max(rect.width || 600, 300), // Минимальная ширина
-          height: Math.max(rect.height || 400, 200) // Минимальная высота
+          width: Math.max(rect.width || 600, 300),
+          height: Math.max(rect.height || 400, 200)
         };
         
-        // Обновляем только если размеры действительно изменились
         setChartDimensions(prev => {
           if (prev.width !== newDimensions.width || prev.height !== newDimensions.height) {
-            console.log(`📐 [Chart] Dimensions changed: ${prev.width}x${prev.height} → ${newDimensions.width}x${newDimensions.height}`);
+            console.log(`📐 [Chart] Container dimensions: ${prev.width}x${prev.height} → ${newDimensions.width}x${newDimensions.height}`);
             return newDimensions;
           }
           return prev;
@@ -131,34 +130,20 @@ const Chart: React.FC<ChartProps> = ({
 
     updateDimensions();
 
-    // Используем ResizeObserver для более точного отслеживания
+    // Use ResizeObserver to detect container size changes
     let resizeObserver: ResizeObserver | null = null;
     
     if (chartRef.current && 'ResizeObserver' in window) {
       resizeObserver = new ResizeObserver((entries) => {
         if (entries.length > 0) {
-          const entry = entries[0];
-          const { width, height } = entry.contentRect;
-          
-          const newDimensions = {
-            width: Math.max(width || 600, 300),
-            height: Math.max(height || 400, 200)
-          };
-          
-          setChartDimensions(prev => {
-            if (prev.width !== newDimensions.width || prev.height !== newDimensions.height) {
-              console.log(`🔍 [Chart] ResizeObserver: ${prev.width}x${prev.height} → ${newDimensions.width}x${newDimensions.height}`);
-              return newDimensions;
-            }
-            return prev;
-          });
+          updateDimensions();
         }
       });
       
       resizeObserver.observe(chartRef.current);
       console.log(`👁️ [Chart] ResizeObserver attached`);
     } else {
-      // Fallback для старых браузеров
+      // Fallback for older browsers
       window.addEventListener('resize', updateDimensions);
     }
 
@@ -186,17 +171,24 @@ const Chart: React.FC<ChartProps> = ({
       const chartId = `chart-${Date.now()}`;
       chartRef.current.id = chartId;
       nightVisionRef.current = new NightVision(chartId, {
-        width: chartDimensions.width,
-        height: chartDimensions.height,
+        autoResize: true,  // ← ПРАВИЛЬНЫЙ СИНТАКСИС из документации!
         colors: {
           back: chartColors.back,
           grid: chartColors.grid
         },
-        data: { panes: [] }, // Empty data initially
-        autoResize: true
+        data: { panes: [] } // Empty data initially
+        // Убираем width/height - autoResize сам их определит
       });
 
       console.log(`📊 Empty NightVision chart initialized for ${exchange}:${symbol}:${timeframe}`);
+      
+      // Debug: log available methods and properties
+      console.log(`🔍 [Chart] NightVision instance methods:`, Object.getOwnPropertyNames(nightVisionRef.current).filter(prop => typeof nightVisionRef.current[prop] === 'function'));
+      console.log(`🔍 [Chart] NightVision instance properties:`, Object.keys(nightVisionRef.current));
+      if (nightVisionRef.current.hub) {
+        console.log(`🔍 [Chart] NightVision hub properties:`, Object.keys(nightVisionRef.current.hub));
+      }
+      
       setIsChartInitialized(true);
     } catch (error) {
       console.error('❌ Failed to initialize NightVision chart:', error);
@@ -319,30 +311,46 @@ const Chart: React.FC<ChartProps> = ({
     loadInitialData();
   }, [isChartInitialized, exchange, symbol, timeframe, market, showVolume, initializeChartData, chartColors]);
 
-  // Handle chart resize without recreating
+  // autoResize: true автоматически управляет размерами
+  // Оставляем только простое логирование для диагностики
+  // Handle container resize by RECREATING NightVision instance
   useEffect(() => {
-    if (!nightVisionRef.current || !isChartInitialized) return;
-
-    console.log(`📐 [Chart] Resizing chart to ${chartDimensions.width}x${chartDimensions.height}`);
-    
-    try {
-      // Обновляем размеры NightVision chart
-      nightVisionRef.current.options.width = chartDimensions.width;
-      nightVisionRef.current.options.height = chartDimensions.height;
-      
-      // Вызываем resize если доступен
-      if (typeof nightVisionRef.current.resize === 'function') {
-        nightVisionRef.current.resize(chartDimensions.width, chartDimensions.height);
-        console.log(`✅ [Chart] Used resize() method`);
-      } else {
-        // Альтернативно - обновляем через update
-        nightVisionRef.current.update();
-        console.log(`✅ [Chart] Used update() method for resize`);
-      }
-    } catch (error) {
-      console.error(`❌ [Chart] Failed to resize chart:`, error);
+    if (!nightVisionRef.current || !isChartInitialized) {
+      console.log(`⏸️ [Chart] Skipping resize - chart not ready:`, { 
+        hasChart: !!nightVisionRef.current, 
+        isInitialized: isChartInitialized 
+      });
+      return;
     }
-  }, [chartDimensions, isChartInitialized]);
+
+    console.log(`📐 [Chart] Container dimensions changed: ${chartDimensions.width}x${chartDimensions.height}`);
+    console.log(`🔄 [Chart] Recreating NightVision instance for new dimensions...`);
+    
+    // Store current chart data before recreation
+    const currentData = nightVisionRef.current.data;
+    
+    // Destroy old instance
+    if (nightVisionRef.current.destroy) {
+      nightVisionRef.current.destroy();
+    }
+    
+    // Create new instance with new dimensions
+    const chartId = `chart-${Date.now()}`;
+    if (chartRef.current) {
+      chartRef.current.id = chartId;
+      nightVisionRef.current = new NightVision(chartId, {
+        width: chartDimensions.width,
+        height: chartDimensions.height,
+        colors: {
+          back: chartColors.back,
+          grid: chartColors.grid
+        },
+        data: currentData // Restore data
+      });
+      
+      console.log(`✅ [Chart] NightVision instance recreated with dimensions: ${chartDimensions.width}x${chartDimensions.height}`);
+    }
+  }, [chartDimensions]);
 
   // Event-driven chart updates (заменяем polling на events из store)
   const chartUpdateListener = useCallback((event: ChartUpdateEvent) => {
