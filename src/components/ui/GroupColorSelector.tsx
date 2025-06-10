@@ -134,21 +134,40 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
                 {groups.map((group) => (
                   <div
                     key={group.id}
-                    className={`group w-full flex items-center px-3 py-2 text-sm rounded hover:bg-terminal-accent/20 cursor-pointer relative ${
+                    className={`group w-full flex items-start px-3 py-3 text-sm rounded hover:bg-terminal-accent/20 cursor-pointer relative ${
                       selectedGroupId === group.id ? 'bg-terminal-accent/30' : ''
                     }`}
                     onClick={() => handleGroupSelect(group.id)}
                   >
                     <div
-                      className="w-3 h-3 rounded-full mr-3 flex-shrink-0 border"
+                      className="w-3 h-3 rounded-full mr-3 flex-shrink-0 border mt-0.5"
                       style={{ 
                         backgroundColor: group.color === 'transparent' ? 'transparent' : group.color,
                         borderColor: group.color === 'transparent' ? 'hsl(var(--terminal-border))' : group.color
                       }}
                     />
-                    <span className="text-left flex-1">
-                      {getColorName(group.color)}
-                    </span>
+                    <div className="text-left flex-1">
+                      {group.account || group.exchange || group.market || group.tradingPair ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center">
+                            <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 flex-shrink-0" title="Configured" />
+                            <span className="text-terminal-text font-medium">
+                              {getColorName(group.color)} - Configured
+                            </span>
+                          </div>
+                          <div className="text-xs text-terminal-muted pl-3.5">
+                            {group.account && <span className="mr-2">{group.account}</span>}
+                            {group.exchange && <span className="mr-2">• {group.exchange}</span>}
+                            {group.market && <span className="mr-2">• {group.market}</span>}
+                            {group.tradingPair && <span>• {group.tradingPair}</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-terminal-muted">
+                          {getColorName(group.color)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
