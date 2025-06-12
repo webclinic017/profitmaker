@@ -18,6 +18,9 @@ export interface DataActions {
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
   
+  // Infinite scroll: Load historical candles before given timestamp
+  loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
+  
   // Central store data updates
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
@@ -346,5 +349,91 @@ export const createDataActions: StateCreator<
       console.error(`❌ [initializeChartData] Failed to load data:`, error);
       throw error;
     }
+  },
+
+  // Infinite scroll: Load historical candles before given timestamp
+  loadHistoricalCandles: async (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number): Promise<Candle[]> => {
+    // Get optimal provider for this exchange
+    const provider = get().getProviderForExchange(exchange);
+    
+    if (!provider) {
+      throw new Error(`No suitable provider found for exchange ${exchange}`);
+    }
+    
+    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
+      throw new Error(`Historical data loading not supported for provider type: ${provider.type}`);
+    }
+    
+    console.log(`📜 [loadHistoricalCandles] Loading historical data before ${new Date(beforeTimestamp).toISOString()} for ${exchange}:${market}:${symbol}:${timeframe} using provider ${provider.id}`);
+    
+    try {
+      // Use CCXT utilities
+      const ccxt = getCCXT();
+      
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      
+             // Get optimal limit for this exchange (smaller limit for historical chunks)
+       const optimalLimit = Math.min(getOHLCVLimit(exchange), 100); // Max 100 candles per historical request
+       logExchangeLimits(exchange, optimalLimit, 'ohlcv');
+       
+       // Calculate 'since' timestamp for CCXT (load data BEFORE beforeTimestamp)
+       // We want data that comes BEFORE the given timestamp, so we need to calculate
+       // how far back to go based on timeframe and limit
+       
+       // Simple timeframe to milliseconds conversion
+       const timeframeToMs = (tf: string): number => {
+         const unit = tf.slice(-1);
+         const value = parseInt(tf.slice(0, -1)) || 1;
+         switch (unit) {
+           case 'm': return value * 60 * 1000;
+           case 'h': return value * 60 * 60 * 1000;
+           case 'd': return value * 24 * 60 * 60 * 1000;
+           default: return 60 * 1000; // default 1 minute
+         }
+       };
+       
+       const timeframeMs = timeframeToMs(timeframe);
+       const sinceTimestamp = beforeTimestamp - (optimalLimit * timeframeMs);
+      
+      console.log(`📜 [loadHistoricalCandles] CCXT fetchOHLCV parameters: symbol=${symbol}, timeframe=${timeframe}, since=${new Date(sinceTimestamp).toISOString()}, limit=${optimalLimit}`);
+      
+      // Load historical data with 'since' parameter (CCXT: fetchOHLCV(symbol, timeframe, since, limit))
+      const ohlcvData = await exchangeInstance.fetchOHLCV(symbol, timeframe, sinceTimestamp, optimalLimit);
+      
+      if (!ohlcvData || ohlcvData.length === 0) {
+        console.warn(`⚠️ [loadHistoricalCandles] No historical data received for ${exchange}:${market}:${symbol}:${timeframe} before ${new Date(beforeTimestamp).toISOString()}`);
+        return [];
+      }
+      
+      // Convert to Candle format and filter to only include data BEFORE beforeTimestamp
+      const candles: Candle[] = ohlcvData
+        .filter((c: any[]) => c[0] < beforeTimestamp) // Only candles before the given timestamp
+        .map((c: any[]) => ({
+          timestamp: c[0],
+          open: c[1],
+          high: c[2],
+          low: c[3],
+          close: c[4],
+          volume: c[5]
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp ascending
+      
+      console.log(`✅ [loadHistoricalCandles] Loaded ${candles.length} historical candles (filtered from ${ohlcvData.length}) for ${exchange}:${market}:${symbol}:${timeframe} before ${new Date(beforeTimestamp).toISOString()}`);
+      
+      if (candles.length > 0) {
+        console.log(`📊 [loadHistoricalCandles] Historical data range: ${new Date(candles[0].timestamp).toISOString()} → ${new Date(candles[candles.length - 1].timestamp).toISOString()}`);
+      }
+      
+      // DO NOT save to store - return directly for chart infinite scroll
+      return candles;
+      
+    } catch (error) {
+      console.error(`❌ [loadHistoricalCandles] Failed to load historical data:`, error);
+      throw error;
+    }
   }
-}); 
+});

@@ -90,6 +90,9 @@ export interface DataProviderActions {
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
   
+  // Infinite scroll: Load historical candles before given timestamp
+  loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
+  
   // Central store data updates
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
