@@ -96,6 +96,7 @@ const Chart: React.FC<ChartProps> = ({
   // Infinite scroll state
   const oldestTimestampRef = useRef<number | null>(null);
   const isLoadingHistoricalRef = useRef<boolean>(false);
+  const historicalLoadingIterationsRef = useRef<number>(0);
 
   const activeSubscriptions = getActiveSubscriptionsList();
   
@@ -350,27 +351,66 @@ const Chart: React.FC<ChartProps> = ({
         const shouldLoad = (rangeStart - effectiveOldestTimestamp) <= buffer;
         console.log(`🔍 [Chart] Should load more data: ${shouldLoad} (rangeStart=${new Date(rangeStart).toISOString()}, oldestTimestamp=${new Date(effectiveOldestTimestamp).toISOString()}, buffer=${Math.round(buffer / 1000)}s)`);
 
-        if (shouldLoad) {
-          console.log(`📜 [Chart] Triggering historical data load...`);
-          await loadHistoricalData(effectiveOldestTimestamp);
-        }
+                 if (shouldLoad) {
+           console.log(`📜 [Chart] Triggering historical data load...`);
+           historicalLoadingIterationsRef.current = 0; // Сбрасываем счетчик при новом пользовательском действии
+           await loadHistoricalData(effectiveOldestTimestamp);
+         }
       } else {
         console.log(`⏸️ [Chart] Skipping infinite scroll: oldestTimestamp=${!!effectiveOldestTimestamp}, isLoading=${isLoadingHistoricalRef.current}`);
       }
     };
 
-    const loadHistoricalData = async (beforeTimestamp: number) => {
-      if (isLoadingHistoricalRef.current) {
-        console.log(`⏸️ [Chart] Already loading historical data, skipping...`);
-        return;
-      }
+         const checkAndLoadMoreIfNeeded = async (currentOldestTimestamp: number) => {
+       if (isLoadingHistoricalRef.current) {
+         console.log(`⏸️ [Chart] Still loading, skipping buffer check...`);
+         return;
+       }
 
-      try {
-        isLoadingHistoricalRef.current = true;
-        console.log(`🚀 [Chart] Loading historical data before ${new Date(beforeTimestamp).toISOString()}`);
+       // Ограничение на количество итераций загрузки (защита от бесконечной загрузки)
+       const maxIterations = 5;
+       if (historicalLoadingIterationsRef.current >= maxIterations) {
+         console.log(`🛑 [Chart] Maximum historical loading iterations (${maxIterations}) reached, stopping`);
+         historicalLoadingIterationsRef.current = 0; // Сбрасываем счетчик
+         return;
+       }
 
-        // Load historical candles
-        const historicalCandles = await loadHistoricalCandles(exchange, symbol, timeframe, market, beforeTimestamp);
+       // Получаем текущий диапазон после обновления
+       const currentRange = nightVisionRef.current?.range;
+       if (!currentRange) {
+         console.log(`⚠️ [Chart] No current range available for buffer check`);
+         return;
+       }
+
+       const rangeStart = currentRange[0];
+       const totalRange = currentRange[1] - currentRange[0];
+       const buffer = totalRange * 0.2; // 20% buffer
+
+       const needsMoreData = (rangeStart - currentOldestTimestamp) <= buffer;
+       console.log(`🔍 [Chart] Buffer check: needsMoreData=${needsMoreData} (rangeStart=${new Date(rangeStart).toISOString()}, oldestTimestamp=${new Date(currentOldestTimestamp).toISOString()}, buffer=${Math.round(buffer / 1000)}s, iteration=${historicalLoadingIterationsRef.current + 1}/${maxIterations})`);
+
+       if (needsMoreData) {
+         historicalLoadingIterationsRef.current += 1;
+         console.log(`🔄 [Chart] Buffer still not filled, loading more historical data (iteration ${historicalLoadingIterationsRef.current}/${maxIterations})...`);
+         await loadHistoricalData(currentOldestTimestamp);
+       } else {
+         console.log(`✅ [Chart] Buffer is sufficiently filled, stopping historical loading`);
+         historicalLoadingIterationsRef.current = 0; // Сбрасываем счетчик после успешного заполнения
+       }
+     };
+
+     const loadHistoricalData = async (beforeTimestamp: number) => {
+       if (isLoadingHistoricalRef.current) {
+         console.log(`⏸️ [Chart] Already loading historical data, skipping...`);
+         return;
+       }
+
+       try {
+         isLoadingHistoricalRef.current = true;
+         console.log(`🚀 [Chart] Loading historical data before ${new Date(beforeTimestamp).toISOString()}`);
+
+         // Load historical candles
+         const historicalCandles = await loadHistoricalCandles(exchange, symbol, timeframe, market, beforeTimestamp);
         
         if (historicalCandles.length === 0) {
           console.log(`📊 [Chart] No historical data received`);
@@ -432,17 +472,22 @@ const Chart: React.FC<ChartProps> = ({
           }
         }
 
-        if (dataUpdated) {
-          // Update the oldest timestamp reference
-          const newOldestTimestamp = historicalCandles[0].timestamp;
-          oldestTimestampRef.current = newOldestTimestamp;
-          
-          // Force chart update
-          nightVisionRef.current.update("data");
-          console.log(`✅ [Chart] Updated chart with historical data, new oldestTimestamp: ${new Date(newOldestTimestamp).toISOString()}`);
-        } else {
-          console.log(`⚠️ [Chart] No data structures found to update`);
-        }
+                 if (dataUpdated) {
+           // Update the oldest timestamp reference
+           const newOldestTimestamp = historicalCandles[0].timestamp;
+           oldestTimestampRef.current = newOldestTimestamp;
+           
+           // Force chart update
+           nightVisionRef.current.update("data");
+           console.log(`✅ [Chart] Updated chart with historical data, new oldestTimestamp: ${new Date(newOldestTimestamp).toISOString()}`);
+           
+           // ВАЖНО: Проверить нужно ли загрузить еще данных для заполнения буфера
+           setTimeout(async () => {
+             await checkAndLoadMoreIfNeeded(newOldestTimestamp);
+           }, 100); // Небольшая задержка для обновления графика
+         } else {
+           console.log(`⚠️ [Chart] No data structures found to update`);
+         }
 
       } catch (error) {
         console.error(`❌ [Chart] Failed to load historical data:`, error);
