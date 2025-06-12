@@ -376,8 +376,8 @@ export const createDataActions: StateCreator<
       
       const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
       
-             // Get optimal limit for this exchange (smaller limit for historical chunks)
-       const optimalLimit = Math.min(getOHLCVLimit(exchange), 100); // Max 100 candles per historical request
+             // Get optimal limit for this exchange (use maximum allowed by exchange)
+       const optimalLimit = getOHLCVLimit(exchange);
        logExchangeLimits(exchange, optimalLimit, 'ohlcv');
        
        // Calculate 'since' timestamp for CCXT (load data BEFORE beforeTimestamp)
@@ -422,11 +422,11 @@ export const createDataActions: StateCreator<
         }))
         .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp ascending
       
-      console.log(`✅ [loadHistoricalCandles] Loaded ${candles.length} historical candles (filtered from ${ohlcvData.length}) for ${exchange}:${market}:${symbol}:${timeframe} before ${new Date(beforeTimestamp).toISOString()}`);
-      
-      if (candles.length > 0) {
-        console.log(`📊 [loadHistoricalCandles] Historical data range: ${new Date(candles[0].timestamp).toISOString()} → ${new Date(candles[candles.length - 1].timestamp).toISOString()}`);
-      }
+             console.log(`✅ [loadHistoricalCandles] Loaded ${candles.length} historical candles (filtered from ${ohlcvData.length}, limit=${optimalLimit}) for ${exchange}:${market}:${symbol}:${timeframe} before ${new Date(beforeTimestamp).toISOString()}`);
+       
+       if (candles.length > 0) {
+         console.log(`📊 [loadHistoricalCandles] Historical data range: ${new Date(candles[0].timestamp).toISOString()} → ${new Date(candles[candles.length - 1].timestamp).toISOString()}`);
+       }
       
       // DO NOT save to store - return directly for chart infinite scroll
       return candles;
