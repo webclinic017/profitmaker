@@ -815,11 +815,18 @@ const Chart: React.FC<ChartProps> = ({
         <>
           {/* Chart Container */}
           <div className="flex-1 relative">
-            {/* Timeframe Selector - Absolutely positioned */}
-            <TimeframeSelect 
-              value={timeframe}
-              onChange={handleTimeframeChange}
-            />
+                    {/* Timeframe Selector - Absolutely positioned */}
+        <TimeframeSelect
+          value={timeframe}
+          onChange={handleTimeframeChange}
+          exchange={exchange}
+        />
+        {/* Debug: Show current exchange */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="absolute top-4 left-4 text-xs text-terminal-muted bg-terminal-bg/80 px-2 py-1 rounded">
+            Exchange: {exchange || 'undefined'}
+          </div>
+        )}
         
         <div 
           ref={chartRef} 

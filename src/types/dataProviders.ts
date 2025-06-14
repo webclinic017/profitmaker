@@ -31,7 +31,7 @@ export interface OrderBook {
 export type DataType = 'candles' | 'trades' | 'orderbook';
 
 // Supported timeframes for candles
-export type Timeframe = '1m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' | '1M';
+export type Timeframe = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '6h' | '12h' | '1d' | '1w' | '1M';
 
 // Market types
 export type MarketType = 'spot' | 'futures';

@@ -74,6 +74,9 @@ export interface DataProviderActions {
   getMarketsForExchange: (exchange: string) => Promise<string[]>;
   getAllSupportedExchanges: () => string[];
   
+  // NEW: Get timeframes from provider
+  getTimeframesForExchange: (exchange: string) => Timeframe[];
+  
   // Data fetch settings management
   setDataFetchMethod: (method: DataFetchMethod) => Promise<void>;
   setRestInterval: (dataType: DataType, interval: number) => void;
