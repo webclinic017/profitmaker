@@ -203,17 +203,16 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
                 {safeExchanges.find(ex => ex.id === exchange)?.name || exchange}
               </div>
             ) : (
-              <Select value={exchange} onValueChange={onExchangeChange}>
-                <SelectTrigger className="h-8">
-                  <SelectValue />
-                  {exchangesLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                </SelectTrigger>
-                <SelectContent>
-                  {safeExchanges.map(ex => (
-                    <SelectItem key={ex.id} value={ex.id}>{ex.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={exchange}
+                onValueChange={onExchangeChange}
+                options={safeExchanges.map(ex => ex.id)}
+                placeholder="Select exchange..."
+                searchPlaceholder="Search exchanges..."
+                loading={exchangesLoading}
+                className="h-8"
+                optionLabels={safeExchanges.reduce((acc, ex) => ({ ...acc, [ex.id]: ex.name }), {})}
+              />
             )}
           </div>
 
@@ -252,9 +251,10 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
               value={symbol}
               onValueChange={onSymbolChange}
               options={availableSymbols}
-              placeholder="Выберите символ..."
+              placeholder="Select symbol..."
               loading={symbolsLoading}
               className="h-8"
+              searchPlaceholder="Search symbols..."
             />
           )}
         </div>

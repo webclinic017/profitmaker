@@ -8,19 +8,23 @@ interface SearchableSelectProps {
   onValueChange: (value: string) => void;
   options: string[];
   placeholder?: string;
+  searchPlaceholder?: string;
   loading?: boolean;
   className?: string;
   disabled?: boolean;
+  optionLabels?: Record<string, string>; // Для отображения человекочитаемых названий
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   value,
   onValueChange,
   options,
-  placeholder = "Выберите опцию...",
+  placeholder = "Select option...",
+  searchPlaceholder = "Search options...",
   loading = false,
   className,
-  disabled = false
+  disabled = false,
+  optionLabels = {}
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,10 +37,12 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     if (!searchQuery.trim()) return options;
     
     const query = searchQuery.toLowerCase();
-    return options.filter(option => 
-      option.toLowerCase().includes(query)
-    );
-  }, [options, searchQuery]);
+    return options.filter(option => {
+      const label = optionLabels[option] || option;
+      return option.toLowerCase().includes(query) || 
+             label.toLowerCase().includes(query);
+    });
+  }, [options, searchQuery, optionLabels]);
 
   // Виртуализация для больших списков (>100 элементов)
   const shouldUseVirtualization = filteredOptions.length > 100;
@@ -102,7 +108,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           "truncate",
           !value && "text-muted-foreground"
         )}>
-          {value || placeholder}
+          {value ? (optionLabels[value] || value) : placeholder}
         </span>
         <div className="flex items-center gap-1">
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -125,7 +131,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Поиск символов..."
+                placeholder={searchPlaceholder}
                 className="w-full pl-8 pr-3 py-1.5 text-sm bg-background border border-input rounded focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
@@ -142,7 +148,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           >
             {filteredOptions.length === 0 ? (
               <div className="p-3 text-sm text-muted-foreground text-center">
-                {searchQuery ? 'Ничего не найдено' : 'Нет доступных опций'}
+                {searchQuery ? 'Nothing found' : 'No options available'}
               </div>
             ) : shouldUseVirtualization ? (
               // Виртуализированный список для больших данных
@@ -178,7 +184,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                           isSelected && "bg-accent text-accent-foreground font-medium"
                         )}
                       >
-                        {option}
+                        {optionLabels[option] || option}
                       </button>
                     </div>
                   );
@@ -200,7 +206,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                       isSelected && "bg-accent text-accent-foreground font-medium"
                     )}
                   >
-                    {option}
+                    {optionLabels[option] || option}
                   </button>
                 );
               })
@@ -210,11 +216,11 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           {/* Footer с информацией */}
           {filteredOptions.length > 0 && (
             <div className="px-3 py-1.5 border-t border-border text-xs text-muted-foreground">
-              {searchQuery ? (
-                `Найдено: ${filteredOptions.length} из ${options.length}`
-              ) : (
-                `Всего: ${options.length} символов${shouldUseVirtualization ? ' (виртуализация)' : ''}`
-              )}
+                             {searchQuery ? (
+                 `Found: ${filteredOptions.length} of ${options.length}`
+               ) : (
+                 `Total: ${options.length} options`
+               )}
             </div>
           )}
         </div>
