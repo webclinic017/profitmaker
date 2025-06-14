@@ -174,7 +174,7 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
 
   const handleSubscribe = async () => {
     if (!isInstrumentSelected) {
-      updateWidget(widgetId, { error: 'Инструмент не выбран' });
+      updateWidget(widgetId, { error: 'No instrument selected' });
       return;
     }
 
@@ -229,8 +229,8 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
   if (!isInstrumentSelected) {
     return (
       <div className="p-4 text-center text-terminal-muted">
-        <div className="text-lg font-medium mb-2">Инструмент не выбран</div>
-        <div className="text-sm">Сначала выберите торговый инструмент в селекторе</div>
+        <div className="text-lg font-medium mb-2">No instrument selected</div>
+        <div className="text-sm">Please select a trading instrument in the selector</div>
       </div>
     );
   }

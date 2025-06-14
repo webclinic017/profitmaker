@@ -785,8 +785,8 @@ const Chart: React.FC<ChartProps> = ({
       {!isInstrumentSelected ? (
         <div className="flex-1 flex items-center justify-center bg-terminal-bg">
           <div className="text-center text-terminal-muted">
-            <div className="text-lg font-medium mb-2">Инструмент не выбран</div>
-            <div className="text-sm">Сначала выберите торговый инструмент в селекторе выше</div>
+            <div className="text-lg font-medium mb-2">No instrument selected</div>
+            <div className="text-sm">Please select a trading instrument in the selector above</div>
           </div>
         </div>
       ) : (
