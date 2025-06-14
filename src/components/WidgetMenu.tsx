@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
+import { useGroupStore } from '@/store/groupStore';
 import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp } from 'lucide-react';
 
 type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactionHistory' | 'custom' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs';
@@ -13,6 +14,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   const addWidget = useDashboardStore(s => s.addWidget);
   const activeDashboardId = useDashboardStore(s => s.activeDashboardId);
   const getActiveDashboard = useDashboardStore(s => s.getActiveDashboard);
+  const { getTransparentGroup } = useGroupStore();
   const menuRef = useRef<HTMLDivElement>(null);
   
   // Debug logging for widget menu
@@ -110,6 +112,13 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     ];
     const shouldHideGroupSelector = widgetsWithoutGroupSelector.includes(type);
     
+    // Widgets that need transparent group by default (trading widgets)
+    const widgetsNeedingTransparentGroup = ['chart', 'orderForm', 'orderbook', 'trades'];
+    const transparentGroup = getTransparentGroup();
+    const defaultGroupId = widgetsNeedingTransparentGroup.includes(type) && transparentGroup 
+      ? transparentGroup.id 
+      : undefined;
+    
     addWidget(activeDashboardId, {
       type,
       title: widgetTitles[type], // deprecated
@@ -117,6 +126,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       userTitle: undefined,
       position: { x, y, width: size.width, height: size.height, zIndex: newZIndex },
       config: {},
+      groupId: defaultGroupId, // Set transparent group for trading widgets
       showGroupSelector: !shouldHideGroupSelector, // Hide group selector for widgets that don't need it
       isVisible: true,
       isMinimized: false

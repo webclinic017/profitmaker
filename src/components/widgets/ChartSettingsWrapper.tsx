@@ -20,9 +20,10 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
   } = useDataProviderStore();
   
   // Group store integration - единый источник данных о выбранном инструменте
-  const { getGroupById, selectedGroupId: globalSelectedGroupId } = useGroupStore();
+  const { getGroupById, selectedGroupId: globalSelectedGroupId, getTransparentGroup } = useGroupStore();
   const currentGroupId = selectedGroupId || globalSelectedGroupId;
-  const selectedGroup = currentGroupId ? getGroupById(currentGroupId) : undefined;
+  // Fallback to transparent group if no group is selected
+  const selectedGroup = currentGroupId ? getGroupById(currentGroupId) : getTransparentGroup();
 
   // Проверка полноты выбранного инструмента
   const isInstrumentSelected = selectedGroup && 

@@ -152,7 +152,15 @@ export const useGroupStore = create<GroupStore>()(
         const { groups } = get();
         if (groups.length === 0) {
           const defaultGroups: CreateGroupData[] = [
-            { name: 'Transparent', color: 'transparent' }, // transparent group by default
+            { 
+              name: 'Transparent', 
+              color: 'transparent',
+              // Initialize transparent group with default instrument data
+              account: 'suenot@gmail.com',
+              exchange: 'binance',
+              market: 'spot',
+              tradingPair: 'BTC/USDT'
+            }, // transparent group with default instrument
             { name: 'Cyan', color: '#00BCD4' },
             { name: 'Red', color: '#F44336' },
             { name: 'Purple', color: '#9C27B0' },
@@ -165,6 +173,19 @@ export const useGroupStore = create<GroupStore>()(
           defaultGroups.forEach(groupData => {
             get().createGroup(groupData);
           });
+          
+          // Set transparent group as selected by default
+          const transparentGroup = get().getTransparentGroup();
+          if (transparentGroup) {
+            set({ selectedGroupId: transparentGroup.id });
+            console.log(`🎯 [GroupStore] Initialized transparent group as selected:`, {
+              id: transparentGroup.id,
+              account: transparentGroup.account,
+              exchange: transparentGroup.exchange,
+              market: transparentGroup.market,
+              tradingPair: transparentGroup.tradingPair
+            });
+          }
         }
       },
     }),
