@@ -227,7 +227,7 @@ const Chart: React.FC<ChartProps> = ({
       }
       setIsChartInitialized(false);
     };
-  }, [isInstrumentSelected, exchange, symbol, timeframe, market, chartColors, chartDimensions]);
+  }, [isInstrumentSelected, exchange, symbol, timeframe, market, chartColors]);
 
           // REST data initialization
   useEffect(() => {
@@ -581,7 +581,7 @@ const Chart: React.FC<ChartProps> = ({
       clearTimeout(timeoutId);
       console.log(`🧹 [Chart] Cleared pending resize timeout`);
     };
-  }, [chartDimensions]);
+  }, [chartDimensions, isChartInitialized, chartColors]);
 
   // Event-driven chart updates (заменяем polling на events из store)
   const chartUpdateListener = useCallback((event: ChartUpdateEvent) => {
