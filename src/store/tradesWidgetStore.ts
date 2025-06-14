@@ -24,8 +24,8 @@ const defaultTradesState: TradesWidgetState = {
   isSubscribed: false,
   isLoading: false,
   error: null,
-  showTableHeader: true,
-  showStats: true,
+  showTableHeader: false,   // По умолчанию заголовки выключены
+  showStats: false,         // По умолчанию статистика выключена
 };
 
 export const useTradesWidgetsStore = create<TradesWidgetsStore>((set, get) => ({

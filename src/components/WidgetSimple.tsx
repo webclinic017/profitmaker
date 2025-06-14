@@ -577,7 +577,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
       {!isCollapsed && (
         <div className={cn(
           "h-[calc(100%-40px)] overflow-auto bg-terminal-bg",
-          widgetType === 'chart' ? '' : 'p-3'
+          widgetType === 'chart' || widgetType === 'trades' ? '' : 'p-3'
         )}>
           {children}
         </div>
