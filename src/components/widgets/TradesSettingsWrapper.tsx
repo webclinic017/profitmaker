@@ -88,10 +88,10 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
             />
           </div>
 
-          {/* Показывать заголовки таблицы */}
+          {/* Show Table Header */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label className="text-xs text-terminal-muted">Показывать заголовки таблицы</Label>
+              <Label className="text-xs text-terminal-muted">Show Table Header</Label>
             </div>
             <Switch
               checked={widgetState.showTableHeader}
@@ -99,10 +99,10 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
             />
           </div>
 
-          {/* Показывать статистику */}
+          {/* Show Statistics */}
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <Label className="text-xs text-terminal-muted">Показывать статистику</Label>
+              <Label className="text-xs text-terminal-muted">Show Statistics</Label>
             </div>
             <Switch
               checked={widgetState.showStats}

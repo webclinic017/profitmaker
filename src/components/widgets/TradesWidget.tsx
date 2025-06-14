@@ -395,7 +395,7 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
       )}
 
       {/* Таблица трейдов */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <VirtualizedTradesList
           trades={processedTrades}
           currentSubscription={currentSubscription}
@@ -405,7 +405,7 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
 
       {/* Footer Statistics */}
       {widgetState.showStats && processedTrades.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 text-xs flex-shrink-0 flex-grow-0">
+        <div className="grid grid-cols-4 gap-2 text-xs flex-shrink-0 mt-2 border-t border-white/10 pt-2">
           <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
             <div className="flex items-center gap-1 text-terminal-muted">
               <Hash className="h-3 w-3" />
@@ -451,8 +451,9 @@ const VirtualizedTradesList: React.FC<{
   const virtualizer = useVirtualizer({
     count: trades.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 60, // Fixed height for each trade item
+    estimateSize: () => 20, // Ultra compact rows
     overscan: 5, // Render 5 extra items outside visible area
+    measureElement: undefined, // Force recalculation
   });
 
   const formatPrice = (price: number): string => {
@@ -473,6 +474,11 @@ const VirtualizedTradesList: React.FC<{
     return volume.toFixed(2);
   };
 
+  const formatNumberWithSpaces = (value: number): string => {
+    return value
+      .toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
   if (trades.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center text-terminal-muted">
@@ -490,22 +496,22 @@ const VirtualizedTradesList: React.FC<{
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full flex flex-col">
       {showTableHeader && (
-        <div className="grid grid-cols-4 text-xs font-medium text-terminal-muted select-none">
+        <div className="grid grid-cols-4 text-xs font-medium text-terminal-muted select-none py-1 px-2 border-b border-white/10 flex-shrink-0">
           <div className="flex items-center gap-1">
             <Clock className="h-3 w-3" />
             <span>Time</span>
           </div>
           <div className="text-right">Price</div>
-          <div className="text-right">Amount</div>
-          <div className="text-right">Volume</div>
+          <div className="text-right">Size</div>
+          <div className="text-right">Total</div>
         </div>
       )}
       <div
         ref={parentRef}
-        className="overflow-auto"
-        style={{ height: '100%' }}
+        className="overflow-auto flex-1"
+        style={{ minHeight: 0 }}
       >
         <div
           style={{
@@ -516,6 +522,8 @@ const VirtualizedTradesList: React.FC<{
         >
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const trade = trades[virtualRow.index];
+            const isBuy = trade.side === 'buy';
+            const isSell = trade.side === 'sell';
             return (
               <div
                 key={virtualRow.index}
@@ -524,24 +532,29 @@ const VirtualizedTradesList: React.FC<{
                   top: 0,
                   left: 0,
                   width: '100%',
-                  height: virtualRow.size,
+                  height: '20px !important',
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <div className="grid grid-cols-4 text-xs font-mono">
-                  <div className="text-terminal-muted">
+                <div
+                  className={[
+                    'grid grid-cols-4 text-xs font-mono px-2 hover:bg-white/5',
+                    isBuy ? 'bg-green-900/20' : '',
+                    isSell ? 'bg-red-900/20' : '',
+                  ].join(' ')}
+                  style={{ height: '20px !important', lineHeight: '20px !important', minHeight: '20px !important', maxHeight: '20px !important' }}
+                >
+                  <div className="text-terminal-muted flex items-center">
                     {formatTime(trade.timestamp)}
                   </div>
-                  <div className={`text-right ${
-                    trade.side === 'buy' ? 'text-green-500' : 'text-red-500'
-                  }`}>
-                    {formatPrice(trade.price)}
+                  <div className={`text-right flex items-center justify-end ${isBuy ? 'text-green-500' : isSell ? 'text-red-500' : ''}`}>
+                    {formatNumberWithSpaces(trade.price)}
                   </div>
-                  <div className="text-right text-terminal-text">
-                    {formatAmount(trade.amount)}
+                  <div className="text-right text-terminal-text flex items-center justify-end">
+                    {formatNumberWithSpaces(trade.amount)}
                   </div>
-                  <div className="text-right text-terminal-muted">
-                    {formatVolume(trade.price * trade.amount)}
+                  <div className={`text-right flex items-center justify-end ${isBuy ? 'text-green-500' : isSell ? 'text-red-500' : 'text-terminal-muted'}`}> 
+                    {formatNumberWithSpaces(trade.price * trade.amount)}
                   </div>
                 </div>
               </div>
