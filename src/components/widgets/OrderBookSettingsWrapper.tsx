@@ -5,9 +5,12 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
-import { BookOpen, TrendingUp, TrendingDown, BarChart } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { BookOpen, TrendingUp, TrendingDown, BarChart, Play, Pause, RefreshCw } from 'lucide-react';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { useOrderBookWidgetsStore } from '../../store/orderBookWidgetStore';
+import { useGroupStore } from '../../store/groupStore';
+import { MarketType } from '../../types/dataProviders';
 
 interface OrderBookSettingsWrapperProps {
   widgetId: string;
@@ -17,6 +20,7 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
   const { 
     subscribe, 
     unsubscribe, 
+    initializeOrderBookData,
     providers,
     activeProviderId,
     dataFetchSettings,
@@ -24,14 +28,18 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
   } = useDataProviderStore();
 
   const { getWidget, updateWidget, setWidgetSettings } = useOrderBookWidgetsStore();
+  const { getGroupById, selectedGroupId: globalSelectedGroupId, getTransparentGroup } = useGroupStore();
   
   const widget = getWidget(widgetId);
 
-  // Use widget state from store
+  // Get instrument data from selectedGroup (like Chart and Trades widgets)
+  const selectedGroup = getGroupById(globalSelectedGroupId);
+  const exchange = selectedGroup?.exchange || 'binance';
+  const symbol = selectedGroup?.tradingPair || 'BTC/USDT';
+  const market = (selectedGroup?.market as MarketType) || 'spot';
+
+  // Use widget settings from store
   const {
-    exchange,
-    symbol,
-    market,
     displayDepth,
     showCumulative,
     priceDecimals,
@@ -52,46 +60,40 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
     );
   }, [activeSubscriptions, exchange, symbol, market]);
 
-  // Handle subscription
-  useEffect(() => {
-    if (isSubscribed && activeProviderId) {
-      const subscriberId = `${widgetId}-settings`;
-      
-      subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
-      console.log(`📊 OrderBook Settings: subscribed to data: ${exchange} ${symbol} ${market} market`);
-
-      return () => {
-        unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
-        console.log(`📊 OrderBook Settings: unsubscribed from data: ${exchange} ${symbol} ${market} market`);
-      };
-    }
-  }, [isSubscribed, exchange, symbol, market, activeProviderId, subscribe, unsubscribe, widgetId]);
-
+  // Subscription handlers
   const handleSubscribe = async () => {
     if (!activeProviderId) {
-      console.error('❌ No active provider');
+      updateWidget(widgetId, { error: 'No active provider' });
       return;
     }
 
     try {
-      updateWidget(widgetId, { isSubscribed: true, isLoading: true, error: null });
+      updateWidget(widgetId, { isLoading: true, error: null });
       
+      // Initialize with REST data first
+      console.log(`🚀 [OrderBook-${widgetId}] Initializing orderbook data via REST`);
+      const initialOrderBook = await initializeOrderBookData(exchange, symbol, market);
+      
+      // Start WebSocket subscription
       const subscriberId = `${widgetId}-settings`;
-      const result = await subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
+      const subscriptionResult = await subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market);
       
-      if (result.success) {
-        updateWidget(widgetId, { isLoading: false });
+      if (subscriptionResult.success) {
+        updateWidget(widgetId, { 
+          isSubscribed: true, 
+          isLoading: false, 
+          error: null 
+        });
+        console.log(`✅ [OrderBook-${widgetId}] Subscription successful`);
       } else {
         updateWidget(widgetId, { 
-          error: result.error || 'Subscription failed',
-          isLoading: false,
-          isSubscribed: false
+          isSubscribed: false, 
+          isLoading: false, 
+          error: subscriptionResult.error || 'Subscription failed' 
         });
       }
-      
-      console.log(`🚀 Starting orderbook subscription from settings: ${exchange} ${symbol}`);
     } catch (error) {
-      console.error('❌ Error subscribing to orderbook from settings:', error);
+      console.error('❌ Error in orderbook subscription:', error);
       updateWidget(widgetId, { 
         error: error instanceof Error ? error.message : 'Subscription failed',
         isLoading: false,
@@ -101,8 +103,10 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
   };
 
   const handleUnsubscribe = () => {
+    const subscriberId = `${widgetId}-settings`;
+    unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market);
     updateWidget(widgetId, { isSubscribed: false });
-    console.log(`🛑 Stopping orderbook subscription from settings: ${exchange} ${symbol}`);
+    console.log(`🛑 [OrderBook-${widgetId}] Unsubscribed`);
   };
 
   const formatTime = (timestamp: number): string => {
@@ -111,84 +115,49 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
 
   return (
     <div className="space-y-6 text-terminal-text">
-      {/* Connection Settings */}
+      {/* Data Connection */}
       <div className="space-y-4">
         <div>
-          <Label className="text-sm font-medium text-terminal-text">Connection Settings</Label>
-          <p className="text-xs text-terminal-muted">Configure data source for order book</p>
+          <Label className="text-sm font-medium text-terminal-text">Data Connection</Label>
+          <p className="text-xs text-terminal-muted">Control real-time orderbook data subscription</p>
         </div>
-
+        
         <div className="space-y-3">
-          <div>
-            <Label className="text-sm text-terminal-text">Exchange</Label>
-            <Input
-              value={exchange}
-              onChange={(e) => setWidgetSettings(widgetId, { 
-                ...widget, 
-                exchange: e.target.value 
-              })}
-              placeholder="binance"
-              disabled={isSubscribed}
-              className="bg-terminal-widget border-terminal-border text-terminal-text"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm text-terminal-text">Trading pair</Label>
-            <Input
-              value={symbol}
-              onChange={(e) => setWidgetSettings(widgetId, { 
-                ...widget, 
-                symbol: e.target.value 
-              })}
-              placeholder="BTC/USDT"
-              disabled={isSubscribed}
-              className="bg-terminal-widget border-terminal-border text-terminal-text"
-            />
-          </div>
-
-          <div>
-            <Label className="text-sm text-terminal-text">Market</Label>
-            <Select 
-              value={market} 
-              onValueChange={(value) => setWidgetSettings(widgetId, { 
-                ...widget, 
-                market: value 
-              })}
-              disabled={isSubscribed}
-            >
-              <SelectTrigger className="bg-terminal-widget border-terminal-border">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="spot">Spot</SelectItem>
-                <SelectItem value="future">Futures</SelectItem>
-                <SelectItem value="margin">Margin</SelectItem>
-                <SelectItem value="option">Options</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {!isSubscribed ? (
-              <Button 
-                onClick={handleSubscribe} 
-                className="flex-1" 
-                disabled={!activeProviderId}
-                variant="outline"
-              >
-                {activeProviderId ? 'Subscribe to orderbook' : 'No active provider'}
-              </Button>
-            ) : (
-              <Button 
-                onClick={handleUnsubscribe} 
-                variant="destructive" 
-                className="flex-1"
-              >
-                Unsubscribe
-              </Button>
+          <div className="flex items-center gap-3">
+            {currentSubscription && (
+              <Badge variant="outline" className="text-xs">
+                Method: {currentSubscription.method === 'websocket' 
+                  ? 'WebSocket' 
+                  : currentSubscription.isFallback 
+                    ? 'REST (fallback)'
+                    : 'REST'
+                }
+              </Badge>
             )}
+            
+            <Button
+              onClick={isSubscribed ? handleUnsubscribe : handleSubscribe}
+              disabled={isLoading || !activeProviderId}
+              size="sm"
+              variant={isSubscribed ? "destructive" : "default"}
+              className="flex items-center gap-2"
+            >
+              {isLoading ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : isSubscribed ? (
+                <Pause className="w-3 h-3" />
+              ) : (
+                <Play className="w-3 h-3" />
+              )}
+              {isLoading ? 'Loading...' : isSubscribed ? 'Disconnect' : 'Connect'}
+            </Button>
           </div>
+          
+          {error && (
+            <div className="text-red-400 text-sm bg-red-50 dark:bg-red-950/20 p-2 rounded">
+              {error}
+            </div>
+          )}
 
           {/* Connection Status */}
           {isSubscribed && currentSubscription && (
@@ -199,7 +168,7 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
             }`}>
               <div className="flex items-center justify-between">
                 <span>
-                  📡 Fetch method: <strong>
+                  📡 Method: <strong>
                     {currentSubscription.method === 'websocket' 
                       ? 'WebSocket (real-time)' 
                       : currentSubscription.isFallback 
@@ -213,14 +182,14 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
               
               {currentSubscription.isFallback && (
                 <div className="text-orange-600 bg-orange-100 p-1 rounded text-xs">
-                  ⚠️ WebSocket unavailable for this exchange/pair, using REST as fallback method
+                  ⚠️ WebSocket unavailable for this exchange/pair, using REST as fallback
                 </div>
               )}
               
               {currentSubscription.method === 'rest' && (
                 <div>⏱️ Update interval: <strong>{dataFetchSettings.restIntervals.orderbook}ms</strong></div>
               )}
-              <div>👥 Subscribers to this data: <strong>{currentSubscription.subscriberCount}</strong></div>
+              <div>👥 Subscribers: <strong>{currentSubscription.subscriberCount}</strong></div>
               {currentSubscription.lastUpdate > 0 && (
                 <div>🕐 Last update: <strong>{formatTime(currentSubscription.lastUpdate)}</strong></div>
               )}
@@ -242,6 +211,13 @@ const OrderBookSettingsWrapper: React.FC<OrderBookSettingsWrapperProps> = ({ wid
               ⚠️ Subscription is being created... Please wait for connection.
             </div>
           )}
+
+          {/* Instrument Info */}
+          <div className="text-xs text-terminal-muted bg-terminal-widget/50 p-2 rounded">
+            <div><strong>Exchange:</strong> {exchange}</div>
+            <div><strong>Symbol:</strong> {symbol}</div>
+            <div><strong>Market:</strong> {market}</div>
+          </div>
         </div>
       </div>
 

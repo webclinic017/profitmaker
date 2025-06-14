@@ -21,6 +21,9 @@ export interface DataActions {
   // REST data initialization for Trades widgets
   initializeTradesData: (exchange: string, symbol: string, market: MarketType, limit?: number, aggregated?: boolean) => Promise<Trade[]>;
   
+  // REST data initialization for OrderBook widgets
+  initializeOrderBookData: (exchange: string, symbol: string, market: MarketType) => Promise<OrderBook>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
@@ -123,7 +126,7 @@ export const createDataActions: StateCreator<
     const state = get();
     const result = state.marketData.orderbook[exchange]?.[market]?.[symbol] || null;
     
-    console.log(`🔍 [getOrderBook] Requesting data for ${exchange}:${market}:${symbol}:`, {
+    console.log(`🔍 [OrderBook] Requesting data for ${exchange}:${market}:${symbol}:`, {
       exchange,
       market,
       symbol,
@@ -249,7 +252,7 @@ export const createDataActions: StateCreator<
   },
 
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market: MarketType = 'spot') => {
-    console.log(`💾 [updateOrderBook] Saving data for ${exchange}:${market}:${symbol}:`, {
+    console.log(`💾 [OrderBook] Saving data for ${exchange}:${market}:${symbol}:`, {
       exchange,
       market,
       symbol,
@@ -268,7 +271,7 @@ export const createDataActions: StateCreator<
       }
       state.marketData.orderbook[exchange][market][symbol] = orderbook;
       
-      console.log(`✅ [updateOrderBook] Data saved to state:`, {
+      console.log(`✅ [OrderBook] Data saved to state:`, {
         exchange,
         market,
         symbol,
@@ -410,6 +413,57 @@ export const createDataActions: StateCreator<
       
     } catch (error) {
       console.error(`❌ [initializeTradesData] Failed to load trades:`, error);
+      throw error;
+    }
+  },
+
+  // REST data initialization for OrderBook widgets
+  initializeOrderBookData: async (exchange: string, symbol: string, market: MarketType): Promise<OrderBook> => {
+    // Get optimal provider for this exchange
+    const provider = get().getProviderForExchange(exchange);
+    
+    if (!provider) {
+      throw new Error(`No suitable provider found for exchange ${exchange}`);
+    }
+    
+    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
+      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
+    }
+    
+    console.log(`🚀 [OrderBook] Loading initial orderbook for ${exchange}:${market}:${symbol} using provider ${provider.id}`);
+    
+    try {
+      // Use CCXT utilities
+      const ccxt = getCCXT();
+      
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      
+      // Load orderbook via REST
+      const orderbookData = await exchangeInstance.fetchOrderBook(symbol);
+      
+      if (!orderbookData) {
+        throw new Error('No orderbook data received from exchange');
+      }
+      
+      if (!orderbookData.bids || !orderbookData.asks || 
+          !Array.isArray(orderbookData.bids) || !Array.isArray(orderbookData.asks)) {
+        throw new Error('Invalid orderbook data format received');
+      }
+      
+      console.log(`✅ [OrderBook] Loaded orderbook for ${exchange}:${market}:${symbol} (bids: ${orderbookData.bids.length}, asks: ${orderbookData.asks.length})`);
+      
+      // Save orderbook to store AND return it
+      get().updateOrderBook(exchange, symbol, orderbookData, market);
+      console.log(`💾 [OrderBook] OrderBook saved to store for ${exchange}:${market}:${symbol}`);
+      
+      return orderbookData;
+      
+    } catch (error) {
+      console.error(`❌ [OrderBook] Failed to load orderbook:`, error);
       throw error;
     }
   },

@@ -97,6 +97,9 @@ export interface DataProviderActions {
   // REST data initialization for Trades widgets
   initializeTradesData: (exchange: string, symbol: string, market: MarketType, limit?: number, aggregated?: boolean) => Promise<Trade[]>;
   
+  // REST data initialization for OrderBook widgets
+  initializeOrderBookData: (exchange: string, symbol: string, market: MarketType) => Promise<OrderBook>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   

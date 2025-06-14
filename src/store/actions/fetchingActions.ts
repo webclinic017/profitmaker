@@ -258,24 +258,37 @@ export const createFetchingActions: StateCreator<
                     // For multiple pairs (returns object with pairs)
                     const multiOrderbook = await exchangeInstance.watchOrderBookForSymbols([symbol]);
                     orderbook = multiOrderbook[symbol];
-                    console.log(`📋 OrderBook (watchOrderBookForSymbols) received for ${exchange} ${symbol}`);
+                    console.log(`📋 [OrderBook] (watchOrderBookForSymbols) received for ${exchange} ${symbol}`);
+                    console.log(`🔍 [OrderBook] DEBUG multiOrderbook keys:`, Object.keys(multiOrderbook || {}));
+                    console.log(`🔍 [OrderBook] DEBUG orderbook for ${symbol}:`, orderbook ? 'exists' : 'null/undefined');
                     break;
                   case 'watchOrderBook':
                   default:
                     // Standard full orderbook
                     orderbook = await exchangeInstance.watchOrderBook(symbol);
-                    console.log(`📋 OrderBook (watchOrderBook) received for ${exchange} ${symbol}`);
+                    console.log(`📋 [OrderBook] (watchOrderBook) received for ${exchange} ${symbol}`);
+                    console.log(`🔍 [OrderBook] DEBUG orderbook:`, orderbook ? 'exists' : 'null/undefined');
                     break;
                 }
                 
+                console.log(`🔍 [OrderBook] DEBUG Final orderbook check:`, {
+                  hasOrderbook: !!orderbook,
+                  hasBids: orderbook?.bids?.length || 0,
+                  hasAsks: orderbook?.asks?.length || 0,
+                  timestamp: orderbook?.timestamp
+                });
+                
                 if (orderbook) {
-                  console.log(`📊 OrderBook data sample:`, {
+                  console.log(`📊 [OrderBook] Data sample:`, {
                     method: selectedMethod,
                     bids: orderbook.bids?.slice(0, 3),
                     asks: orderbook.asks?.slice(0, 3),
                     timestamp: orderbook.timestamp
                   });
+                  console.log(`🚀 [OrderBook] DEBUG Calling updateOrderBook for ${exchange}:${market}:${symbol}`);
                   get().updateOrderBook(exchange, symbol, orderbook, market);
+                } else {
+                  console.warn(`⚠️ [OrderBook] DEBUG OrderBook is null/undefined, not calling updateOrderBook`);
                 }
                 break;
             }
@@ -374,7 +387,7 @@ export const createFetchingActions: StateCreator<
             case 'orderbook':
               const orderbook = await exchangeInstance.fetchOrderBook(symbol);
               if (orderbook) {
-                console.log(`📋 OrderBook received via REST for ${exchange} ${symbol}:`, {
+                console.log(`📋 [OrderBook] Received via REST for ${exchange} ${symbol}:`, {
                   bids: orderbook.bids?.slice(0, 3),
                   asks: orderbook.asks?.slice(0, 3),
                   timestamp: orderbook.timestamp

@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { useOrderBookWidgetsStore } from '../../store/orderBookWidgetStore';
-import { OrderBook, OrderBookEntry } from '../../types/dataProviders';
+import { useGroupStore } from '../../store/groupStore';
+import { OrderBook, OrderBookEntry, MarketType } from '../../types/dataProviders';
 
 interface OrderBookWidgetV2Props {
   dashboardId?: string;
@@ -21,6 +23,7 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
     subscribe, 
     unsubscribe, 
     getOrderBook, 
+    initializeOrderBookData,
     providers,
     activeProviderId,
     dataFetchSettings,
@@ -28,14 +31,18 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
   } = useDataProviderStore();
 
   const { getWidget, updateWidget, setWidgetSettings } = useOrderBookWidgetsStore();
+  const { getGroupById, selectedGroupId: globalSelectedGroupId, getTransparentGroup } = useGroupStore();
   
   const widget = getWidget(widgetId);
   
-  // Use widget state from store
+  // Get instrument data from selectedGroup (like Chart and Trades widgets)
+  const selectedGroup = getGroupById(globalSelectedGroupId);
+  const exchange = selectedGroup?.exchange || 'binance';
+  const symbol = selectedGroup?.tradingPair || 'BTC/USDT';
+  const market = (selectedGroup?.market as MarketType) || 'spot';
+  
+  // Use widget settings from store
   const {
-    exchange,
-    symbol,
-    market,
     displayDepth,
     showCumulative,
     priceDecimals,
@@ -247,33 +254,130 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
     };
   }, [processedOrderBook]);
 
-  // Automatic data subscription (store manages the fetch method itself)
-  useEffect(() => {
-    if (isSubscribed && activeProviderId) {
-      const subscriberId = `${dashboardId}-${widgetId}`;
-      
-      // Just subscribe - store will decide whether to use REST or WebSocket, using market from store
-      subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
-      console.log(`📊 OrderBook widget subscribed to data: ${exchange} ${symbol} ${market} market (method: ${dataFetchSettings.method})`);
+  // Track subscription changes to restart when settings change
+  const previousSubscriptionRef = useRef<{
+    exchange: string;
+    symbol: string;
+    market: MarketType;
+  } | null>(null);
 
-      return () => {
-        unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market as any);
-        console.log(`📊 OrderBook widget unsubscribed from data: ${exchange} ${symbol} ${market} market`);
-      };
+  // REST data initialization and WebSocket subscription management
+  useEffect(() => {
+    if (!activeProviderId) {
+      console.log(`⏸️ [OrderBook-${widgetId}] No active provider, skipping initialization`);
+      return;
     }
-  }, [isSubscribed, exchange, symbol, market, activeProviderId, subscribe, unsubscribe, dashboardId, widgetId, dataFetchSettings.method]);
+
+    const currentSubscription = {
+      exchange,
+      symbol,
+      market
+    };
+
+    // Check if subscription parameters changed
+    const subscriptionChanged = !previousSubscriptionRef.current ||
+      previousSubscriptionRef.current.exchange !== exchange ||
+      previousSubscriptionRef.current.symbol !== symbol ||
+      previousSubscriptionRef.current.market !== market;
+
+    if (subscriptionChanged) {
+      console.log(`🔄 [OrderBook-${widgetId}] Subscription parameters changed:`, {
+        previous: previousSubscriptionRef.current,
+        current: currentSubscription
+      });
+
+      // Update loading state
+      updateWidget(widgetId, { isLoading: true, error: null });
+
+      // Initialize with REST data first
+      const initializeData = async () => {
+        try {
+          console.log(`🚀 [OrderBook-${widgetId}] Initializing orderbook data via REST for ${exchange}:${market}:${symbol}`);
+          
+          const initialOrderBook = await initializeOrderBookData(exchange, symbol, market);
+          
+          console.log(`✅ [OrderBook-${widgetId}] REST initialization completed:`, {
+            bids: initialOrderBook.bids.length,
+            asks: initialOrderBook.asks.length,
+            timestamp: initialOrderBook.timestamp
+          });
+
+          // Start WebSocket subscription for real-time updates
+          const subscriberId = `${dashboardId}-${widgetId}`;
+          const subscriptionResult = await subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market);
+          
+          if (subscriptionResult.success) {
+            updateWidget(widgetId, { 
+              isSubscribed: true, 
+              isLoading: false, 
+              error: null 
+            });
+            console.log(`📡 [OrderBook-${widgetId}] WebSocket subscription started for ${exchange}:${market}:${symbol}`);
+          } else {
+            updateWidget(widgetId, { 
+              isSubscribed: false, 
+              isLoading: false, 
+              error: subscriptionResult.error || 'Subscription failed' 
+            });
+            console.error(`❌ [OrderBook-${widgetId}] WebSocket subscription failed:`, subscriptionResult.error);
+          }
+
+        } catch (error) {
+          console.error(`❌ [OrderBook-${widgetId}] REST initialization failed:`, error);
+          updateWidget(widgetId, { 
+            isLoading: false, 
+            error: error instanceof Error ? error.message : 'Failed to load orderbook data' 
+          });
+        }
+      };
+
+      initializeData();
+      previousSubscriptionRef.current = currentSubscription;
+    }
+
+    // Cleanup function
+    return () => {
+      if (previousSubscriptionRef.current) {
+        const subscriberId = `${dashboardId}-${widgetId}`;
+        unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market);
+        console.log(`🧹 [OrderBook-${widgetId}] Cleaned up subscription for ${exchange}:${market}:${symbol}`);
+      }
+    };
+  }, [exchange, symbol, market, activeProviderId, widgetId, dashboardId, initializeOrderBookData, subscribe, unsubscribe, updateWidget]);
 
   const handleSubscribe = async () => {
     if (!activeProviderId) {
-      console.error('❌ No active provider');
+      updateWidget(widgetId, { error: 'No active provider' });
       return;
     }
 
     try {
-      updateWidget(widgetId, { isSubscribed: true, isLoading: true, error: null });
-      console.log(`🚀 Starting orderbook subscription: ${exchange} ${symbol}`);
+      updateWidget(widgetId, { isLoading: true, error: null });
+      
+      // Initialize with REST data first
+      console.log(`🚀 [OrderBook-${widgetId}] Manual subscription: Initializing orderbook data via REST`);
+      const initialOrderBook = await initializeOrderBookData(exchange, symbol, market);
+      
+      // Start WebSocket subscription
+      const subscriberId = `${dashboardId}-${widgetId}`;
+      const subscriptionResult = await subscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market);
+      
+      if (subscriptionResult.success) {
+        updateWidget(widgetId, { 
+          isSubscribed: true, 
+          isLoading: false, 
+          error: null 
+        });
+        console.log(`✅ [OrderBook-${widgetId}] Manual subscription successful`);
+      } else {
+        updateWidget(widgetId, { 
+          isSubscribed: false, 
+          isLoading: false, 
+          error: subscriptionResult.error || 'Subscription failed' 
+        });
+      }
     } catch (error) {
-      console.error('❌ Error subscribing to orderbook:', error);
+      console.error('❌ Error in manual orderbook subscription:', error);
       updateWidget(widgetId, { 
         error: error instanceof Error ? error.message : 'Subscription failed',
         isLoading: false,
@@ -283,8 +387,10 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
   };
 
   const handleUnsubscribe = () => {
+    const subscriberId = `${dashboardId}-${widgetId}`;
+    unsubscribe(subscriberId, exchange, symbol, 'orderbook', undefined, market);
     updateWidget(widgetId, { isSubscribed: false });
-    console.log(`🛑 Stopping orderbook subscription: ${exchange} ${symbol}`);
+    console.log(`🛑 [OrderBook-${widgetId}] Manual unsubscription`);
   };
 
   const formatPrice = (price: number): string => {
@@ -305,10 +411,103 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
     return new Date(timestamp).toLocaleTimeString();
   };
 
-  // Subscribe automatically on component mount
-  useEffect(() => {
-    handleSubscribe();
-  }, []);
+  // Virtualized Asks Component (sells - top)
+  const VirtualizedAsks = ({ asks }: { asks: any[] }) => {
+    const asksParentRef = useRef<HTMLDivElement>(null);
+    
+    const asksVirtualizer = useVirtualizer({
+      count: asks.length,
+      getScrollElement: () => asksParentRef.current,
+      estimateSize: () => 24, // Fixed height for compact design
+      measureElement: undefined, // Disable dynamic measurement for performance
+    });
+
+    return (
+      <div ref={asksParentRef} className="flex-1 overflow-auto">
+        <div
+          style={{
+            height: asksVirtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {asksVirtualizer.getVirtualItems().map((virtualRow) => {
+            const ask = asks[asks.length - 1 - virtualRow.index]; // Reverse order for asks
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '24px !important',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+                className="grid grid-cols-3 gap-2 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 border-l-2 border-red-500"
+              >
+                <div className="font-mono text-red-600 leading-none">{formatPrice(ask.price)}</div>
+                <div className="font-mono text-right leading-none">{formatAmount(ask.amount)}</div>
+                <div className="font-mono text-right text-gray-600 leading-none">
+                  {showCumulative ? formatAmount((ask as any).cumulative || 0) : formatVolume(ask.total)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Virtualized Bids Component (buys - bottom)
+  const VirtualizedBids = ({ bids }: { bids: any[] }) => {
+    const bidsParentRef = useRef<HTMLDivElement>(null);
+    
+    const bidsVirtualizer = useVirtualizer({
+      count: bids.length,
+      getScrollElement: () => bidsParentRef.current,
+      estimateSize: () => 24, // Fixed height for compact design
+      measureElement: undefined, // Disable dynamic measurement for performance
+    });
+
+    return (
+      <div ref={bidsParentRef} className="flex-1 overflow-auto">
+        <div
+          style={{
+            height: bidsVirtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {bidsVirtualizer.getVirtualItems().map((virtualRow) => {
+            const bid = bids[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '24px !important',
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+                className="grid grid-cols-3 gap-2 text-xs px-2 py-1 bg-green-50 hover:bg-green-100 border-l-2 border-green-500"
+              >
+                <div className="font-mono text-green-600 leading-none">{formatPrice(bid.price)}</div>
+                <div className="font-mono text-right leading-none">{formatAmount(bid.amount)}</div>
+                <div className="font-mono text-right text-gray-600 leading-none">
+                  {showCumulative ? formatAmount((bid as any).cumulative || 0) : formatVolume(bid.total)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+
 
   return (
     <div className="w-full h-full flex flex-col">
@@ -344,37 +543,17 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
             <div className="text-right">{showCumulative ? 'Cumul.' : 'Total'}</div>
           </div>
 
-          {/* Asks (sells) - top */}
-          <div className="flex-1 overflow-y-auto">
-            {processedOrderBook.asks.slice().reverse().map((ask, index) => (
-              <div key={`ask-${index}`} className="grid grid-cols-3 gap-2 text-xs p-1 bg-red-50 hover:bg-red-100 border-l-2 border-red-500">
-                <div className="font-mono text-red-600">{formatPrice(ask.price)}</div>
-                <div className="font-mono text-right">{formatAmount(ask.amount)}</div>
-                <div className="font-mono text-right text-gray-600">
-                  {showCumulative ? formatAmount((ask as any).cumulative || 0) : formatVolume(ask.total)}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Asks (sells) - top - Virtualized */}
+          <VirtualizedAsks asks={processedOrderBook.asks} />
 
           {/* Spread */}
-          <div className="bg-gray-100 p-2 text-center border-y border-gray-200">
+          <div className="bg-gray-100 p-2 text-center border-y border-gray-200 flex-shrink-0">
             <div className="text-xs text-gray-600">Spread: {formatPrice(processedOrderBook.spread)}</div>
             <div className="text-xs text-gray-500">({processedOrderBook.spreadPercent.toFixed(4)}%)</div>
           </div>
 
-          {/* Bids (buys) - bottom */}
-          <div className="flex-1 overflow-y-auto">
-            {processedOrderBook.bids.map((bid, index) => (
-              <div key={`bid-${index}`} className="grid grid-cols-3 gap-2 text-xs p-1 bg-green-50 hover:bg-green-100 border-l-2 border-green-500">
-                <div className="font-mono text-green-600">{formatPrice(bid.price)}</div>
-                <div className="font-mono text-right">{formatAmount(bid.amount)}</div>
-                <div className="font-mono text-right text-gray-600">
-                  {showCumulative ? formatAmount((bid as any).cumulative || 0) : formatVolume(bid.total)}
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Bids (buys) - bottom - Virtualized */}
+          <VirtualizedBids bids={processedOrderBook.bids} />
         </div>
       )}
     </div>
