@@ -60,6 +60,9 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
     return 'connected';
   };
 
+  // Определяем isSubscribed на основе currentSubscription для синхронизации
+  const isSubscribedFromSubscription = currentSubscription ? currentSubscription.isActive : false;
+
   // Handler for timeframe change (only editable setting)
   const handleTimeframeChange = (newTimeframe: Timeframe) => {
     // Остановить текущую подписку если есть
@@ -242,7 +245,7 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
       symbol={symbol}
       timeframe={timeframe}
       market={market}
-      isSubscribed={widget.isSubscribed}
+      isSubscribed={isSubscribedFromSubscription}
       isLoading={widget.isLoading}
       error={widget.error}
       dataFetchMethod={dataFetchSettings.method}
