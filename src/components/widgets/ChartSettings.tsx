@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -12,15 +12,22 @@ import { useExchangesList } from '../../hooks/useExchangesList';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { SearchableSelect } from '../ui/SearchableSelect';
 
-const TIMEFRAMES: { id: Timeframe; label: string }[] = [
-  { id: '1m', label: '1M' },
-  { id: '5m', label: '5M' },
-  { id: '15m', label: '15M' },
-  { id: '30m', label: '30M' },
-  { id: '1h', label: '1H' },
-  { id: '4h', label: '4H' },
-  { id: '1d', label: '1D' },
-];
+// Mapping timeframes to display labels (CCXT format - lowercase)
+const TIMEFRAME_LABELS: Record<Timeframe, string> = {
+  '1m': '1m',
+  '3m': '3m',
+  '5m': '5m',
+  '15m': '15m',
+  '30m': '30m',
+  '1h': '1h',
+  '2h': '2h',
+  '4h': '4h',
+  '6h': '6h',
+  '12h': '12h',
+  '1d': '1d',
+  '1w': '1w',
+  '1M': '1M',
+};
 
 interface ChartSettingsProps {
   exchange: string;
@@ -62,7 +69,37 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
 }) => {
   // Загружаем реальные данные из провайдеров с безопасной обработкой ошибок
   const { exchanges, loading: exchangesLoading, error: exchangesError } = useExchangesList();
-  const { getMarketsForExchange, getSymbolsForExchange } = useDataProviderStore();
+  const { getMarketsForExchange, getSymbolsForExchange, getTimeframesForExchange } = useDataProviderStore();
+
+  // Get available timeframes for current exchange (memoized)
+  const availableTimeframes = useMemo(() => {
+    if (!exchange) {
+      // Fallback timeframes when no exchange selected
+      const fallbackTimeframes: Timeframe[] = ['1m', '5m', '15m', '30m', '1h', '4h', '1d'];
+      return fallbackTimeframes.map(tf => ({
+        id: tf,
+        label: TIMEFRAME_LABELS[tf] || tf
+      }));
+    }
+    
+    console.log(`🎯 [ChartSettings] Getting timeframes for exchange: ${exchange}`);
+    const timeframes = getTimeframesForExchange(exchange);
+    console.log(`🎯 [ChartSettings] Received timeframes:`, timeframes);
+    
+    return timeframes.map(tf => ({
+      id: tf,
+      label: TIMEFRAME_LABELS[tf] || tf
+    }));
+  }, [exchange, getTimeframesForExchange]);
+
+  // Auto-switch timeframe if current one is not available for the exchange
+  useEffect(() => {
+    const availableTimeframeIds = availableTimeframes.map(tf => tf.id);
+    if (timeframe && !availableTimeframeIds.includes(timeframe)) {
+      console.log(`🔧 [ChartSettings] Current timeframe ${timeframe} not available for ${exchange}, switching to ${availableTimeframeIds[0]}`);
+      onTimeframeChange(availableTimeframeIds[0]);
+    }
+  }, [availableTimeframes, timeframe, exchange, onTimeframeChange]);
   
   // Fallback данные на случай ошибок
   const fallbackExchanges = [
@@ -266,7 +303,7 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {TIMEFRAMES.map(tf => (
+              {availableTimeframes.map(tf => (
                 <SelectItem key={tf.id} value={tf.id}>{tf.label}</SelectItem>
               ))}
             </SelectContent>
