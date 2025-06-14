@@ -199,7 +199,7 @@ const Chart: React.FC<ChartProps> = ({
       }
 
       // Create new NightVision instance with empty data
-      const chartId = `chart-${Date.now()}`;
+      const chartId = `chart-${dashboardId}-${widgetId}`;
       chartRef.current.id = chartId;
       nightVisionRef.current = new NightVision(chartId, {
         width: chartDimensions.width,
@@ -559,7 +559,7 @@ const Chart: React.FC<ChartProps> = ({
       }
       
       // Create new instance with new dimensions
-      const chartId = `chart-${Date.now()}`;
+      const chartId = `chart-${dashboardId}-${widgetId}`;
       if (chartRef.current) {
         chartRef.current.id = chartId;
         nightVisionRef.current = new NightVision(chartId, {

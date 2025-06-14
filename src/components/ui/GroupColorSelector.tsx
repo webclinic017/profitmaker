@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useGroupStore } from '../../store/groupStore';
 import { GroupColors } from '../../types/groups';
 
@@ -22,7 +22,8 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
     groups, 
     getGroupById, 
     getTransparentGroup,
-    initializeDefaultGroups
+    initializeDefaultGroups,
+    resetGroup
   } = useGroupStore();
 
   // Initialize groups on first render
@@ -35,6 +36,11 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
   const handleGroupSelect = (groupId: string | undefined) => {
     onGroupSelect(groupId);
     setIsOpen(false);
+  };
+
+  const handleGroupReset = (e: React.MouseEvent, groupId: string) => {
+    e.stopPropagation(); // Prevent group selection when clicking reset
+    resetGroup(groupId);
   };
 
   const handleButtonClick = (e: React.MouseEvent) => {
@@ -153,6 +159,16 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
                         </span>
                       )}
                     </div>
+                    {/* Reset button for configured groups */}
+                    {(group.account || group.exchange || group.market || group.tradingPair) && (
+                      <button
+                        onClick={(e) => handleGroupReset(e, group.id)}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-terminal-accent/30 transition-opacity flex-shrink-0"
+                        title="Reset group settings"
+                      >
+                        <X size={12} className="text-terminal-muted hover:text-terminal-text" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
