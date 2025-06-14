@@ -314,23 +314,8 @@ const Chart: React.FC<ChartProps> = ({
           setChartDataLoaded(true);
           console.log(`✅ [Chart] Initial data loaded: ${candles.length} candles`);
           
-          // АВТОМАТИЧЕСКАЯ WS ПОДПИСКА после успешной загрузки REST данных
-          if (activeProviderId && !isSubscribed) {
-            try {
-              console.log(`🚀 [Chart] Starting automatic WS subscription after REST load`);
-              const subscriberId = `${dashboardId}-${widgetId}`;
-              const result = await subscribe(subscriberId, exchange, symbol, 'candles', timeframe, market);
-              
-              if (result.success) {
-                setIsSubscribed(true);
-                console.log(`✅ [Chart] Automatic WS subscription started successfully`);
-              } else {
-                console.warn(`⚠️ [Chart] Automatic WS subscription failed: ${result.error}`);
-              }
-            } catch (subscribeError) {
-              console.warn(`⚠️ [Chart] Failed to start automatic WS subscription:`, subscribeError);
-            }
-          }
+          // Removed automatic WS subscription from here to avoid duplication
+          // WS subscription will be handled by useEffect below
         }
       } catch (error) {
         console.error(`❌ [Chart] Failed to load initial data:`, error);
@@ -782,15 +767,23 @@ const Chart: React.FC<ChartProps> = ({
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
-      if (previousSubscriptionRef.current && isSubscribed) {
+      const subscriberId = `${dashboardId}-${widgetId}`;
+      
+      // Очистка подписки по текущим настройкам
+      console.log(`🧹 Chart cleanup: unsubscribing from current settings ${exchange}:${market}:${symbol}:${timeframe}`);
+      unsubscribe(subscriberId, exchange, symbol, 'candles', timeframe, market);
+      
+      // Дополнительная очистка по предыдущим настройкам (если отличаются)
+      if (previousSubscriptionRef.current) {
         const prev = previousSubscriptionRef.current;
-        console.log(`🧹 Chart cleanup: unsubscribing from ${prev.exchange}:${prev.market}:${prev.symbol}:${prev.timeframe}`);
-        
-        const subscriberId = `${dashboardId}-${widgetId}`;
-        unsubscribe(subscriberId, prev.exchange, prev.symbol, 'candles', prev.timeframe, prev.market);
+        if (prev.exchange !== exchange || prev.symbol !== symbol || 
+            prev.timeframe !== timeframe || prev.market !== market) {
+          console.log(`🧹 Chart cleanup: also unsubscribing from previous settings ${prev.exchange}:${prev.market}:${prev.symbol}:${prev.timeframe}`);
+          unsubscribe(subscriberId, prev.exchange, prev.symbol, 'candles', prev.timeframe, prev.market);
+        }
       }
     };
-  }, []);
+  }, [dashboardId, widgetId, exchange, symbol, timeframe, market, unsubscribe]);
 
 
 

@@ -244,10 +244,18 @@ export const useDashboardStore = create<DashboardStore>()(
           const dashboard = state.dashboards.find(d => d.id === dashboardId);
           if (!dashboard) return;
           
+          const widgetToRemove = dashboard.widgets.find(w => w.id === widgetId);
           const index = dashboard.widgets.findIndex(w => w.id === widgetId);
+          
           if (index !== -1) {
             dashboard.widgets.splice(index, 1);
             dashboard.updatedAt = getCurrentTimestamp();
+            
+            // Cleanup chart widget subscription
+            if (widgetToRemove?.type === 'chart') {
+              // Chart component cleanup will handle unsubscribe via useEffect cleanup
+              console.log(`🗑️ Dashboard: Removed chart widget ${widgetId}, cleanup handled by component`);
+            }
           }
         });
       },
