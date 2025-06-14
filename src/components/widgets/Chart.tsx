@@ -108,7 +108,7 @@ const Chart: React.FC<ChartProps> = ({
   
   // Chart state
   const [chartDimensions, setChartDimensions] = useState({ width: 600, height: 400 });
-  const [showVolume, setShowVolume] = useState(true);
+  const [showVolume, setShowVolume] = useState(false);
 
   // Infinite scroll state
   const oldestTimestampRef = useRef<number | null>(null);
