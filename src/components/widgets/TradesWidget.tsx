@@ -378,7 +378,7 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
   }
 
   return (
-    <div className="w-full h-full flex flex-col space-y-4">
+    <div className="w-full h-full flex flex-col">
       {/* Loading indicator */}
       {widgetState.isLoading && (
         <div className="flex items-center justify-center p-4">
@@ -394,17 +394,18 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
         </div>
       )}
 
-
-
-      {/* Virtualized trades list */}
-      <VirtualizedTradesList 
-        trades={processedTrades}
-        currentSubscription={currentSubscription}
-      />
+      {/* Таблица трейдов */}
+      <div className="flex-1 min-h-0">
+        <VirtualizedTradesList
+          trades={processedTrades}
+          currentSubscription={currentSubscription}
+          showTableHeader={widgetState.showTableHeader}
+        />
+      </div>
 
       {/* Footer Statistics */}
-      {processedTrades.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 text-xs mt-4">
+      {widgetState.showStats && processedTrades.length > 0 && (
+        <div className="grid grid-cols-4 gap-2 text-xs flex-shrink-0 flex-grow-0">
           <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
             <div className="flex items-center gap-1 text-terminal-muted">
               <Hash className="h-3 w-3" />
@@ -443,7 +444,8 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
 const VirtualizedTradesList: React.FC<{
   trades: Trade[];
   currentSubscription: any;
-}> = ({ trades, currentSubscription }) => {
+  showTableHeader: boolean;
+}> = ({ trades, currentSubscription, showTableHeader }) => {
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -488,23 +490,22 @@ const VirtualizedTradesList: React.FC<{
   }
 
   return (
-    <div className="flex-1 bg-terminal-widget border border-terminal-border rounded">
-      {/* Table header */}
-      <div className="grid grid-cols-4 gap-4 p-3 border-b border-terminal-border bg-terminal-background text-xs font-medium text-terminal-muted">
-        <div className="flex items-center gap-1">
-          <Clock className="h-3 w-3" />
-          <span>Time</span>
+    <div className="w-full h-full">
+      {showTableHeader && (
+        <div className="grid grid-cols-4 text-xs font-medium text-terminal-muted select-none">
+          <div className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            <span>Time</span>
+          </div>
+          <div className="text-right">Price</div>
+          <div className="text-right">Amount</div>
+          <div className="text-right">Volume</div>
         </div>
-        <div className="text-right">Price</div>
-        <div className="text-right">Amount</div>
-        <div className="text-right">Volume</div>
-      </div>
-
-      {/* Virtual scroll container */}
+      )}
       <div
         ref={parentRef}
         className="overflow-auto"
-        style={{ height: 'calc(100% - 40px)' }}
+        style={{ height: '100%' }}
       >
         <div
           style={{
@@ -527,19 +528,19 @@ const VirtualizedTradesList: React.FC<{
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
               >
-                <div className="grid grid-cols-4 gap-4 p-3 border-b border-terminal-border/20 hover:bg-terminal-background/50 text-xs">
-                  <div className="text-terminal-muted font-mono">
+                <div className="grid grid-cols-4 text-xs font-mono">
+                  <div className="text-terminal-muted">
                     {formatTime(trade.timestamp)}
                   </div>
-                  <div className={`text-right font-mono ${
+                  <div className={`text-right ${
                     trade.side === 'buy' ? 'text-green-500' : 'text-red-500'
                   }`}>
                     {formatPrice(trade.price)}
                   </div>
-                  <div className="text-right font-mono text-terminal-text">
+                  <div className="text-right text-terminal-text">
                     {formatAmount(trade.amount)}
                   </div>
-                  <div className="text-right font-mono text-terminal-muted">
+                  <div className="text-right text-terminal-muted">
                     {formatVolume(trade.price * trade.amount)}
                   </div>
                 </div>

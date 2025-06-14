@@ -88,6 +88,28 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
             />
           </div>
 
+          {/* Показывать заголовки таблицы */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-xs text-terminal-muted">Показывать заголовки таблицы</Label>
+            </div>
+            <Switch
+              checked={widgetState.showTableHeader}
+              onCheckedChange={(checked) => updateWidget(widgetId, { showTableHeader: checked })}
+            />
+          </div>
+
+          {/* Показывать статистику */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-xs text-terminal-muted">Показывать статистику</Label>
+            </div>
+            <Switch
+              checked={widgetState.showStats}
+              onCheckedChange={(checked) => updateWidget(widgetId, { showStats: checked })}
+            />
+          </div>
+
           {/* Trades Limit */}
           <div className="space-y-2">
             <Label className="text-xs text-terminal-muted">Trades Limit</Label>

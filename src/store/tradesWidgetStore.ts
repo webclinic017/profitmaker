@@ -7,6 +7,8 @@ interface TradesWidgetState {
   isSubscribed: boolean;
   isLoading: boolean;
   error: string | null;
+  showTableHeader: boolean;
+  showStats: boolean;
 }
 
 interface TradesWidgetsStore {
@@ -22,6 +24,8 @@ const defaultTradesState: TradesWidgetState = {
   isSubscribed: false,
   isLoading: false,
   error: null,
+  showTableHeader: true,
+  showStats: true,
 };
 
 export const useTradesWidgetsStore = create<TradesWidgetsStore>((set, get) => ({
