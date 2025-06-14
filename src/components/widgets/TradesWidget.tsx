@@ -3,51 +3,232 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Label } from '../ui/label';
 import { useDataProviderStore } from '../../store/dataProviderStore';
-import { Trade } from '../../types/dataProviders';
-import { DollarSign, Hash, Clock, TrendingUp, TrendingDown } from 'lucide-react';
+import { useTradesWidgetsStore } from '../../store/tradesWidgetStore';
+import { useGroupStore } from '../../store/groupStore';
+import { Trade, MarketType } from '../../types/dataProviders';
+import { DollarSign, Hash, Clock, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 
 interface TradesWidgetV2Props {
   dashboardId?: string;
   widgetId?: string;
-  initialExchange?: string;
-  initialSymbol?: string;
+  selectedGroupId?: string;
 }
 
 const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
   dashboardId = 'default',
   widgetId = 'trades-widget-v2',
-  initialExchange = 'binance',
-  initialSymbol = 'BTC/USDT'
+  selectedGroupId
 }) => {
   const { 
     getTrades, 
-    getActiveSubscriptionsList
+    subscribe,
+    unsubscribe,
+    initializeTradesData,
+    getActiveSubscriptionsList,
+    activeProviderId
   } = useDataProviderStore();
 
-  // Temporary filters (will be moved to settings later)
+  // Store integration
+  const { getWidget, updateWidget } = useTradesWidgetsStore();
+  const widgetState = getWidget(widgetId);
+
+  // Group store integration - единый источник данных о выбранном инструменте
+  const { getGroupById, selectedGroupId: globalSelectedGroupId, getTransparentGroup } = useGroupStore();
+  const currentGroupId = selectedGroupId || globalSelectedGroupId;
+  // Fallback to transparent group if no group is selected
+  const selectedGroup = currentGroupId ? getGroupById(currentGroupId) : getTransparentGroup();
+
+  // Проверка полноты выбранного инструмента
+  const isInstrumentSelected = selectedGroup && 
+    selectedGroup.account && 
+    selectedGroup.exchange && 
+    selectedGroup.market && 
+    selectedGroup.tradingPair;
+
+  // Получаем данные инструмента из selectedGroup
+  const exchange = selectedGroup?.exchange || 'binance';
+  const symbol = selectedGroup?.tradingPair || 'BTC/USDT';
+  const market = (selectedGroup?.market as MarketType) || 'spot';
+
+  // Get data from store
+  const rawTrades = getTrades(exchange, symbol, market);
+  const activeSubscriptions = getActiveSubscriptionsList();
+  
+  // Check if there's an active subscription for current exchange/symbol
+  const currentSubscription = activeSubscriptions.find(sub => 
+    sub.key.exchange === exchange && 
+    sub.key.symbol === symbol && 
+    sub.key.dataType === 'trades' &&
+    sub.key.market === market
+  );
+
+  // Widget state
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  // Ref for tracking previous subscription
+  const previousSubscriptionRef = useRef<{
+    exchange: string;
+    symbol: string;
+    market: MarketType;
+    isAggregated: boolean;
+    tradesLimit: number;
+  } | null>(null);
+
+  // Filters state (можно потом вынести в store)
   const [filters] = useState({
     side: 'all',
     minPrice: '',
     maxPrice: '',
     minAmount: '',
-    maxAmount: '',
-    showLastN: '100'
+    maxAmount: ''
   });
 
-  // Temporary sorting (will be moved to settings later)
+  // Sorting state (можно потом вынести в store)
   const [sortBy] = useState<'timestamp' | 'price' | 'amount'>('timestamp');
   const [sortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Get data from store (using hardcoded values for now)
-  const rawTrades = getTrades(initialExchange, initialSymbol);
-  const activeSubscriptions = getActiveSubscriptionsList();
-  
-  // Check if there's an active subscription for current exchange/symbol
-  const currentSubscription = activeSubscriptions.find(sub => 
-    sub.key.exchange === initialExchange && 
-    sub.key.symbol === initialSymbol && 
-    sub.key.dataType === 'trades'
-  );
+  // REST data initialization
+  useEffect(() => {
+    if (!isInstrumentSelected || !activeProviderId) return;
+
+    const loadInitialTrades = async () => {
+      try {
+        updateWidget(widgetId, { isLoading: true, error: null });
+        setIsDataLoaded(false);
+
+        console.log(`🚀 [TradesWidget] Loading initial trades via REST for ${exchange}:${market}:${symbol} (aggregated: ${widgetState.isAggregatedTrades}, limit: ${widgetState.tradesLimit})`);
+        
+        const trades = await initializeTradesData(
+          exchange, 
+          symbol, 
+          market, 
+          widgetState.tradesLimit,
+          widgetState.isAggregatedTrades
+        );
+        
+        if (trades && trades.length > 0) {
+          // Trades будут автоматически сохранены в store через initializeTradesData
+          setIsDataLoaded(true);
+          console.log(`✅ [TradesWidget] Initial trades loaded: ${trades.length} trades`);
+        } else {
+          console.warn(`⚠️ [TradesWidget] No initial trades received`);
+          setIsDataLoaded(true); // Считаем загруженным даже если пусто
+        }
+        
+        updateWidget(widgetId, { isLoading: false });
+      } catch (error) {
+        console.error(`❌ [TradesWidget] Failed to load initial trades:`, error);
+        updateWidget(widgetId, { 
+          error: error instanceof Error ? error.message : 'Failed to load trades',
+          isLoading: false 
+        });
+        setIsDataLoaded(true);
+      }
+    };
+
+    loadInitialTrades();
+  }, [isInstrumentSelected, exchange, symbol, market, widgetState.isAggregatedTrades, widgetState.tradesLimit, activeProviderId, initializeTradesData, updateWidget, widgetId]);
+
+  // Subscription management
+  const handleSubscribe = async () => {
+    if (!activeProviderId || !isInstrumentSelected) {
+      updateWidget(widgetId, { error: 'No active provider or instrument selected' });
+      return;
+    }
+
+    try {
+      updateWidget(widgetId, { isLoading: true, error: null });
+      
+      const subscriberId = `${dashboardId}-${widgetId}`;
+      const config = {
+        isAggregated: widgetState.isAggregatedTrades,
+        tradesLimit: widgetState.tradesLimit
+      };
+      
+      const result = await subscribe(
+        subscriberId, 
+        exchange, 
+        symbol, 
+        'trades', 
+        undefined, // no timeframe for trades
+        market,
+        config
+      );
+      
+      if (result.success) {
+        updateWidget(widgetId, { 
+          isSubscribed: true, 
+          isLoading: false 
+        });
+        
+        // Save current settings as previous AFTER successful subscription
+        previousSubscriptionRef.current = { 
+          exchange, 
+          symbol, 
+          market, 
+          isAggregated: widgetState.isAggregatedTrades,
+          tradesLimit: widgetState.tradesLimit
+        };
+        
+        console.log(`📊 [TradesWidget] Subscribed to ${exchange}:${market}:${symbol} (aggregated: ${widgetState.isAggregatedTrades}, limit: ${widgetState.tradesLimit})`);
+      } else {
+        updateWidget(widgetId, { 
+          error: result.error || 'Subscription failed',
+          isLoading: false 
+        });
+      }
+    } catch (error) {
+      updateWidget(widgetId, { 
+        error: error instanceof Error ? error.message : 'Subscription failed',
+        isLoading: false 
+      });
+    }
+  };
+
+  const handleUnsubscribe = () => {
+    if (!isInstrumentSelected) return;
+
+    const subscriberId = `${dashboardId}-${widgetId}`;
+    unsubscribe(subscriberId, exchange, symbol, 'trades', undefined, market);
+    updateWidget(widgetId, { isSubscribed: false });
+    console.log(`📊 [TradesWidget] Unsubscribed from ${exchange}:${market}:${symbol}`);
+  };
+
+  // Auto-subscribe when widget mounts or provider becomes available
+  useEffect(() => {
+    if (activeProviderId && !widgetState.isSubscribed && isDataLoaded && isInstrumentSelected) {
+      console.log(`📊 [TradesWidget] Auto-subscribing to ${exchange}:${market}:${symbol}`);
+      handleSubscribe();
+    }
+  }, [activeProviderId, isDataLoaded, isInstrumentSelected]);
+
+  // Proper subscription management when settings change
+  useEffect(() => {
+    if (widgetState.isSubscribed) {
+      // Check if settings changed
+      const prev = previousSubscriptionRef.current;
+      const settingsChanged = prev && (
+        prev.exchange !== exchange ||
+        prev.symbol !== symbol ||
+        prev.market !== market ||
+        prev.isAggregated !== widgetState.isAggregatedTrades ||
+        prev.tradesLimit !== widgetState.tradesLimit
+      );
+
+      if (settingsChanged) {
+        console.log(`🔄 [TradesWidget] Settings changed, resubscribing...`);
+        
+        // Unsubscribe from PREVIOUS settings
+        const subscriberId = `${dashboardId}-${widgetId}`;
+        unsubscribe(subscriberId, prev.exchange, prev.symbol, 'trades', undefined, prev.market);
+        
+        // Subscribe to NEW settings (saving will happen in handleSubscribe)
+        setTimeout(() => {
+          handleSubscribe();
+        }, 100);
+      }
+    }
+  }, [exchange, symbol, market, widgetState.isAggregatedTrades, widgetState.tradesLimit, widgetState.isSubscribed]);
 
   // Apply filters and sorting
   const processedTrades = useMemo(() => {
@@ -104,13 +285,13 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
     });
 
     // Limit the number of displayed trades
-    const limit = parseInt(filters.showLastN);
-    if (!isNaN(limit) && limit > 0) {
+    const limit = widgetState.tradesLimit;
+    if (limit > 0) {
       filtered = filtered.slice(0, limit);
     }
 
     return filtered;
-  }, [rawTrades, filters, sortBy, sortOrder]);
+  }, [rawTrades, filters, sortBy, sortOrder, widgetState.tradesLimit]);
 
   // Statistics for filtered data
   const stats = useMemo(() => {
@@ -145,14 +326,51 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
     return volume.toFixed(2);
   };
 
+  // Если инструмент не выбран, показываем сообщение
+  if (!isInstrumentSelected) {
+    return (
+      <div className="w-full h-full flex items-center justify-center text-center text-terminal-muted">
+        <div>
+          <div className="text-lg font-medium mb-2">No instrument selected</div>
+          <div className="text-sm">Please select a trading instrument in the selector</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full flex flex-col space-y-4">
-      {/* Connection Status (minimal) */}
+      {/* Loading indicator */}
+      {widgetState.isLoading && (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-6 w-6 animate-spin text-terminal-muted mr-2" />
+          <span className="text-terminal-muted">Loading trades...</span>
+        </div>
+      )}
+
+      {/* Error display */}
+      {widgetState.error && (
+        <div className="text-red-500 bg-red-50 dark:bg-red-950/30 p-3 rounded-lg border border-red-200 dark:border-red-800 text-sm">
+          {widgetState.error}
+        </div>
+      )}
+
+      {/* Connection Status */}
       {currentSubscription && (
         <div className="text-xs text-terminal-muted bg-terminal-widget p-2 rounded border border-terminal-border">
           <div className="flex items-center justify-between">
-            <span>📡 {initialExchange.toUpperCase()} {initialSymbol}</span>
-            <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+            <span>📡 {exchange.toUpperCase()} {symbol} ({widgetState.isAggregatedTrades ? 'Agg' : 'Raw'})</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs">
+                {currentSubscription.method === 'websocket' 
+                  ? 'WebSocket' 
+                  : currentSubscription.isFallback 
+                    ? 'REST (fallback)'
+                    : 'REST'
+                }
+              </span>
+              <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+            </div>
           </div>
         </div>
       )}
@@ -199,15 +417,11 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
         </div>
       </div>
 
-      {/* Virtualized Trades List */}
-      <VirtualizedTradesList trades={processedTrades} currentSubscription={currentSubscription} />
-
-      {/* Footer info */}
-      {!currentSubscription && (
-        <div className="text-xs text-terminal-muted text-center py-2 border-t border-terminal-border">
-          💡 Use settings to configure data source and filters
-        </div>
-      )}
+      {/* Virtualized trades list */}
+      <VirtualizedTradesList 
+        trades={processedTrades}
+        currentSubscription={currentSubscription}
+      />
     </div>
   );
 };
@@ -244,70 +458,83 @@ const VirtualizedTradesList: React.FC<{
     return volume.toFixed(2);
   };
 
-  return (
-    <div className="flex-1 overflow-hidden">
-      {trades.length === 0 ? (
-        <div className="text-center text-terminal-muted py-8">
-          {currentSubscription ? 'Waiting for trade data...' : 'No active subscription'}
-        </div>
-      ) : (
-        <div
-          ref={parentRef}
-          className="h-full overflow-auto"
-          style={{ contain: 'strict' }}
-        >
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const trade = trades[virtualRow.index];
-              return (
-                <div
-                  key={virtualRow.key}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <div
-                    className={`flex items-center justify-between text-xs p-2 mx-1 my-1 rounded border-l-2 ${
-                      trade.side === 'buy' 
-                        ? 'bg-green-500/5 border-green-500 hover:bg-green-500/10' 
-                        : 'bg-red-500/5 border-red-500 hover:bg-red-500/10'
-                    } transition-colors`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${trade.side === 'buy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-terminal-muted" />
-                        <span className="font-mono text-terminal-muted">{formatTime(trade.timestamp)}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="font-mono font-medium text-terminal-text">
-                        {formatPrice(trade.price)} × {formatAmount(trade.amount)}
-                      </div>
-                      <div className="text-terminal-muted">
-                        ≈ {formatVolume(trade.price * trade.amount)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+  if (trades.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-terminal-muted">
+        <div className="text-center">
+          <div className="text-lg font-medium mb-2">No trades available</div>
+          <div className="text-sm">
+            {currentSubscription?.isActive 
+              ? 'Waiting for trade data...' 
+              : 'No active subscription'
+            }
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 bg-terminal-widget border border-terminal-border rounded">
+      {/* Table header */}
+      <div className="grid grid-cols-4 gap-4 p-3 border-b border-terminal-border bg-terminal-background text-xs font-medium text-terminal-muted">
+        <div className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          <span>Time</span>
+        </div>
+        <div className="text-right">Price</div>
+        <div className="text-right">Amount</div>
+        <div className="text-right">Volume</div>
+      </div>
+
+      {/* Virtual scroll container */}
+      <div
+        ref={parentRef}
+        className="overflow-auto"
+        style={{ height: 'calc(100% - 40px)' }}
+      >
+        <div
+          style={{
+            height: virtualizer.getTotalSize(),
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const trade = trades[virtualRow.index];
+            return (
+              <div
+                key={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: virtualRow.size,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <div className="grid grid-cols-4 gap-4 p-3 border-b border-terminal-border/20 hover:bg-terminal-background/50 text-xs">
+                  <div className="text-terminal-muted font-mono">
+                    {formatTime(trade.timestamp)}
+                  </div>
+                  <div className={`text-right font-mono ${
+                    trade.side === 'buy' ? 'text-green-500' : 'text-red-500'
+                  }`}>
+                    {formatPrice(trade.price)}
+                  </div>
+                  <div className="text-right font-mono text-terminal-text">
+                    {formatAmount(trade.amount)}
+                  </div>
+                  <div className="text-right font-mono text-terminal-muted">
+                    {formatVolume(trade.price * trade.amount)}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

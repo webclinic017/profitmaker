@@ -82,7 +82,7 @@ export interface DataProviderActions {
   setRestInterval: (dataType: DataType, interval: number) => void;
   
   // Deduplicated subscriptions management
-  subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => Promise<ProviderOperationResult>;
+  subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, config?: { isAggregated?: boolean; tradesLimit?: number; [key: string]: any }) => Promise<ProviderOperationResult>;
   unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => void;
   forceCloseSubscription: (subscriptionKey: string) => void;
   
@@ -93,6 +93,9 @@ export interface DataProviderActions {
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
+  
+  // REST data initialization for Trades widgets
+  initializeTradesData: (exchange: string, symbol: string, market: MarketType, limit?: number, aggregated?: boolean) => Promise<Trade[]>;
   
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;

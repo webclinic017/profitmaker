@@ -5,8 +5,10 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
-import { Filter, ArrowUp, ArrowDown } from 'lucide-react';
+import { Filter, ArrowUp, ArrowDown, Settings2 } from 'lucide-react';
 import { useDataProviderStore } from '../../store/dataProviderStore';
+import { useTradesWidgetsStore } from '../../store/tradesWidgetStore';
+import { useGroupStore } from '../../store/groupStore';
 
 interface TradesSettingsWrapperProps {
   widgetId: string;
@@ -22,10 +24,18 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
     getActiveSubscriptionsList
   } = useDataProviderStore();
 
-  // Settings state - это будет синхронизироваться с основным виджетом через store или context
-  const [exchange, setExchange] = useState('binance');
-  const [symbol, setSymbol] = useState('BTC/USDT');
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  // Widget store integration
+  const { getWidget, updateWidget } = useTradesWidgetsStore();
+  const widgetState = getWidget(widgetId);
+
+  // Group store integration - берем данные из выбранной группы
+  const { getGroupById, selectedGroupId: globalSelectedGroupId, getTransparentGroup } = useGroupStore();
+  const selectedGroup = globalSelectedGroupId ? getGroupById(globalSelectedGroupId) : getTransparentGroup();
+
+  // Получаем данные инструмента из selectedGroup
+  const exchange = selectedGroup?.exchange || 'binance';
+  const symbol = selectedGroup?.tradingPair || 'BTC/USDT';
+  const market = selectedGroup?.market || 'spot';
 
   // Filters state
   const [filters, setFilters] = useState({
@@ -49,123 +59,91 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
   const currentSubscription = activeSubscriptions.find(sub => 
     sub.key.exchange === exchange && 
     sub.key.symbol === symbol && 
-    sub.key.dataType === 'trades'
+    sub.key.dataType === 'trades' &&
+    sub.key.market === market
   );
-
-  // Handle subscription
-  useEffect(() => {
-    if (isSubscribed && activeProviderId) {
-      const subscriberId = `${widgetId}-settings`;
-      
-      subscribe(subscriberId, exchange, symbol, 'trades');
-      console.log(`📊 Settings: subscribed to data: ${exchange} ${symbol}`);
-
-      return () => {
-        unsubscribe(subscriberId, exchange, symbol, 'trades');
-        console.log(`📊 Settings: unsubscribed from data: ${exchange} ${symbol}`);
-      };
-    }
-  }, [isSubscribed, exchange, symbol, activeProviderId, subscribe, unsubscribe, widgetId]);
-
-  const handleSubscribe = async () => {
-    if (!activeProviderId) {
-      console.error('❌ No active provider');
-      return;
-    }
-
-    try {
-      setIsSubscribed(true);
-      console.log(`🚀 Starting trades subscription: ${exchange} ${symbol}`);
-    } catch (error) {
-      console.error('❌ Error subscribing to trades:', error);
-      setIsSubscribed(false);
-    }
-  };
-
-  const handleUnsubscribe = () => {
-    setIsSubscribed(false);
-    console.log(`🛑 Stopping trades subscription: ${exchange} ${symbol}`);
-  };
 
   return (
     <div className="space-y-6">
-      {/* Connection settings */}
+      {/* Trades Configuration */}
       <div className="space-y-4">
         <div>
-          <Label className="text-sm font-medium text-terminal-text">Data Source</Label>
-          <p className="text-xs text-terminal-muted mb-3">Configure exchange and trading pair</p>
+          <div className="flex items-center gap-2 mb-3">
+            <Settings2 className="h-4 w-4" />
+            <Label className="text-sm font-medium text-terminal-text">Trades Configuration</Label>
+          </div>
+          <p className="text-xs text-terminal-muted mb-3">Configure trades data aggregation and limits</p>
         </div>
         
         <div className="space-y-3">
-          <div>
-            <Label className="text-xs text-terminal-muted">Exchange</Label>
-            <Input
-              value={exchange}
-              onChange={(e) => setExchange(e.target.value)}
-              placeholder="binance"
-              disabled={isSubscribed}
-              className="mt-1"
-            />
-          </div>
-          
-          <div>
-            <Label className="text-xs text-terminal-muted">Trading pair</Label>
-            <Input
-              value={symbol}
-              onChange={(e) => setSymbol(e.target.value)}
-              placeholder="BTC/USDT"
-              disabled={isSubscribed}
-              className="mt-1"
+          {/* Aggregate Trades Toggle */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Label className="text-xs text-terminal-muted">Aggregate Trades</Label>
+              <p className="text-xs text-terminal-muted/70">Combine multiple trades into one for better performance</p>
+            </div>
+            <Switch
+              checked={widgetState.isAggregatedTrades}
+              onCheckedChange={(checked) => updateWidget(widgetId, { isAggregatedTrades: checked })}
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            {!isSubscribed ? (
-              <Button onClick={handleSubscribe} disabled={!activeProviderId} size="sm">
-                {activeProviderId ? 'Subscribe to trades' : 'No active provider'}
-              </Button>
-            ) : (
-              <Button onClick={handleUnsubscribe} variant="destructive" size="sm">
-                Unsubscribe
-              </Button>
+          {/* Trades Limit */}
+          <div className="space-y-2">
+            <Label className="text-xs text-terminal-muted">Trades Limit</Label>
+            <Select 
+              value={widgetState.tradesLimit.toString()} 
+              onValueChange={(value) => updateWidget(widgetId, { tradesLimit: parseInt(value) })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="100">100 trades</SelectItem>
+                <SelectItem value="200">200 trades</SelectItem>
+                <SelectItem value="500">500 trades</SelectItem>
+                <SelectItem value="1000">1000 trades</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Current Instrument Display */}
+          <div className="p-3 rounded border bg-terminal-widget border-terminal-border space-y-2">
+            <div className="text-xs text-terminal-muted">Current Instrument:</div>
+            <div className="text-sm text-terminal-text">
+              <strong>{exchange}</strong> • <strong>{symbol}</strong> • <strong>{market}</strong>
+            </div>
+            
+            {/* Subscription Status */}
+            {currentSubscription && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs">
+                    📡 Method: <strong>
+                      {currentSubscription.method === 'websocket' 
+                        ? 'WebSocket' 
+                        : currentSubscription.isFallback 
+                          ? 'REST (fallback)'
+                          : 'REST'
+                      }
+                    </strong>
+                  </span>
+                  <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+                </div>
+                
+                {currentSubscription.isFallback && (
+                  <div className="text-orange-600 bg-orange-100 p-2 rounded text-xs">
+                    ⚠️ WebSocket unavailable, using REST fallback
+                  </div>
+                )}
+                
+                <div className="text-xs">👥 Subscribers: <strong>{currentSubscription.subscriberCount}</strong></div>
+                {currentSubscription.lastUpdate > 0 && (
+                  <div className="text-xs">🕐 Last update: <strong>{new Date(currentSubscription.lastUpdate).toLocaleTimeString()}</strong></div>
+                )}
+              </div>
             )}
           </div>
-
-          {isSubscribed && currentSubscription && (
-            <div className={`text-xs p-3 rounded border space-y-2 ${
-              currentSubscription.isFallback 
-                ? 'text-orange-700 bg-orange-50 border-orange-200' 
-                : 'text-terminal-muted bg-terminal-widget border-terminal-border'
-            }`}>
-              <div className="flex items-center justify-between">
-                <span>
-                  📡 Method: <strong>
-                    {currentSubscription.method === 'websocket' 
-                      ? 'WebSocket' 
-                      : currentSubscription.isFallback 
-                        ? 'REST (fallback)'
-                        : 'REST'
-                    }
-                  </strong>
-                </span>
-                <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-              </div>
-              
-              {currentSubscription.isFallback && (
-                <div className="text-orange-600 bg-orange-100 p-2 rounded text-xs">
-                  ⚠️ WebSocket unavailable, using REST fallback
-                </div>
-              )}
-              
-              {currentSubscription.method === 'rest' && (
-                <div>⏱️ Interval: <strong>{dataFetchSettings.restIntervals.trades}ms</strong></div>
-              )}
-              <div>👥 Subscribers: <strong>{currentSubscription.subscriberCount}</strong></div>
-              {currentSubscription.lastUpdate > 0 && (
-                <div>🕐 Last update: <strong>{new Date(currentSubscription.lastUpdate).toLocaleTimeString()}</strong></div>
-              )}
-            </div>
-          )}
         </div>
       </div>
 

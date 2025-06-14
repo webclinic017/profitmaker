@@ -235,6 +235,13 @@ export const createFetchingActions: StateCreator<
                 }
                 break;
               case 'trades':
+                // For WebSocket, we use watchTrades regardless of aggregate setting
+                // The exchange itself determines if it returns aggregated or not
+                const wsSubscription = get().activeSubscriptions[subscriptionKey];
+                const isAggregated = wsSubscription?.config?.isAggregated ?? true;
+                
+                console.log(`📊 [WebSocket] Watching trades for ${exchange} ${symbol} (aggregated preference: ${isAggregated})`);
+                
                 const trades = await exchangeInstance.watchTrades(symbol);
                 if (trades && trades.length > 0) {
                   get().updateTrades(exchange, symbol, trades, market);
@@ -341,10 +348,25 @@ export const createFetchingActions: StateCreator<
               }
               break;
             case 'trades':
-              // Get optimal limit for REST trades
-              const tradeLimit = getTradesLimit(exchange);
+              // Get subscription config for aggregate setting
+              const subscription = get().activeSubscriptions[subscriptionKey];
+              const isAggregated = subscription?.config?.isAggregated ?? true;
+              const configLimit = subscription?.config?.tradesLimit;
+              
+              // Get optimal limit for REST trades, considering config
+              const tradeLimit = configLimit ? Math.min(configLimit, getTradesLimit(exchange)) : getTradesLimit(exchange);
               logExchangeLimits(exchange, tradeLimit, 'trades');
-              const trades = await exchangeInstance.fetchTrades(symbol, undefined, tradeLimit);
+              
+              // Set fetchTradesMethod based on aggregated parameter
+              const fetchTradesMethod = isAggregated 
+                ? (exchange === 'binance' ? 'publicGetAggTrades' : undefined) // для binance используем agg, для остальных default
+                : 'publicGetTrades'; // для non-aggregated используем publicGetTrades
+              
+              console.log(`📊 [REST] Using method: ${fetchTradesMethod || 'default'} for ${exchange} trades (aggregated: ${isAggregated})`);
+              
+              const trades = await exchangeInstance.fetchTrades(symbol, undefined, tradeLimit, 
+                fetchTradesMethod ? { fetchTradesMethod } : {}
+              );
               if (trades && trades.length > 0) {
                 get().updateTrades(exchange, symbol, trades, market);
               }

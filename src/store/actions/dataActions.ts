@@ -18,6 +18,9 @@ export interface DataActions {
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
   
+  // REST data initialization for Trades widgets
+  initializeTradesData: (exchange: string, symbol: string, market: MarketType, limit?: number, aggregated?: boolean) => Promise<Trade[]>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
@@ -347,6 +350,63 @@ export const createDataActions: StateCreator<
       
     } catch (error) {
       console.error(`❌ [initializeChartData] Failed to load data:`, error);
+      throw error;
+    }
+  },
+
+  // REST data initialization for Trades widgets
+  initializeTradesData: async (exchange: string, symbol: string, market: MarketType, limit: number = 500, aggregated: boolean = true): Promise<Trade[]> => {
+    // Get optimal provider for this exchange
+    const provider = get().getProviderForExchange(exchange);
+    
+    if (!provider) {
+      throw new Error(`No suitable provider found for exchange ${exchange}`);
+    }
+    
+    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
+      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
+    }
+    
+    console.log(`🚀 [initializeTradesData] Loading initial trades for ${exchange}:${market}:${symbol} (limit: ${limit}, aggregated: ${aggregated}) using provider ${provider.id}`);
+    
+    try {
+      // Use CCXT utilities
+      const ccxt = getCCXT();
+      
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      
+      // Set fetchTradesMethod based on aggregated parameter
+      const fetchTradesMethod = aggregated 
+        ? (exchange === 'binance' ? 'publicGetAggTrades' : 'fetchTrades') // для binance используем agg, для остальных стандартный
+        : 'publicGetTrades'; // для non-aggregated всегда publicGetTrades
+      
+      console.log(`📊 [initializeTradesData] Using method: ${fetchTradesMethod} for ${exchange}`);
+      
+      // Get optimal limit for trades (but respect the parameter)
+      const effectiveLimit = Math.min(limit, getTradesLimit(exchange));
+      logExchangeLimits(exchange, effectiveLimit, 'trades');
+      
+      // Load trades with fetchTradesMethod parameter
+      const tradesData = await exchangeInstance.fetchTrades(symbol, undefined, effectiveLimit, {
+        fetchTradesMethod
+      });
+      
+      if (!tradesData || tradesData.length === 0) {
+        console.warn(`⚠️ [initializeTradesData] No trades received for ${exchange}:${symbol}`);
+        return [];
+      }
+      
+      console.log(`✅ [initializeTradesData] Loaded ${tradesData.length} trades for ${exchange}:${market}:${symbol} (method: ${fetchTradesMethod})`);
+      
+      // Return trades directly (don't save to store here)
+      return tradesData;
+      
+    } catch (error) {
+      console.error(`❌ [initializeTradesData] Failed to load trades:`, error);
       throw error;
     }
   },

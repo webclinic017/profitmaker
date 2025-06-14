@@ -3,7 +3,7 @@ import type { DataProviderStore } from '../types';
 import type { DataType, ProviderOperationResult, Timeframe, MarketType } from '../../types/dataProviders';
 
 export interface SubscriptionActions {
-  subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => Promise<ProviderOperationResult>;
+  subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, config?: { isAggregated?: boolean; tradesLimit?: number; [key: string]: any }) => Promise<ProviderOperationResult>;
   unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => void;
   forceCloseSubscription: (subscriptionKey: string) => void;
 }
@@ -15,7 +15,7 @@ export const createSubscriptionActions: StateCreator<
   SubscriptionActions
 > = (set, get) => ({
   // Deduplicated subscriptions management
-  subscribe: async (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot'): Promise<ProviderOperationResult> => {
+  subscribe: async (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot', config?: { isAggregated?: boolean; tradesLimit?: number; [key: string]: any }): Promise<ProviderOperationResult> => {
     const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
     const currentMethod = get().dataFetchSettings.method;
     
@@ -44,10 +44,11 @@ export const createSubscriptionActions: StateCreator<
             method: currentMethod,
             isFallback: false, // Initially not fallback
             isActive: false,
-            lastUpdate: 0
+            lastUpdate: 0,
+            config: config // Add config support
           };
           needsStart = true;
-          console.log(`🆕 New subscription created: ${subscriptionKey} for subscriber ${subscriberId} (method: ${currentMethod})`);
+                      console.log(`🆕 New subscription created: ${subscriptionKey} for subscriber ${subscriberId} (method: ${currentMethod}, config:`, config, ')');
         }
       });
 
