@@ -193,6 +193,12 @@ const Chart: React.FC<ChartProps> = ({
     }
 
     try {
+      // СБРОС INFINITE SCROLL STATE при смене инструмента
+      console.log(`🔄 [Chart] Resetting infinite scroll state for new instrument: ${exchange}:${symbol}:${timeframe}`);
+      oldestTimestampRef.current = null;
+      isLoadingHistoricalRef.current = false;
+      historicalLoadingIterationsRef.current = 0;
+
       // Destroy existing chart
       if (nightVisionRef.current) {
         nightVisionRef.current.destroy?.();
