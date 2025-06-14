@@ -10,6 +10,7 @@ import { RefreshCw, Play, Pause, Wifi, WifiOff, Activity, Loader2 } from 'lucide
 import { Timeframe, MarketType } from '../../types/dataProviders';
 import { useExchangesList } from '../../hooks/useExchangesList';
 import { useDataProviderStore } from '../../store/dataProviderStore';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 const TIMEFRAMES: { id: Timeframe; label: string }[] = [
   { id: '1m', label: '1M' },
@@ -61,7 +62,7 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
 }) => {
   // Загружаем реальные данные из провайдеров с безопасной обработкой ошибок
   const { exchanges, loading: exchangesLoading, error: exchangesError } = useExchangesList();
-  const { getMarketsForExchange } = useDataProviderStore();
+  const { getMarketsForExchange, getSymbolsForExchange } = useDataProviderStore();
   
   // Fallback данные на случай ошибок
   const fallbackExchanges = [
@@ -112,31 +113,41 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
     return () => clearTimeout(timeoutId);
   }, [exchange, getMarketsForExchange]);
 
-  // Загрузка символов (пока статические, но можно расширить)
+  // Загрузка реальных символов из провайдера
   useEffect(() => {
-    if (!exchange || !market) return;
+    if (!exchange || !market || !getSymbolsForExchange) return;
     
     const loadSymbols = async () => {
       setSymbolsLoading(true);
       try {
-        // TODO: Добавить загрузку реальных символов из провайдера
-        const commonSymbols = [
-          'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'ADA/USDT', 'SOL/USDT',
-          'XRP/USDT', 'DOT/USDT', 'DOGE/USDT', 'AVAX/USDT', 'MATIC/USDT',
-          'LTC/USDT', 'LINK/USDT', 'UNI/USDT', 'ATOM/USDT', 'FTM/USDT'
-        ];
-        setAvailableSymbols(commonSymbols);
+        console.log(`🔍 Loading symbols for ${exchange}:${market}`);
+        // Загружаем ВСЕ символы без лимита для полного списка
+        const symbols = await getSymbolsForExchange(exchange, undefined, market);
+        console.log(`✅ Loaded ${symbols.length} symbols for ${exchange}:${market}`);
+        
+        if (symbols && symbols.length > 0) {
+          setAvailableSymbols(symbols);
+        } else {
+          // Fallback на популярные символы
+          const fallbackSymbols = [
+            'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'ADA/USDT', 'SOL/USDT',
+            'XRP/USDT', 'DOT/USDT', 'DOGE/USDT', 'AVAX/USDT', 'MATIC/USDT'
+          ];
+          setAvailableSymbols(fallbackSymbols);
+          console.warn(`⚠️ No symbols loaded for ${exchange}:${market}, using fallback`);
+        }
       } catch (error) {
-        console.error('Failed to load symbols:', error);
-        setAvailableSymbols(['BTC/USDT', 'ETH/USDT']);
+        console.error('❌ Failed to load symbols:', error);
+        // Fallback на популярные символы при ошибке
+        setAvailableSymbols(['BTC/USDT', 'ETH/USDT', 'BNB/USDT']);
       } finally {
         setSymbolsLoading(false);
       }
     };
 
-    const timeoutId = setTimeout(loadSymbols, 50);
+    const timeoutId = setTimeout(loadSymbols, 100);
     return () => clearTimeout(timeoutId);
-  }, [exchange, market]);
+  }, [exchange, market, getSymbolsForExchange]);
   const getStatusIcon = () => {
     switch (connectionStatus) {
       case 'connected':
@@ -237,17 +248,14 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
               className="h-8 bg-muted"
             />
           ) : (
-            <Select value={symbol} onValueChange={onSymbolChange}>
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder="Select symbol..." />
-                {symbolsLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-              </SelectTrigger>
-              <SelectContent>
-                {availableSymbols.map(s => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={symbol}
+              onValueChange={onSymbolChange}
+              options={availableSymbols}
+              placeholder="Выберите символ..."
+              loading={symbolsLoading}
+              className="h-8"
+            />
           )}
         </div>
 
