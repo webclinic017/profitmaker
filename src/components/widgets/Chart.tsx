@@ -208,7 +208,7 @@ const Chart: React.FC<ChartProps> = ({
       const chartId = `chart-${crypto.randomUUID()}`;
       chartRef.current.id = chartId;
       nightVisionRef.current = new NightVision(chartId, {
-        id: chartId, // Используем тот же UUID что и для container
+        id: chartId, // ОБЯЗАТЕЛЬНО согласно документации!
         width: chartDimensions.width,
         height: chartDimensions.height,
         autoResize: true,
@@ -217,7 +217,7 @@ const Chart: React.FC<ChartProps> = ({
           grid: chartColors.grid
         },
         data: { panes: [] } // Empty data initially
-      } as any); // Type assertion для обхода проблемы с TypeScript определениями
+      } as any); // Type assertion для TypeScript
 
       console.log(`📊 NightVision chart initialized for ${exchange}:${symbol}:${timeframe}`);
       
@@ -348,7 +348,20 @@ const Chart: React.FC<ChartProps> = ({
     if (!nightVisionRef.current || !chartDataLoaded) return;
 
     const handleRangeUpdate = async (range: [number, number]) => {
-      console.log(`📊 [Chart] Range updated: [${new Date(range[0]).toISOString()}, ${new Date(range[1]).toISOString()}]`);
+      console.log(`📊 [Chart] ===== INFINITE SCROLL EVENT ===== Range updated: [${new Date(range[0]).toISOString()}, ${new Date(range[1]).toISOString()}]`);
+      console.log(`📊 [Chart] Current NightVision structure:`, {
+        hasHub: !!nightVisionRef.current?.hub,
+        hasMainOv: !!nightVisionRef.current?.hub?.mainOv,
+        hasMainOvData: !!nightVisionRef.current?.hub?.mainOv?.data,
+        mainOvDataLength: nightVisionRef.current?.hub?.mainOv?.data?.length,
+        hasData: !!nightVisionRef.current?.data,
+        hasPanes: !!nightVisionRef.current?.data?.panes,
+        panesLength: nightVisionRef.current?.data?.panes?.length,
+        hasOverlays: !!nightVisionRef.current?.data?.panes?.[0]?.overlays,
+        overlaysLength: nightVisionRef.current?.data?.panes?.[0]?.overlays?.length,
+        hasOverlayData: !!nightVisionRef.current?.data?.panes?.[0]?.overlays?.[0]?.data,
+        overlayDataLength: nightVisionRef.current?.data?.panes?.[0]?.overlays?.[0]?.data?.length,
+      });
       
       // Extract oldest timestamp from chart data if not set
       let effectiveOldestTimestamp = oldestTimestampRef.current;
@@ -570,7 +583,7 @@ const Chart: React.FC<ChartProps> = ({
       if (chartRef.current) {
         chartRef.current.id = chartId;
         nightVisionRef.current = new NightVision(chartId, {
-          id: chartId, // Используем тот же UUID что и для container
+          id: chartId, // ОБЯЗАТЕЛЬНО согласно документации!
           width: chartDimensions.width,
           height: chartDimensions.height,
           autoResize: true,
@@ -579,7 +592,7 @@ const Chart: React.FC<ChartProps> = ({
             grid: chartColors.grid
           },
           data: currentData // Restore data
-        } as any); // Type assertion для обхода проблемы с TypeScript определениями
+        } as any); // Type assertion для TypeScript
         
         console.log(`✅ [Chart] NightVision instance recreated with dimensions: ${chartDimensions.width}x${chartDimensions.height}`);
       }
