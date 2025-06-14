@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useGroupStore } from '../../store/groupStore';
 import { GroupColors } from '../../types/groups';
 
@@ -16,7 +16,7 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
+
   const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | null>(null);
   const { 
     groups, 
@@ -40,14 +40,7 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
   const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // If group is selected (has color), switch to transparent group
-    if (selectedGroup && selectedGroup.color !== 'transparent') {
-      const transparentGroup = getTransparentGroup();
-      onGroupSelect(transparentGroup?.id);
-      return;
-    }
-    
-    // If no group or transparent group, open color picker
+    // Always open group selector popover
     const rect = e.currentTarget.getBoundingClientRect();
     setButtonPosition({
       x: rect.left,
@@ -57,7 +50,6 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
   };
 
   const isGroupSelected = selectedGroup && selectedGroup.color !== 'transparent';
-  const showClearIcon = isGroupSelected && isHovered;
 
   // Function to get color name in English
   const getColorName = (color: string) => {
@@ -82,8 +74,6 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
         {/* Color selector button */}
         <button
           onClick={handleButtonClick}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
           className={`w-3 h-3 rounded-full transition-colors flex items-center justify-center relative ${
             isTransparent 
               ? 'border border-terminal-muted hover:border-terminal-text' 
@@ -95,18 +85,13 @@ const GroupColorSelector: React.FC<GroupColorSelectorProps> = ({
           }}
           title={
             isGroupSelected 
-              ? `Group: ${selectedGroup.name} (click to clear)`
+              ? `Group: ${selectedGroup.name} (click to change)`
               : 'Select group color'
           }
         >
           {/* Show Plus icon for empty/transparent groups */}
           {isTransparent && (
             <Plus size={6} className="text-terminal-muted" />
-          )}
-          
-          {/* Show X icon on hover for selected groups */}
-          {showClearIcon && (
-            <X size={6} className="text-white drop-shadow-sm" />
           )}
         </button>
       </div>
