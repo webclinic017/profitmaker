@@ -421,14 +421,14 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
             <div className="font-mono text-terminal-text">{formatVolume(stats.totalVolume)}</div>
           </div>
           <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
-            <div className="flex items-center gap-1 text-green-500">
+            <div className="flex items-center gap-1" style={{ color: 'hsl(124.66deg 96.26% 79.02%)' }}>
               <TrendingUp className="h-3 w-3" />
               <span>Buys:</span>
             </div>
             <div className="font-mono text-terminal-text">{stats.buyCount}</div>
           </div>
           <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
-            <div className="flex items-center gap-1 text-red-500">
+            <div className="flex items-center gap-1" style={{ color: 'hsl(350.4deg 92.59% 78.82%)' }}>
               <TrendingDown className="h-3 w-3" />
               <span>Sells:</span>
             </div>
@@ -537,23 +537,35 @@ const VirtualizedTradesList: React.FC<{
                 }}
               >
                 <div
-                  className={[
-                    'grid grid-cols-4 text-xs font-mono px-2 hover:bg-white/5',
-                    isBuy ? 'bg-green-900/20' : '',
-                    isSell ? 'bg-red-900/20' : '',
-                  ].join(' ')}
-                  style={{ height: '20px !important', lineHeight: '20px !important', minHeight: '20px !important', maxHeight: '20px !important' }}
+                  className="grid grid-cols-4 text-xs font-mono px-2 hover:bg-white/5"
+                  style={{ 
+                    height: '20px !important', 
+                    lineHeight: '20px !important', 
+                    minHeight: '20px !important', 
+                    maxHeight: '20px !important',
+                    backgroundColor: isBuy ? 'hsla(124.66deg, 96.26%, 79.02%, 0.1)' : isSell ? 'hsla(350.4deg, 92.59%, 78.82%, 0.1)' : 'transparent'
+                  }}
                 >
                   <div className="text-terminal-muted flex items-center">
                     {formatTime(trade.timestamp)}
                   </div>
-                  <div className={`text-right flex items-center justify-end ${isBuy ? 'text-green-500' : isSell ? 'text-red-500' : ''}`}>
+                  <div 
+                    className="text-right flex items-center justify-end"
+                    style={{ 
+                      color: isBuy ? 'hsl(124.66deg 96.26% 79.02%)' : isSell ? 'hsl(350.4deg 92.59% 78.82%)' : 'inherit'
+                    }}
+                  >
                     {formatNumberWithSpaces(trade.price)}
                   </div>
                   <div className="text-right text-terminal-text flex items-center justify-end">
                     {formatNumberWithSpaces(trade.amount)}
                   </div>
-                  <div className={`text-right flex items-center justify-end ${isBuy ? 'text-green-500' : isSell ? 'text-red-500' : 'text-terminal-muted'}`}> 
+                  <div 
+                    className="text-right flex items-center justify-end"
+                    style={{ 
+                      color: isBuy ? 'hsl(124.66deg 96.26% 79.02%)' : isSell ? 'hsl(350.4deg 92.59% 78.82%)' : 'var(--terminal-muted)'
+                    }}
+                  > 
                     {formatNumberWithSpaces(trade.price * trade.amount)}
                   </div>
                 </div>
