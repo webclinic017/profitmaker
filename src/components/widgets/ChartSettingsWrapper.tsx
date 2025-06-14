@@ -114,17 +114,62 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
     }
   };
 
-  // Read-only handlers (данные берутся из groupStore)
-  const handleExchangeChange = () => {
-    // Exchange изменяется только через селектор инструмента
+  // Handlers для изменения настроек через groupStore
+  const handleExchangeChange = (newExchange: string) => {
+    if (!selectedGroup) return;
+
+    // Остановить текущую подписку если есть
+    if (currentSubscription) {
+      const subscriberId = `widget-${widgetId}`;
+      unsubscribe(subscriberId, exchange, symbol, 'candles', timeframe, market);
+    }
+
+    // Обновить exchange в groupStore - это автоматически синхронизирует все компоненты
+    const { updateGroup } = useGroupStore.getState();
+    updateGroup(selectedGroup.id, {
+      ...selectedGroup,
+      exchange: newExchange
+    });
+
+    console.log(`🔄 Chart settings: Exchange changed to ${newExchange} in groupStore`);
   };
 
-  const handleSymbolChange = () => {
-    // Symbol изменяется только через селектор инструмента
+  const handleSymbolChange = (newSymbol: string) => {
+    if (!selectedGroup) return;
+
+    // Остановить текущую подписку если есть
+    if (currentSubscription) {
+      const subscriberId = `widget-${widgetId}`;
+      unsubscribe(subscriberId, exchange, symbol, 'candles', timeframe, market);
+    }
+
+    // Обновить tradingPair в groupStore
+    const { updateGroup } = useGroupStore.getState();
+    updateGroup(selectedGroup.id, {
+      ...selectedGroup,
+      tradingPair: newSymbol
+    });
+
+    console.log(`🔄 Chart settings: Symbol changed to ${newSymbol} in groupStore`);
   };
 
-  const handleMarketChange = () => {
-    // Market изменяется только через селектор инструмента
+  const handleMarketChange = (newMarket: MarketType) => {
+    if (!selectedGroup) return;
+
+    // Остановить текущую подписку если есть
+    if (currentSubscription) {
+      const subscriberId = `widget-${widgetId}`;
+      unsubscribe(subscriberId, exchange, symbol, 'candles', timeframe, market);
+    }
+
+    // Обновить market в groupStore
+    const { updateGroup } = useGroupStore.getState();
+    updateGroup(selectedGroup.id, {
+      ...selectedGroup,
+      market: newMarket
+    });
+
+    console.log(`🔄 Chart settings: Market changed to ${newMarket} in groupStore`);
   };
 
   const handleSubscribe = async () => {
@@ -207,6 +252,7 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, s
       onMarketChange={handleMarketChange}
       onSubscribe={handleSubscribe}
       onUnsubscribe={handleUnsubscribe}
+      isReadOnly={false} // Поля редактируются и обновляют groupStore
     />
   );
 };

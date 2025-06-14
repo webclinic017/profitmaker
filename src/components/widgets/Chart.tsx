@@ -581,7 +581,7 @@ const Chart: React.FC<ChartProps> = ({
       clearTimeout(timeoutId);
       console.log(`🧹 [Chart] Cleared pending resize timeout`);
     };
-  }, [chartDimensions, isChartInitialized, chartColors]);
+  }, [chartDimensions, isChartInitialized]);
 
   // Event-driven chart updates (заменяем polling на events из store)
   const chartUpdateListener = useCallback((event: ChartUpdateEvent) => {

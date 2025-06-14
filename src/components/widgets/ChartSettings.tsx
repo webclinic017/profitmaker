@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -6,20 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
 import { Badge } from '../ui/badge';
-import { RefreshCw, Play, Pause, Wifi, WifiOff, Activity } from 'lucide-react';
+import { RefreshCw, Play, Pause, Wifi, WifiOff, Activity, Loader2 } from 'lucide-react';
 import { Timeframe, MarketType } from '../../types/dataProviders';
-
-const EXCHANGES = [
-  { id: 'binance', label: 'Binance' },
-  { id: 'bybit', label: 'Bybit' },
-  { id: 'okx', label: 'OKX' },
-  { id: 'kucoin', label: 'KuCoin' },
-];
-
-const MARKETS: { id: MarketType; label: string }[] = [
-  { id: 'spot', label: 'Spot' },
-  { id: 'futures', label: 'Futures' },
-];
+import { useExchangesList } from '../../hooks/useExchangesList';
+import { useDataProviderStore } from '../../store/dataProviderStore';
 
 const TIMEFRAMES: { id: Timeframe; label: string }[] = [
   { id: '1m', label: '1M' },
@@ -47,6 +37,8 @@ interface ChartSettingsProps {
   onMarketChange: (market: MarketType) => void;
   onSubscribe: () => void;
   onUnsubscribe: () => void;
+  // Новые пропсы для управления редактированием
+  isReadOnly?: boolean;
 }
 
 const ChartSettings: React.FC<ChartSettingsProps> = ({
@@ -65,7 +57,86 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
   onMarketChange,
   onSubscribe,
   onUnsubscribe,
+  isReadOnly = false
 }) => {
+  // Загружаем реальные данные из провайдеров с безопасной обработкой ошибок
+  const { exchanges, loading: exchangesLoading, error: exchangesError } = useExchangesList();
+  const { getMarketsForExchange } = useDataProviderStore();
+  
+  // Fallback данные на случай ошибок
+  const fallbackExchanges = [
+    { id: 'binance', name: 'Binance' },
+    { id: 'bybit', name: 'Bybit' },
+    { id: 'okx', name: 'OKX' },
+    { id: 'kucoin', name: 'KuCoin' },
+    { id: 'coinbase', name: 'Coinbase' },
+    { id: 'kraken', name: 'Kraken' },
+    { id: 'huobi', name: 'Huobi' },
+    { id: 'gateio', name: 'Gate.io' }
+  ];
+
+  const safeExchanges = exchangesError || exchanges.length === 0 ? fallbackExchanges : exchanges;
+  
+  // Состояние для загрузки рынков и символов
+  const [availableMarkets, setAvailableMarkets] = useState<string[]>(['spot', 'futures', 'margin']);
+  const [availableSymbols, setAvailableSymbols] = useState<string[]>([
+    'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'ADA/USDT', 'SOL/USDT',
+    'XRP/USDT', 'DOT/USDT', 'DOGE/USDT', 'AVAX/USDT', 'MATIC/USDT'
+  ]);
+  const [marketsLoading, setMarketsLoading] = useState(false);
+  const [symbolsLoading, setSymbolsLoading] = useState(false);
+
+  // Безопасная загрузка рынков при изменении биржи
+  useEffect(() => {
+    if (!exchange || !getMarketsForExchange) {
+      setAvailableMarkets(['spot', 'futures', 'margin']);
+      return;
+    }
+    
+    const loadMarkets = async () => {
+      setMarketsLoading(true);
+      try {
+        console.log(`🔍 Loading markets for exchange: ${exchange}`);
+        const markets = await getMarketsForExchange(exchange);
+        console.log(`✅ Loaded markets for ${exchange}:`, markets);
+        setAvailableMarkets(markets && markets.length > 0 ? markets : ['spot', 'futures', 'margin']);
+      } catch (error) {
+        console.error('❌ Failed to load markets:', error);
+        setAvailableMarkets(['spot', 'futures', 'margin']);
+      } finally {
+        setMarketsLoading(false);
+      }
+    };
+
+    const timeoutId = setTimeout(loadMarkets, 100);
+    return () => clearTimeout(timeoutId);
+  }, [exchange, getMarketsForExchange]);
+
+  // Загрузка символов (пока статические, но можно расширить)
+  useEffect(() => {
+    if (!exchange || !market) return;
+    
+    const loadSymbols = async () => {
+      setSymbolsLoading(true);
+      try {
+        // TODO: Добавить загрузку реальных символов из провайдера
+        const commonSymbols = [
+          'BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'ADA/USDT', 'SOL/USDT',
+          'XRP/USDT', 'DOT/USDT', 'DOGE/USDT', 'AVAX/USDT', 'MATIC/USDT',
+          'LTC/USDT', 'LINK/USDT', 'UNI/USDT', 'ATOM/USDT', 'FTM/USDT'
+        ];
+        setAvailableSymbols(commonSymbols);
+      } catch (error) {
+        console.error('Failed to load symbols:', error);
+        setAvailableSymbols(['BTC/USDT', 'ETH/USDT']);
+      } finally {
+        setSymbolsLoading(false);
+      }
+    };
+
+    const timeoutId = setTimeout(loadSymbols, 50);
+    return () => clearTimeout(timeoutId);
+  }, [exchange, market]);
   const getStatusIcon = () => {
     switch (connectionStatus) {
       case 'connected':
@@ -116,41 +187,68 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-2">
             <Label className="text-xs">Exchange</Label>
-            <Select value={exchange} onValueChange={onExchangeChange}>
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {EXCHANGES.map(ex => (
-                  <SelectItem key={ex.id} value={ex.id}>{ex.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isReadOnly ? (
+              <div className="h-8 px-3 py-2 bg-muted border border-input rounded-md text-sm flex items-center">
+                {safeExchanges.find(ex => ex.id === exchange)?.name || exchange}
+              </div>
+            ) : (
+              <Select value={exchange} onValueChange={onExchangeChange}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                  {exchangesLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+                </SelectTrigger>
+                <SelectContent>
+                  {safeExchanges.map(ex => (
+                    <SelectItem key={ex.id} value={ex.id}>{ex.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs">Market</Label>
-            <Select value={market} onValueChange={onMarketChange}>
-              <SelectTrigger className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MARKETS.map(m => (
-                  <SelectItem key={m.id} value={m.id}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isReadOnly ? (
+              <div className="h-8 px-3 py-2 bg-muted border border-input rounded-md text-sm flex items-center">
+                {market.charAt(0).toUpperCase() + market.slice(1)}
+              </div>
+            ) : (
+              <Select value={market} onValueChange={onMarketChange}>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                  {marketsLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+                </SelectTrigger>
+                <SelectContent>
+                  {availableMarkets.map(m => (
+                    <SelectItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs">Symbol</Label>
-          <Input
-            value={symbol}
-            onChange={(e) => onSymbolChange(e.target.value.toUpperCase())}
-            placeholder="BTC/USDT"
-            className="h-8"
-          />
+          {isReadOnly ? (
+            <Input
+              value={symbol}
+              readOnly
+              className="h-8 bg-muted"
+            />
+          ) : (
+            <Select value={symbol} onValueChange={onSymbolChange}>
+              <SelectTrigger className="h-8">
+                <SelectValue placeholder="Select symbol..." />
+                {symbolsLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+              </SelectTrigger>
+              <SelectContent>
+                {availableSymbols.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="space-y-2">
