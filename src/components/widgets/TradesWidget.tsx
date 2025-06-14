@@ -394,29 +394,17 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
         </div>
       )}
 
-      {/* Connection Status */}
-      {currentSubscription && (
-        <div className="text-xs text-terminal-muted bg-terminal-widget p-2 rounded border border-terminal-border">
-          <div className="flex items-center justify-between">
-            <span>📡 {exchange.toUpperCase()} {symbol} ({widgetState.isAggregatedTrades ? 'Agg' : 'Raw'})</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs">
-                {currentSubscription.method === 'websocket' 
-                  ? 'WebSocket' 
-                  : currentSubscription.isFallback 
-                    ? 'REST (fallback)'
-                    : 'REST'
-                }
-              </span>
-              <span className={`w-2 h-2 rounded-full ${currentSubscription.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Quick Statistics */}
+
+      {/* Virtualized trades list */}
+      <VirtualizedTradesList 
+        trades={processedTrades}
+        currentSubscription={currentSubscription}
+      />
+
+      {/* Footer Statistics */}
       {processedTrades.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 text-xs">
+        <div className="grid grid-cols-4 gap-2 text-xs mt-4">
           <div className="bg-terminal-widget p-2 rounded border border-terminal-border">
             <div className="flex items-center gap-1 text-terminal-muted">
               <Hash className="h-3 w-3" />
@@ -447,20 +435,6 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
           </div>
         </div>
       )}
-
-      {/* Trades list header */}
-      <div className="flex items-center justify-between">
-        <Label className="text-sm font-medium text-terminal-text">Trades</Label>
-        <div className="text-xs text-terminal-muted">
-          {rawTrades.length} total / {processedTrades.length} filtered
-        </div>
-      </div>
-
-      {/* Virtualized trades list */}
-      <VirtualizedTradesList 
-        trades={processedTrades}
-        currentSubscription={currentSubscription}
-      />
     </div>
   );
 };
