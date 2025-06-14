@@ -54,6 +54,15 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
   const rawTrades = getTrades(exchange, symbol, market);
   const activeSubscriptions = getActiveSubscriptionsList();
   
+  // Debug logging for store data
+  useEffect(() => {
+    console.log(`📊 [TradesWidget] Store data for ${exchange}:${market}:${symbol} - ${rawTrades.length} trades`);
+    if (rawTrades.length > 0) {
+      console.log(`📊 [TradesWidget] Store: First trade: ${JSON.stringify(rawTrades[0])}`);
+      console.log(`📊 [TradesWidget] Store: Last trade: ${JSON.stringify(rawTrades[rawTrades.length - 1])}`);
+    }
+  }, [rawTrades.length, exchange, symbol, market]);
+  
   // Check if there's an active subscription for current exchange/symbol
   const currentSubscription = activeSubscriptions.find(sub => 
     sub.key.exchange === exchange && 
@@ -107,11 +116,13 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
         );
         
         if (trades && trades.length > 0) {
-          // Trades будут автоматически сохранены в store через initializeTradesData
+          // Trades автоматически сохранены в store через initializeTradesData
           setIsDataLoaded(true);
-          console.log(`✅ [TradesWidget] Initial trades loaded: ${trades.length} trades`);
+          console.log(`✅ [TradesWidget] Initial trades loaded via REST: ${trades.length} trades`);
+          console.log(`📊 [TradesWidget] First trade: ${JSON.stringify(trades[0])}`);
+          console.log(`📊 [TradesWidget] Last trade: ${JSON.stringify(trades[trades.length - 1])}`);
         } else {
-          console.warn(`⚠️ [TradesWidget] No initial trades received`);
+          console.warn(`⚠️ [TradesWidget] No initial trades received via REST`);
           setIsDataLoaded(true); // Считаем загруженным даже если пусто
         }
         
@@ -229,6 +240,34 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
       }
     }
   }, [exchange, symbol, market, widgetState.isAggregatedTrades, widgetState.tradesLimit, widgetState.isSubscribed]);
+
+  // Cleanup on component unmount - КРИТИЧЕСКИ ВАЖНО для предотвращения утечек WebSocket соединений
+  useEffect(() => {
+    return () => {
+      const subscriberId = `${dashboardId}-${widgetId}`;
+      
+      // Очистка подписки по текущим настройкам
+      console.log(`🧹 [TradesWidget] Cleanup: unsubscribing from current settings ${exchange}:${market}:${symbol} (aggregated: ${widgetState.isAggregatedTrades})`);
+      unsubscribe(subscriberId, exchange, symbol, 'trades', undefined, market);
+      
+      // Дополнительная очистка по предыдущим настройкам (если отличаются)
+      if (previousSubscriptionRef.current) {
+        const prev = previousSubscriptionRef.current;
+        if (prev.exchange !== exchange || prev.symbol !== symbol || 
+            prev.market !== market || prev.isAggregated !== widgetState.isAggregatedTrades) {
+          console.log(`🧹 [TradesWidget] Cleanup: also unsubscribing from previous settings ${prev.exchange}:${prev.market}:${prev.symbol} (aggregated: ${prev.isAggregated})`);
+          unsubscribe(subscriberId, prev.exchange, prev.symbol, 'trades', undefined, prev.market);
+        }
+      }
+      
+      // Очистка widget state при размонтировании
+      updateWidget(widgetId, { 
+        isSubscribed: false,
+        isLoading: false,
+        error: null
+      });
+    };
+  }, [dashboardId, widgetId, exchange, symbol, market, widgetState.isAggregatedTrades, unsubscribe, updateWidget]);
 
   // Apply filters and sorting
   const processedTrades = useMemo(() => {

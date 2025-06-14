@@ -402,7 +402,10 @@ export const createDataActions: StateCreator<
       
       console.log(`✅ [initializeTradesData] Loaded ${tradesData.length} trades for ${exchange}:${market}:${symbol} (method: ${fetchTradesMethod})`);
       
-      // Return trades directly (don't save to store here)
+      // Save trades to store AND return them
+      get().updateTrades(exchange, symbol, tradesData, market);
+      console.log(`💾 [initializeTradesData] Trades saved to store for ${exchange}:${market}:${symbol}`);
+      
       return tradesData;
       
     } catch (error) {
