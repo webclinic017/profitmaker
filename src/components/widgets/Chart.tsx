@@ -205,9 +205,10 @@ const Chart: React.FC<ChartProps> = ({
       }
 
       // Create new NightVision instance with empty data
-      const chartId = `chart-${dashboardId}-${widgetId}`;
+      const chartId = `chart-${crypto.randomUUID()}`;
       chartRef.current.id = chartId;
       nightVisionRef.current = new NightVision(chartId, {
+        id: chartId, // Используем тот же UUID что и для container
         width: chartDimensions.width,
         height: chartDimensions.height,
         autoResize: true,
@@ -216,7 +217,7 @@ const Chart: React.FC<ChartProps> = ({
           grid: chartColors.grid
         },
         data: { panes: [] } // Empty data initially
-      });
+      } as any); // Type assertion для обхода проблемы с TypeScript определениями
 
       console.log(`📊 NightVision chart initialized for ${exchange}:${symbol}:${timeframe}`);
       
@@ -564,11 +565,12 @@ const Chart: React.FC<ChartProps> = ({
         nightVisionRef.current.destroy();
       }
       
-      // Create new instance with new dimensions
-      const chartId = `chart-${dashboardId}-${widgetId}`;
+      // Create new instance with new dimensions  
+      const chartId = `chart-${crypto.randomUUID()}`;
       if (chartRef.current) {
         chartRef.current.id = chartId;
         nightVisionRef.current = new NightVision(chartId, {
+          id: chartId, // Используем тот же UUID что и для container
           width: chartDimensions.width,
           height: chartDimensions.height,
           autoResize: true,
@@ -577,7 +579,7 @@ const Chart: React.FC<ChartProps> = ({
             grid: chartColors.grid
           },
           data: currentData // Restore data
-        });
+        } as any); // Type assertion для обхода проблемы с TypeScript определениями
         
         console.log(`✅ [Chart] NightVision instance recreated with dimensions: ${chartDimensions.width}x${chartDimensions.height}`);
       }
