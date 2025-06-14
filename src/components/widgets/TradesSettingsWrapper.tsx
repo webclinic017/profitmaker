@@ -5,16 +5,30 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
-import { Filter, ArrowUp, ArrowDown, Settings2 } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { Filter, ArrowUp, ArrowDown, Settings2, Play, Pause, RefreshCw } from 'lucide-react';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { useTradesWidgetsStore } from '../../store/tradesWidgetStore';
 import { useGroupStore } from '../../store/groupStore';
+import { MarketType } from '../../types/dataProviders';
 
 interface TradesSettingsWrapperProps {
   widgetId: string;
+  isSubscribed?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+  onSubscribe?: () => void;
+  onUnsubscribe?: () => void;
 }
 
-const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId }) => {
+const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ 
+  widgetId,
+  isSubscribed = false,
+  isLoading = false,
+  error = null,
+  onSubscribe,
+  onUnsubscribe
+}) => {
   const { 
     subscribe, 
     unsubscribe, 
@@ -35,7 +49,7 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
   // Получаем данные инструмента из selectedGroup
   const exchange = selectedGroup?.exchange || 'binance';
   const symbol = selectedGroup?.tradingPair || 'BTC/USDT';
-  const market = selectedGroup?.market || 'spot';
+  const market = (selectedGroup?.market as MarketType) || 'spot';
 
   // Filters state
   const [filters, setFilters] = useState({
@@ -62,6 +76,64 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
     sub.key.dataType === 'trades' &&
     sub.key.market === market
   );
+
+  // Subscription handlers
+  const handleSubscribe = async () => {
+    if (!activeProviderId) {
+      updateWidget(widgetId, { error: 'No active provider' });
+      return;
+    }
+
+    try {
+      updateWidget(widgetId, { isLoading: true, error: null });
+      
+      const subscriberId = `settings-${widgetId}`;
+      const config = {
+        isAggregated: widgetState.isAggregatedTrades,
+        tradesLimit: widgetState.tradesLimit
+      };
+      
+      const result = await subscribe(
+        subscriberId, 
+        exchange, 
+        symbol, 
+        'trades', 
+        undefined, // no timeframe for trades
+        market,
+        config
+      );
+      
+      if (result.success) {
+        updateWidget(widgetId, { 
+          isSubscribed: true, 
+          isLoading: false 
+        });
+        console.log(`📊 [TradesSettings] Subscribed to ${exchange}:${market}:${symbol} (aggregated: ${widgetState.isAggregatedTrades}, limit: ${widgetState.tradesLimit})`);
+      } else {
+        updateWidget(widgetId, { 
+          error: result.error || 'Subscription failed',
+          isLoading: false 
+        });
+      }
+    } catch (error) {
+      updateWidget(widgetId, { 
+        error: error instanceof Error ? error.message : 'Subscription failed',
+        isLoading: false 
+      });
+    }
+  };
+
+  const handleUnsubscribe = () => {
+    const subscriberId = `settings-${widgetId}`;
+    unsubscribe(subscriberId, exchange, symbol, 'trades', undefined, market);
+    updateWidget(widgetId, { isSubscribed: false });
+    console.log(`📊 [TradesSettings] Unsubscribed from ${exchange}:${market}:${symbol}`);
+  };
+
+  // Use widget state for subscription status instead of props
+  const isSubscribedFromWidget = widgetState.isSubscribed || isSubscribed;
+  const isLoadingFromWidget = widgetState.isLoading || isLoading;
+  const errorFromWidget = widgetState.error || error;
 
   return (
     <div className="space-y-6">
@@ -165,6 +237,60 @@ const TradesSettingsWrapper: React.FC<TradesSettingsWrapperProps> = ({ widgetId 
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Data Connection */}
+      <div className="space-y-4">
+        <div>
+          <Label className="text-sm font-medium text-terminal-text">Data Connection</Label>
+          <p className="text-xs text-terminal-muted">Control real-time data subscription</p>
+        </div>
+        
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            {currentSubscription && (
+              <Badge variant="outline" className="text-xs">
+                Method: {currentSubscription.method === 'websocket' 
+                  ? 'WebSocket' 
+                  : currentSubscription.isFallback 
+                    ? 'REST (fallback)'
+                    : 'REST'
+                }
+              </Badge>
+            )}
+            
+            <Button
+              onClick={isSubscribedFromWidget ? handleUnsubscribe : handleSubscribe}
+              disabled={isLoadingFromWidget}
+              size="sm"
+              variant={isSubscribedFromWidget ? "destructive" : "default"}
+              className="flex items-center gap-2"
+            >
+              {isLoadingFromWidget ? (
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              ) : isSubscribedFromWidget ? (
+                <Pause className="w-3 h-3" />
+              ) : (
+                <Play className="w-3 h-3" />
+              )}
+              {isLoadingFromWidget ? 'Loading...' : isSubscribedFromWidget ? 'Disconnect' : 'Connect'}
+            </Button>
+          </div>
+          
+          {errorFromWidget && (
+            <div className="text-red-400 text-sm bg-red-50 dark:bg-red-950/20 p-2 rounded">
+              {errorFromWidget}
+            </div>
+          )}
+          
+          <div className="text-xs text-terminal-muted">
+            <p>• WebSocket provides real-time updates</p>
+            <p>• REST polling updates at intervals</p>
+            <p>• Trades data is cached for performance</p>
           </div>
         </div>
       </div>
