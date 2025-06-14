@@ -5,6 +5,7 @@ import type { DataType, ProviderOperationResult, Timeframe, MarketType } from '.
 export interface SubscriptionActions {
   subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => Promise<ProviderOperationResult>;
   unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => void;
+  forceCloseSubscription: (subscriptionKey: string) => void;
 }
 
 export const createSubscriptionActions: StateCreator<
@@ -83,6 +84,21 @@ export const createSubscriptionActions: StateCreator<
           delete state.activeSubscriptions[subscriptionKey];
           console.log(`🗑️ Subscription removed: ${subscriptionKey}`);
         }
+      }
+    });
+  },
+
+  forceCloseSubscription: (subscriptionKey: string) => {
+    console.log(`🔨 Force closing subscription: ${subscriptionKey}`);
+    
+    // Stop data fetching immediately
+    get().stopDataFetching(subscriptionKey);
+    
+    // Remove from active subscriptions
+    set(state => {
+      if (state.activeSubscriptions[subscriptionKey]) {
+        console.log(`🗑️ Force removed subscription: ${subscriptionKey} (had ${state.activeSubscriptions[subscriptionKey].subscriberCount} subscribers)`);
+        delete state.activeSubscriptions[subscriptionKey];
       }
     });
   }

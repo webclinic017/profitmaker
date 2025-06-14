@@ -7,7 +7,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useDataProviderStore } from '../../store/dataProviderStore';
-import { ConnectionStatus, DataProvider } from '../../types/dataProviders';
+import { ConnectionStatus, DataProvider, ActiveSubscription } from '../../types/dataProviders';
 import { 
   Wifi, 
   WifiOff, 
@@ -93,7 +93,9 @@ export const DataProviderDebugWidget: React.FC = () => {
     isProviderEnabled,
     getEnabledProviders,
     updateProvider,
-    cleanup
+    cleanup,
+    forceCloseSubscription,
+    getSubscriptionKey
   } = useDataProviderStore();
 
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
@@ -125,6 +127,17 @@ export const DataProviderDebugWidget: React.FC = () => {
 
   const handleCleanup = () => {
     cleanup();
+  };
+
+  const handleForceCloseSubscription = (subscription: ActiveSubscription) => {
+    const subscriptionKey = getSubscriptionKey(
+      subscription.key.exchange,
+      subscription.key.symbol,
+      subscription.key.dataType,
+      subscription.key.timeframe,
+      subscription.key.market
+    );
+    forceCloseSubscription(subscriptionKey);
   };
 
   const startEdit = (provider: DataProvider) => {
@@ -459,6 +472,15 @@ export const DataProviderDebugWidget: React.FC = () => {
                   <Badge variant={subscription.isActive ? 'default' : 'outline'}>
                     {subscription.isActive ? '🟢 Active' : '🔴 Inactive'}
                   </Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleForceCloseSubscription(subscription)}
+                    title="Force close WebSocket connection"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               </div>
             ))
@@ -524,6 +546,15 @@ export const DataProviderDebugWidget: React.FC = () => {
                   <Badge variant={subscription.isActive ? 'secondary' : 'outline'}>
                     {subscription.isActive ? '🔄 Polling' : '⏸️ Stopped'}
                   </Badge>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleForceCloseSubscription(subscription)}
+                    title="Force close REST polling"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
               </div>
             ))

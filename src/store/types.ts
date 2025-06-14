@@ -84,6 +84,7 @@ export interface DataProviderActions {
   // Deduplicated subscriptions management
   subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => Promise<ProviderOperationResult>;
   unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => void;
+  forceCloseSubscription: (subscriptionKey: string) => void;
   
   // Data retrieval from store
   getCandles: (exchange: string, symbol: string, timeframe?: Timeframe, market?: MarketType) => Candle[];
