@@ -5,7 +5,8 @@ interface SettingsDrawerState {
   widgetId: string | null;
   widgetType: string | null;
   widgetTitle: string | null;
-  openDrawer: (widgetId: string, widgetType: string, widgetTitle: string) => void;
+  groupId: string | null;
+  openDrawer: (widgetId: string, widgetType: string, widgetTitle: string, groupId?: string) => void;
   closeDrawer: () => void;
 }
 
@@ -14,16 +15,19 @@ export const useSettingsDrawerStore = create<SettingsDrawerState>((set) => ({
   widgetId: null,
   widgetType: null,
   widgetTitle: null,
-  openDrawer: (widgetId, widgetType, widgetTitle) => set({
+  groupId: null,
+  openDrawer: (widgetId, widgetType, widgetTitle, groupId) => set({
     isOpen: true,
     widgetId,
     widgetType,
-    widgetTitle
+    widgetTitle,
+    groupId: groupId || null
   }),
   closeDrawer: () => set({
     isOpen: false,
     widgetId: null,
     widgetType: null,
-    widgetTitle: null
+    widgetTitle: null,
+    groupId: null
   })
 })); 

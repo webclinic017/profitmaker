@@ -3,6 +3,8 @@ import { RefreshCw } from 'lucide-react';
 import { NightVision } from 'night-vision';
 import { useTheme } from '../../hooks/useTheme';
 import { useDataProviderStore } from '../../store/dataProviderStore';
+import { useGroupStore } from '../../store/groupStore';
+import { useChartWidgetsStore } from '../../store/chartWidgetStore';
 import { Timeframe, MarketType, ChartUpdateEvent, Candle } from '../../types/dataProviders';
 import TimeframeSelect from '../ui/TimeframeSelect';
 
@@ -38,19 +40,15 @@ const getChartColors = (theme: 'dark' | 'light') => {
 interface ChartProps {
   dashboardId?: string;
   widgetId?: string;
-  initialExchange?: string;
-  initialSymbol?: string;
+  selectedGroupId?: string;
   initialTimeframe?: Timeframe;
-  initialMarket?: MarketType;
 }
 
 const Chart: React.FC<ChartProps> = ({
   dashboardId = 'default',
   widgetId = 'chart-widget',
-  initialExchange = 'binance',
-  initialSymbol = 'BTC/USDT',
-  initialTimeframe = '1h',
-  initialMarket = 'spot'
+  selectedGroupId,
+  initialTimeframe = '1h'
 }) => {
   const chartRef = useRef<HTMLDivElement>(null);
   const nightVisionRef = useRef<any>(null);
@@ -80,11 +78,29 @@ const Chart: React.FC<ChartProps> = ({
     removeChartUpdateListener
   } = useDataProviderStore();
 
+  // Group store integration - единый источник данных о выбранном инструменте
+  const { getGroupById, selectedGroupId: globalSelectedGroupId } = useGroupStore();
+  const currentGroupId = selectedGroupId || globalSelectedGroupId;
+  const selectedGroup = currentGroupId ? getGroupById(currentGroupId) : undefined;
+
+  // Chart widget store - только для timeframe и настроек виджета
+  const { getWidget, updateWidget } = useChartWidgetsStore();
+  const widgetState = getWidget(widgetId);
+
+  // Проверка полноты выбранного инструмента
+  const isInstrumentSelected = selectedGroup && 
+    selectedGroup.account && 
+    selectedGroup.exchange && 
+    selectedGroup.market && 
+    selectedGroup.tradingPair;
+
+  // Получаем данные инструмента из selectedGroup или fallback значения
+  const exchange = selectedGroup?.exchange || 'binance';
+  const symbol = selectedGroup?.tradingPair || 'BTC/USDT';
+  const market = (selectedGroup?.market as MarketType) || 'spot';
+  const timeframe = widgetState.timeframe || initialTimeframe;
+
   // Widget state
-  const [exchange, setExchange] = useState(initialExchange);
-  const [symbol, setSymbol] = useState(initialSymbol);
-  const [timeframe, setTimeframe] = useState<Timeframe>(initialTimeframe);
-  const [market, setMarket] = useState<MarketType>(initialMarket);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,9 +179,17 @@ const Chart: React.FC<ChartProps> = ({
     };
   }, []);
 
-  // Initialize empty NightVision chart
+  // Initialize NightVision chart only when instrument is selected
   useEffect(() => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || !isInstrumentSelected) {
+      // Destroy chart if instrument is not selected
+      if (nightVisionRef.current) {
+        nightVisionRef.current.destroy?.();
+        nightVisionRef.current = null;
+        setIsChartInitialized(false);
+      }
+      return;
+    }
 
     try {
       // Destroy existing chart
@@ -187,14 +211,7 @@ const Chart: React.FC<ChartProps> = ({
         data: { panes: [] } // Empty data initially
       });
 
-      console.log(`📊 Empty NightVision chart initialized for ${exchange}:${symbol}:${timeframe}`);
-      
-      // Debug: log available methods and properties
-      console.log(`🔍 [Chart] NightVision instance methods:`, Object.getOwnPropertyNames(nightVisionRef.current).filter(prop => typeof nightVisionRef.current[prop] === 'function'));
-      console.log(`🔍 [Chart] NightVision instance properties:`, Object.keys(nightVisionRef.current));
-      if (nightVisionRef.current.hub) {
-        console.log(`🔍 [Chart] NightVision hub properties:`, Object.keys(nightVisionRef.current.hub));
-      }
+      console.log(`📊 NightVision chart initialized for ${exchange}:${symbol}:${timeframe}`);
       
       setIsChartInitialized(true);
     } catch (error) {
@@ -210,11 +227,11 @@ const Chart: React.FC<ChartProps> = ({
       }
       setIsChartInitialized(false);
     };
-  }, [exchange, symbol, timeframe, market, chartColors]);
+  }, [isInstrumentSelected, exchange, symbol, timeframe, market, chartColors, chartDimensions]);
 
           // REST data initialization
   useEffect(() => {
-    if (!isChartInitialized || !nightVisionRef.current) return;
+    if (!isChartInitialized || !nightVisionRef.current || !isInstrumentSelected) return;
 
     const loadInitialData = async () => {
       try {
@@ -757,15 +774,30 @@ const Chart: React.FC<ChartProps> = ({
 
 
 
+  // Handler для изменения timeframe
+  const handleTimeframeChange = (newTimeframe: Timeframe) => {
+    updateWidget(widgetId, { timeframe: newTimeframe });
+  };
+
   return (
     <div className="flex flex-col h-full bg-terminal-bg border border-terminal-border rounded-lg">
-      {/* Chart Container */}
-      <div className="flex-1 relative">
-        {/* Timeframe Selector - Absolutely positioned */}
-        <TimeframeSelect 
-          value={timeframe}
-          onChange={setTimeframe}
-        />
+      {/* Проверка выбранного инструмента */}
+      {!isInstrumentSelected ? (
+        <div className="flex-1 flex items-center justify-center bg-terminal-bg">
+          <div className="text-center text-terminal-muted">
+            <div className="text-lg font-medium mb-2">Инструмент не выбран</div>
+            <div className="text-sm">Сначала выберите торговый инструмент в селекторе выше</div>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Chart Container */}
+          <div className="flex-1 relative">
+            {/* Timeframe Selector - Absolutely positioned */}
+            <TimeframeSelect 
+              value={timeframe}
+              onChange={handleTimeframeChange}
+            />
         
         <div 
           ref={chartRef} 
@@ -773,28 +805,30 @@ const Chart: React.FC<ChartProps> = ({
           style={{ minHeight: '300px' }}
         />
         
-        {/* Loading/Error Overlay */}
-        {(isLoading || error || !chartDataLoaded) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg/80">
-            {isLoading ? (
-              <div className="flex items-center gap-2 text-terminal-muted">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Loading chart data...
-              </div>
-            ) : error ? (
-              <div className="text-red-400 text-center">
-                <div className="font-medium">Chart Error</div>
-                <div className="text-sm">{error}</div>
-              </div>
-            ) : (
-              <div className="text-terminal-muted text-center">
-                <div className="font-medium">Chart Ready</div>
-                <div className="text-sm">Start subscription to see real-time data</div>
+            {/* Loading/Error Overlay */}
+            {(isLoading || error || !chartDataLoaded) && (
+              <div className="absolute inset-0 flex items-center justify-center bg-terminal-bg/80">
+                {isLoading ? (
+                  <div className="flex items-center gap-2 text-terminal-muted">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Loading chart data...
+                  </div>
+                ) : error ? (
+                  <div className="text-red-400 text-center">
+                    <div className="font-medium">Chart Error</div>
+                    <div className="text-sm">{error}</div>
+                  </div>
+                ) : (
+                  <div className="text-terminal-muted text-center">
+                    <div className="font-medium">Chart Ready</div>
+                    <div className="text-sm">Start subscription to see real-time data</div>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 };

@@ -2,14 +2,16 @@ import React, { useMemo } from 'react';
 import ChartSettings from './ChartSettings';
 import { useChartWidgetsStore } from '@/store/chartWidgetStore';
 import { useDataProviderStore } from '@/store/dataProviderStore';
+import { useGroupStore } from '@/store/groupStore';
 import { Timeframe, MarketType } from '@/types/dataProviders';
 
 interface ChartSettingsWrapperProps {
   widgetId: string;
+  selectedGroupId?: string;
 }
 
-const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId }) => {
-  const { getWidget, updateWidget, setWidgetSettings } = useChartWidgetsStore();
+const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId, selectedGroupId }) => {
+  const { getWidget, updateWidget } = useChartWidgetsStore();
   const { 
     subscribe, 
     unsubscribe, 
@@ -17,19 +19,39 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId })
     getActiveSubscriptionsList 
   } = useDataProviderStore();
   
+  // Group store integration - единый источник данных о выбранном инструменте
+  const { getGroupById, selectedGroupId: globalSelectedGroupId } = useGroupStore();
+  const currentGroupId = selectedGroupId || globalSelectedGroupId;
+  const selectedGroup = currentGroupId ? getGroupById(currentGroupId) : undefined;
+
+  // Проверка полноты выбранного инструмента
+  const isInstrumentSelected = selectedGroup && 
+    selectedGroup.account && 
+    selectedGroup.exchange && 
+    selectedGroup.market && 
+    selectedGroup.tradingPair;
+
+  // Получаем данные инструмента из selectedGroup
+  const exchange = selectedGroup?.exchange || '';
+  const symbol = selectedGroup?.tradingPair || '';
+  const market = (selectedGroup?.market as MarketType) || 'spot';
+  
   const widget = getWidget(widgetId);
+  const timeframe = widget.timeframe;
   const activeSubscriptions = getActiveSubscriptionsList();
   
-  // Check if we have active subscription for current widget settings
+  // Check if we have active subscription for current instrument settings
   const currentSubscription = useMemo(() => {
+    if (!isInstrumentSelected) return undefined;
+    
     return activeSubscriptions.find(sub => 
-      sub.key.exchange === widget.exchange && 
-      sub.key.symbol === widget.symbol && 
+      sub.key.exchange === exchange && 
+      sub.key.symbol === symbol && 
       sub.key.dataType === 'candles' &&
-      sub.key.timeframe === widget.timeframe &&
-      sub.key.market === widget.market
+      sub.key.timeframe === timeframe &&
+      sub.key.market === market
     );
-  }, [activeSubscriptions, widget]);
+  }, [activeSubscriptions, isInstrumentSelected, exchange, symbol, timeframe, market]);
 
   const getConnectionStatus = () => {
     if (!currentSubscription) return 'disconnected';
@@ -37,40 +59,23 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId })
     return 'connected';
   };
 
-  // Handlers for ChartSettings
-  const handleExchangeChange = (exchange: string) => {
-    setWidgetSettings(widgetId, {
-      ...widget,
-      exchange
-    });
-  };
-
-  const handleSymbolChange = (symbol: string) => {
-    setWidgetSettings(widgetId, {
-      ...widget,
-      symbol
-    });
-  };
-
-  const handleTimeframeChange = (timeframe: Timeframe) => {
+  // Handler for timeframe change (only editable setting)
+  const handleTimeframeChange = (newTimeframe: Timeframe) => {
     // Остановить текущую подписку если есть
     if (currentSubscription) {
       const subscriberId = `widget-${widgetId}`;
       unsubscribe(
         subscriberId, 
-        widget.exchange, 
-        widget.symbol, 
+        exchange, 
+        symbol, 
         'candles', 
-        widget.timeframe, 
-        widget.market
+        timeframe, 
+        market
       );
     }
 
-    // Обновить настройки в store
-    setWidgetSettings(widgetId, {
-      ...widget,
-      timeframe
-    });
+    // Обновить только timeframe в widget store
+    updateWidget(widgetId, { timeframe: newTimeframe });
 
     // Если была активная подписка, перезапустить с новым timeframe
     if (currentSubscription) {
@@ -81,11 +86,11 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId })
           
           const result = await subscribe(
             subscriberId, 
-            widget.exchange, 
-            widget.symbol, 
+            exchange, 
+            symbol, 
             'candles', 
-            timeframe, 
-            widget.market
+            newTimeframe, 
+            market
           );
           
           if (result.success) {
@@ -105,29 +110,40 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId })
             isLoading: false 
           });
         }
-      }, 100); // Небольшая задержка для корректной обработки
+      }, 100);
     }
   };
 
-  const handleMarketChange = (market: MarketType) => {
-    setWidgetSettings(widgetId, {
-      ...widget,
-      market
-    });
+  // Read-only handlers (данные берутся из groupStore)
+  const handleExchangeChange = () => {
+    // Exchange изменяется только через селектор инструмента
+  };
+
+  const handleSymbolChange = () => {
+    // Symbol изменяется только через селектор инструмента
+  };
+
+  const handleMarketChange = () => {
+    // Market изменяется только через селектор инструмента
   };
 
   const handleSubscribe = async () => {
+    if (!isInstrumentSelected) {
+      updateWidget(widgetId, { error: 'Инструмент не выбран' });
+      return;
+    }
+
     try {
       updateWidget(widgetId, { isLoading: true, error: null });
       
       const subscriberId = `widget-${widgetId}`;
       const result = await subscribe(
         subscriberId, 
-        widget.exchange, 
-        widget.symbol, 
+        exchange, 
+        symbol, 
         'candles', 
-        widget.timeframe, 
-        widget.market
+        timeframe, 
+        market
       );
       
       if (result.success) {
@@ -150,24 +166,36 @@ const ChartSettingsWrapper: React.FC<ChartSettingsWrapperProps> = ({ widgetId })
   };
 
   const handleUnsubscribe = () => {
+    if (!isInstrumentSelected) return;
+
     const subscriberId = `widget-${widgetId}`;
     unsubscribe(
       subscriberId, 
-      widget.exchange, 
-      widget.symbol, 
+      exchange, 
+      symbol, 
       'candles', 
-      widget.timeframe, 
-      widget.market
+      timeframe, 
+      market
     );
     updateWidget(widgetId, { isSubscribed: false });
   };
 
+  // Если инструмент не выбран, показываем сообщение
+  if (!isInstrumentSelected) {
+    return (
+      <div className="p-4 text-center text-terminal-muted">
+        <div className="text-lg font-medium mb-2">Инструмент не выбран</div>
+        <div className="text-sm">Сначала выберите торговый инструмент в селекторе</div>
+      </div>
+    );
+  }
+
   return (
     <ChartSettings
-      exchange={widget.exchange}
-      symbol={widget.symbol}
-      timeframe={widget.timeframe}
-      market={widget.market}
+      exchange={exchange}
+      symbol={symbol}
+      timeframe={timeframe}
+      market={market}
       isSubscribed={widget.isSubscribed}
       isLoading={widget.isLoading}
       error={widget.error}

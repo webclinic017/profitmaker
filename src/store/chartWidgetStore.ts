@@ -2,10 +2,7 @@ import { create } from 'zustand';
 import { Timeframe, MarketType } from '@/types/dataProviders';
 
 interface ChartWidgetState {
-  exchange: string;
-  symbol: string;
   timeframe: Timeframe;
-  market: MarketType;
   isSubscribed: boolean;
   isLoading: boolean;
   error: string | null;
@@ -16,19 +13,10 @@ interface ChartWidgetsStore {
   getWidget: (widgetId: string) => ChartWidgetState;
   updateWidget: (widgetId: string, updates: Partial<ChartWidgetState>) => void;
   removeWidget: (widgetId: string) => void;
-  setWidgetSettings: (widgetId: string, settings: {
-    exchange: string;
-    symbol: string;
-    timeframe: Timeframe;
-    market: MarketType;
-  }) => void;
 }
 
 const defaultChartState: ChartWidgetState = {
-  exchange: 'binance',
-  symbol: 'BTC/USDT',
   timeframe: '1h',
-  market: 'spot',
   isSubscribed: false,
   isLoading: false,
   error: null,
@@ -59,17 +47,5 @@ export const useChartWidgetsStore = create<ChartWidgetsStore>((set, get) => ({
       const { [widgetId]: removed, ...rest } = state.widgets;
       return { widgets: rest };
     });
-  },
-  
-  setWidgetSettings: (widgetId: string, settings) => {
-    set((state) => ({
-      widgets: {
-        ...state.widgets,
-        [widgetId]: {
-          ...state.widgets[widgetId] || defaultChartState,
-          ...settings
-        }
-      }
-    }));
   }
 })); 

@@ -6,14 +6,14 @@ import TradesSettingsWrapper from './widgets/TradesSettingsWrapper';
 import OrderBookSettingsWrapper from './widgets/OrderBookSettingsWrapper';
 
 const WidgetSettingsManager: React.FC = () => {
-  const { isOpen, widgetId, widgetType, widgetTitle, closeDrawer } = useSettingsDrawerStore();
+  const { isOpen, widgetId, widgetType, widgetTitle, groupId, closeDrawer } = useSettingsDrawerStore();
 
   const renderSettings = () => {
     if (!widgetId || !widgetType) return null;
 
     switch (widgetType) {
       case 'chart':
-        return <ChartSettingsWrapper widgetId={widgetId} />;
+        return <ChartSettingsWrapper widgetId={widgetId} selectedGroupId={groupId || undefined} />;
       case 'orderbook':
       case 'orderBook':
         return <OrderBookSettingsWrapper widgetId={widgetId} />;

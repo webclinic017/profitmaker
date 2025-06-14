@@ -144,7 +144,10 @@ const TradingTerminal: React.FC = () => {
               showGroupSelector={widget.showGroupSelector}
               onRemove={() => activeDashboard && removeWidget(activeDashboard.id, widget.id)}
             >
-              <WidgetComponent />
+              <WidgetComponent 
+                widgetId={widget.id}
+                selectedGroupId={widget.groupId}
+              />
             </Widget>
           );
         })}
