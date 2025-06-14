@@ -195,7 +195,7 @@ const ChartSettings: React.FC<ChartSettingsProps> = ({
       <div className="space-y-4">
         <Label className="text-sm font-medium">Market Configuration</Label>
         
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           <div className="space-y-2">
             <Label className="text-xs">Exchange</Label>
             {isReadOnly ? (
