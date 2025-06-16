@@ -31,7 +31,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     initializeBalanceData,
     getBalance,
     getActiveSubscriptionsList,
-    fetchBalance
+    fetchBalance,
+    getOrderBook
   } = useDataProviderStore();
 
   // User store integration
@@ -103,22 +104,68 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   }, [activeUser?.accounts, getBalance]);
 
   // Calculate USD value for a currency
-  const calculateUsdValue = useCallback((currency: string, amount: number, exchange: string): number | undefined => {
-    // Direct USD equivalents
-    if (currency === 'USDT' || currency === 'USD' || currency === 'USDC' || currency === 'BUSD' || currency === 'DAI') {
-      return amount; // Already in USD equivalent
+  const calculateUsdValue = useCallback((currency: string, amount: number, exchange: string, accountId: string): { value: number | undefined, rate?: string } => {
+    // Full list of stablecoins pegged to fiat currencies (1:1 conversion)
+    const stablecoins = new Set([
+      // USD stablecoins
+      'USDT', 'USDC', 'DAI', 'USDP', 'TUSD', 'PYUSD', 'BUSD', 'SUSD',
+      // EUR stablecoins  
+      'EURC', 'EURS', 'EURT', 'AEUR', 'EURCV', 'VEUR',
+      // GBP stablecoins
+      'GBPT', 'TGBP', 'POUNDTOKEN',
+      // JPY stablecoins
+      'GYEN', 'JPYC', 'CJPY',
+      // CNY stablecoins
+      'CNHT', 'CNHC', 'TCNH',
+      // CHF stablecoins
+      'VCHF', 'CCHF',
+      // AUD stablecoins
+      'TAUD', 'AUDN',
+      // CAD stablecoins
+      'QCAD', 'ECAD', 'TRUECAD',
+      // BRL stablecoins
+      'BRL1', 'BBRL',
+      // Direct fiat
+      'USD'
+    ]);
+    
+    // Direct USD equivalents (1:1 conversion)
+    if (stablecoins.has(currency)) {
+      return { value: amount, rate: '1:1' };
     }
     
-    // Try to find ticker data for CURRENCY/USDT pair on the same exchange
-    // This is a simplified approach - in real implementation you'd want to:
-    // 1. Check multiple quote currencies (USDT, USDC, USD)
-    // 2. Use orderbook or ticker data from the store
-    // 3. Handle cross-currency conversions
+    // Try to get price from orderbook data for CURRENCY/USDT pair
+    const symbol = `${currency}/USDT`;
+    const orderbook = getOrderBook(exchange, symbol, 'spot');
     
-    // For now, return undefined to indicate we can't calculate USD value
-    // TODO: Implement proper USD conversion using ticker/orderbook data
-    return undefined;
-  }, []);
+    if (orderbook?.bids && orderbook.bids.length > 0) {
+      const bestBid = orderbook.bids[0][0]; // Best bid price
+      const usdValue = amount * bestBid;
+      return { 
+        value: usdValue, 
+        rate: `${bestBid.toFixed(6)} USDT` 
+      };
+    }
+    
+    // Try alternative quote currencies if USDT pair not available
+    const alternativeQuotes = ['USDC', 'USD', 'BUSD'];
+    for (const quote of alternativeQuotes) {
+      const altSymbol = `${currency}/${quote}`;
+      const altOrderbook = getOrderBook(exchange, altSymbol, 'spot');
+      
+      if (altOrderbook?.bids && altOrderbook.bids.length > 0) {
+        const bestBid = altOrderbook.bids[0][0];
+        const usdValue = amount * bestBid;
+        return { 
+          value: usdValue, 
+          rate: `${bestBid.toFixed(6)} ${quote}` 
+        };
+      }
+    }
+    
+    // If no price data available
+    return { value: undefined };
+  }, [getOrderBook]);
 
   // Filter and sort balances
   const filteredAndSortedBalances = useMemo(() => {
@@ -129,13 +176,12 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       email: string; 
       walletType: WalletType;
       timestamp?: number;
+      usdRate?: string;
     })[] = [];
     
     allBalances.forEach(accountBalance => {
       accountBalance.balances.forEach(balance => {
-        const usdValue = calculateUsdValue(balance.currency, balance.total, accountBalance.exchange);
-        
-
+        const usdData = calculateUsdValue(balance.currency, balance.total, accountBalance.exchange, accountBalance.accountId);
         
         flatBalances.push({
           ...balance,
@@ -144,7 +190,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           email: accountBalance.email,
           walletType: accountBalance.walletType,
           timestamp: accountBalance.timestamp,
-          usdValue: usdValue
+          usdValue: usdData.value,
+          usdRate: usdData.rate
         });
       });
     });
@@ -290,6 +337,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     email: string; 
     walletType: WalletType;
     timestamp?: number;
+    usdRate?: string;
   }, index: number, style?: React.CSSProperties) => (
     <div
       key={`${balance.accountId}-${balance.currency}-${balance.walletType}`}
@@ -342,7 +390,9 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         <div className="text-terminal-accent truncate">
           {balance.usdValue !== undefined ? `$${formatCurrency(balance.usdValue, 'USD')}` : '-'}
         </div>
-        <div className="text-xs text-terminal-muted">USD</div>
+        <div className="text-xs text-terminal-muted">
+          {balance.usdRate ? `(${balance.usdRate})` : 'USD'}
+        </div>
       </div>
     </div>
   ), [formatCurrency]);
