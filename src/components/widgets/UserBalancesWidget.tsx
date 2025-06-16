@@ -102,6 +102,24 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     return balances;
   }, [activeUser?.accounts, getBalance]);
 
+  // Calculate USD value for a currency
+  const calculateUsdValue = useCallback((currency: string, amount: number, exchange: string): number | undefined => {
+    // Direct USD equivalents
+    if (currency === 'USDT' || currency === 'USD' || currency === 'USDC' || currency === 'BUSD' || currency === 'DAI') {
+      return amount; // Already in USD equivalent
+    }
+    
+    // Try to find ticker data for CURRENCY/USDT pair on the same exchange
+    // This is a simplified approach - in real implementation you'd want to:
+    // 1. Check multiple quote currencies (USDT, USDC, USD)
+    // 2. Use orderbook or ticker data from the store
+    // 3. Handle cross-currency conversions
+    
+    // For now, return undefined to indicate we can't calculate USD value
+    // TODO: Implement proper USD conversion using ticker/orderbook data
+    return undefined;
+  }, []);
+
   // Filter and sort balances
   const filteredAndSortedBalances = useMemo(() => {
     // Flatten balances from all accounts
@@ -115,13 +133,18 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     
     allBalances.forEach(accountBalance => {
       accountBalance.balances.forEach(balance => {
+        const usdValue = calculateUsdValue(balance.currency, balance.total, accountBalance.exchange);
+        
+
+        
         flatBalances.push({
           ...balance,
           accountId: accountBalance.accountId,
           exchange: accountBalance.exchange,
           email: accountBalance.email,
           walletType: accountBalance.walletType,
-          timestamp: accountBalance.timestamp
+          timestamp: accountBalance.timestamp,
+          usdValue: usdValue
         });
       });
     });
@@ -315,14 +338,12 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       </div>
       
       {/* USD Value */}
-      {balance.usdValue !== undefined && (
-        <div className="text-right min-w-0 flex-1">
-          <div className="text-terminal-accent truncate">
-            ${formatCurrency(balance.usdValue, 'USD')}
-          </div>
-          <div className="text-xs text-terminal-muted">USD</div>
+      <div className="text-right min-w-0 flex-1">
+        <div className="text-terminal-accent truncate">
+          {balance.usdValue !== undefined ? `$${formatCurrency(balance.usdValue, 'USD')}` : '-'}
         </div>
-      )}
+        <div className="text-xs text-terminal-muted">USD</div>
+      </div>
     </div>
   ), [formatCurrency]);
 
