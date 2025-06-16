@@ -110,12 +110,12 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     const widgetsWithoutGroupSelector = [
       'markets', 'exchanges', 'pairs', 'dataProviderDebug', 'dataProviderDemo', 'dataProviderSetup', 
       'debugUserData', 'debugCCXTCache', 'notificationTest',
-      'portfolio', 'transactionHistory', 'deals', 'dataProviderSettings'
+      'portfolio', 'transactionHistory', 'deals', 'dataProviderSettings', 'userBalances'
     ];
     const shouldHideGroupSelector = widgetsWithoutGroupSelector.includes(type);
     
     // Widgets that need transparent group by default (trading widgets)
-    const widgetsNeedingTransparentGroup = ['chart', 'orderForm', 'orderbook', 'trades', 'userBalances'];
+    const widgetsNeedingTransparentGroup = ['chart', 'orderForm', 'orderbook', 'trades'];
     const transparentGroup = getTransparentGroup();
     const defaultGroupId = widgetsNeedingTransparentGroup.includes(type) && transparentGroup 
       ? transparentGroup.id 

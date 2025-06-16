@@ -428,7 +428,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         
         <button 
           onClick={() => handleSort('free')}
-          className="flex items-center gap-1 text-right min-w-0 flex-1 hover:text-terminal-text"
+          className="flex items-center gap-1 justify-end text-right min-w-0 flex-1 hover:text-terminal-text"
         >
           Free
           {sortBy === 'free' && (
@@ -438,7 +438,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         
         <button 
           onClick={() => handleSort('used')}
-          className="flex items-center gap-1 text-right min-w-0 flex-1 hover:text-terminal-text"
+          className="flex items-center gap-1 justify-end text-right min-w-0 flex-1 hover:text-terminal-text"
         >
           Locked
           {sortBy === 'used' && (
@@ -448,7 +448,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         
         <button 
           onClick={() => handleSort('total')}
-          className="flex items-center gap-1 text-right min-w-0 flex-1 hover:text-terminal-text"
+          className="flex items-center gap-1 justify-end text-right min-w-0 flex-1 hover:text-terminal-text"
         >
           Total
           {sortBy === 'total' && (
