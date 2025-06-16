@@ -56,6 +56,9 @@ export type Timeframe = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' 
 // Market types
 export type MarketType = 'spot' | 'futures' | 'margin';
 
+// Wallet types (независимые от типов рынков)
+export type WalletType = 'trading' | 'funding' | 'spot' | 'futures' | 'margin' | 'options' | 'earn' | 'savings';
+
 export interface DataSubscription {
   id: string;
   symbol: string; // Example: 'BTC/USDT'

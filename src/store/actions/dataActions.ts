@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { DataProviderStore } from '../types';
-import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, ExchangeBalances, ActiveSubscription, Timeframe, MarketType } from '../../types/dataProviders';
+import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, ExchangeBalances, ActiveSubscription, Timeframe, MarketType, WalletType } from '../../types/dataProviders';
 import { getCCXT } from '../utils/ccxtUtils';
 import { createExchangeInstance } from '../utils/providerUtils';
 import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
@@ -14,7 +14,7 @@ export interface DataActions {
   getCandles: (exchange: string, symbol: string, timeframe?: Timeframe, market?: MarketType) => Candle[];
   getTrades: (exchange: string, symbol: string, market?: MarketType) => Trade[];
   getOrderBook: (exchange: string, symbol: string, market?: MarketType) => OrderBook | null;
-  getBalance: (exchange: string, market?: MarketType) => ExchangeBalances | null;
+  getBalance: (accountId: string, walletType?: WalletType) => ExchangeBalances | null;
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
@@ -26,7 +26,7 @@ export interface DataActions {
   initializeOrderBookData: (exchange: string, symbol: string, market: MarketType) => Promise<OrderBook>;
   
   // REST data initialization for Balance widgets  
-  initializeBalanceData: (exchange: string, market: MarketType) => Promise<ExchangeBalances>;
+  initializeBalanceData: (accountId: string, walletType: WalletType) => Promise<ExchangeBalances>;
   
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
@@ -35,7 +35,7 @@ export interface DataActions {
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market?: MarketType) => void;
-  updateBalance: (exchange: string, balance: ExchangeBalances, market?: MarketType) => void;
+  updateBalance: (accountId: string, balance: ExchangeBalances, walletType?: WalletType) => void;
   
   // Utilities
   getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
@@ -146,17 +146,18 @@ export const createDataActions: StateCreator<
     return result;
   },
 
-  getBalance: (exchange: string, market: MarketType = 'spot'): ExchangeBalances | null => {
+  getBalance: (accountId: string, walletType?: WalletType): ExchangeBalances | null => {
     const state = get();
-    const result = state.marketData.balance[exchange]?.[market] || null;
+    const effectiveWalletType = walletType || 'trading';
+    const result = state.marketData.balance[accountId]?.[effectiveWalletType] || null;
     
-    console.log(`💰 [Balance] Requesting data for ${exchange}:${market}:`, {
-      exchange,
-      market,
-      hasExchange: !!state.marketData.balance[exchange],
-      hasMarket: !!state.marketData.balance[exchange]?.[market],
+    console.log(`💰 [Balance] Requesting data for account ${accountId}:${effectiveWalletType}:`, {
+      accountId,
+      walletType: effectiveWalletType,
+      hasAccount: !!state.marketData.balance[accountId],
+      hasWalletType: !!state.marketData.balance[accountId]?.[effectiveWalletType],
       result: result,
-      allExchanges: Object.keys(state.marketData.balance)
+      allAccounts: Object.keys(state.marketData.balance)
     });
     
     return result;
@@ -308,30 +309,31 @@ export const createDataActions: StateCreator<
     });
   },
 
-  updateBalance: (exchange: string, balance: ExchangeBalances, market: MarketType = 'spot') => {
-    console.log(`💰 [Balance] Saving data for ${exchange}:${market}:`, {
-      exchange,
-      market,
+  updateBalance: (accountId: string, balance: ExchangeBalances, walletType?: WalletType) => {
+    const effectiveWalletType = walletType || 'trading';
+    console.log(`💰 [Balance] Saving data for account ${accountId}:${effectiveWalletType}:`, {
+      accountId,
+      walletType: effectiveWalletType,
       balance,
       balancesCount: balance.balances?.length || 0,
       timestamp: balance.timestamp
     });
     
     set(state => {
-      if (!state.marketData.balance[exchange]) {
-        state.marketData.balance[exchange] = {};
+      if (!state.marketData.balance[accountId]) {
+        state.marketData.balance[accountId] = {};
       }
-      state.marketData.balance[exchange][market] = balance;
+      state.marketData.balance[accountId][effectiveWalletType] = balance;
       
       console.log(`✅ [Balance] Data saved to state:`, {
-        exchange,
-        market,
-        savedSuccessfully: !!state.marketData.balance[exchange][market],
-        allExchanges: Object.keys(state.marketData.balance)
+        accountId,
+        walletType: effectiveWalletType,
+        savedSuccessfully: !!state.marketData.balance[accountId][effectiveWalletType],
+        allAccounts: Object.keys(state.marketData.balance)
       });
       
       // Update last update timestamp
-      const subscriptionKey = get().getSubscriptionKey(exchange, '', 'balance', undefined, market);
+      const subscriptionKey = get().getSubscriptionKey('', accountId, 'balance', undefined, effectiveWalletType as MarketType);
       if (state.activeSubscriptions[subscriptionKey]) {
         state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
       }
@@ -520,7 +522,24 @@ export const createDataActions: StateCreator<
   },
 
   // REST data initialization for Balance widgets
-  initializeBalanceData: async (exchange: string, market: MarketType): Promise<ExchangeBalances> => {
+  initializeBalanceData: async (accountId: string, walletType: WalletType): Promise<ExchangeBalances> => {
+    // Get account info from userStore
+    const { useUserStore } = await import('../userStore');
+    const userStore = useUserStore.getState();
+    
+    // Find account by ID
+    let account: any = null;
+    for (const user of userStore.users) {
+      account = user.accounts.find(acc => acc.id === accountId);
+      if (account) break;
+    }
+    
+    if (!account) {
+      throw new Error(`Account with ID ${accountId} not found`);
+    }
+    
+    const exchange = account.exchange;
+    
     // Get optimal provider for this exchange
     const provider = get().getProviderForExchange(exchange);
     
@@ -532,7 +551,7 @@ export const createDataActions: StateCreator<
       throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
     }
     
-    console.log(`🚀 [Balance] Loading initial balance for ${exchange}:${market} using provider ${provider.id}`);
+    console.log(`🚀 [Balance] Loading initial balance for account ${accountId} (${exchange}:${walletType}) using provider ${provider.id}`);
     
     try {
       // Use CCXT utilities
@@ -544,19 +563,19 @@ export const createDataActions: StateCreator<
       
       const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
       
-      // Set defaultType based on market type (CCXT best practice)
-      if (market === 'futures') {
+      // Set defaultType based on wallet type (CCXT best practice)
+      if (walletType === 'futures') {
         exchangeInstance.options = exchangeInstance.options || {};
         exchangeInstance.options['defaultType'] = 'future';
-      } else if (market === 'margin') {
+      } else if (walletType === 'margin') {
         exchangeInstance.options = exchangeInstance.options || {};
         exchangeInstance.options['defaultType'] = 'margin';
-      } else if (market === 'spot') {
+      } else if (walletType === 'spot') {
         exchangeInstance.options = exchangeInstance.options || {};
         exchangeInstance.options['defaultType'] = 'spot';
       }
       
-      console.log(`💰 [Balance Init] Fetching ${market} balance for ${exchange} with defaultType: ${exchangeInstance.options?.defaultType}`);
+      console.log(`💰 [Balance Init] Fetching ${walletType} balance for account ${accountId} (${exchange}) with defaultType: ${exchangeInstance.options?.defaultType}`);
       
       // Use fetchBalance() for all types (CCXT recommended approach)
       let balanceData = await exchangeInstance.fetchBalance();
@@ -565,7 +584,7 @@ export const createDataActions: StateCreator<
       if (exchangeInstance.has?.fetchFundingBalance) {
         try {
           const fundingBalance = await exchangeInstance.fetchFundingBalance();
-          console.log(`💰 [Balance Init] Also got funding balance for ${exchange}:`, {
+          console.log(`💰 [Balance Init] Also got funding balance for account ${accountId} (${exchange}):`, {
             fundingCurrencies: Object.keys(fundingBalance).filter(k => k !== 'info' && k !== 'datetime' && k !== 'timestamp').length
           });
           // Merge funding balance into main balance if needed
@@ -590,7 +609,7 @@ export const createDataActions: StateCreator<
             });
           }
         } catch (fundingError) {
-          console.warn(`⚠️ [Balance Init] Could not fetch funding balance for ${exchange}:`, fundingError.message);
+          console.warn(`⚠️ [Balance Init] Could not fetch funding balance for account ${accountId} (${exchange}):`, fundingError.message);
         }
       }
       
@@ -617,16 +636,16 @@ export const createDataActions: StateCreator<
         info: balanceData.info
       };
       
-      console.log(`✅ [Balance] Loaded balance for ${exchange}:${market} (currencies: ${balances.length})`);
+      console.log(`✅ [Balance] Loaded balance for account ${accountId} (${exchange}:${walletType}) (currencies: ${balances.length})`);
       
       // Save balance to store AND return it
-      get().updateBalance(exchange, exchangeBalances, market);
-      console.log(`💾 [Balance] Balance saved to store for ${exchange}:${market}`);
+      get().updateBalance(accountId, exchangeBalances, walletType);
+      console.log(`💾 [Balance] Balance saved to store for account ${accountId} (${exchange}:${walletType})`);
       
       return exchangeBalances;
       
     } catch (error) {
-      console.error(`❌ [Balance] Failed to load balance:`, error);
+      console.error(`❌ [Balance] Failed to load balance for account ${accountId}:`, error);
       throw error;
     }
   },

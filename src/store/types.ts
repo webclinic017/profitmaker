@@ -13,6 +13,7 @@ import type {
   OrderBookMethodSelection,
   Timeframe,
   MarketType,
+  WalletType,
   ChartUpdateListener,
   ChartUpdateEvent,
   ProviderExchangeMapping
@@ -39,7 +40,7 @@ export interface DataProviderState {
     candles: Record<string, Record<string, Record<string, Record<string, Candle[]>>>>; // [exchange][market][symbol][timeframe] -> Candle[]
     trades: Record<string, Record<string, Record<string, Trade[]>>>;   // [exchange][market][symbol] -> Trade[]
     orderbook: Record<string, Record<string, Record<string, OrderBook>>>; // [exchange][market][symbol] -> OrderBook
-    balance: Record<string, Record<string, ExchangeBalances>>; // [exchange][market] -> ExchangeBalances
+    balance: Record<string, Record<string, ExchangeBalances>>; // [accountId][walletType] -> ExchangeBalances
   };
   
   // Event system for notifying Chart widgets
@@ -92,7 +93,7 @@ export interface DataProviderActions {
   getCandles: (exchange: string, symbol: string, timeframe?: Timeframe, market?: MarketType) => Candle[];
   getTrades: (exchange: string, symbol: string, market?: MarketType) => Trade[];
   getOrderBook: (exchange: string, symbol: string, market?: MarketType) => OrderBook | null;
-  getBalance: (exchange: string, market?: MarketType) => ExchangeBalances | null;
+  getBalance: (accountId: string, walletType?: WalletType) => ExchangeBalances | null;
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
@@ -104,7 +105,7 @@ export interface DataProviderActions {
   initializeOrderBookData: (exchange: string, symbol: string, market: MarketType) => Promise<OrderBook>;
   
   // REST data initialization for Balance widgets
-  initializeBalanceData: (exchange: string, market: MarketType) => Promise<ExchangeBalances>;
+  initializeBalanceData: (accountId: string, walletType: WalletType) => Promise<ExchangeBalances>;
   
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
@@ -113,7 +114,7 @@ export interface DataProviderActions {
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market?: MarketType) => void;
-  updateBalance: (exchange: string, balance: ExchangeBalances, market?: MarketType) => void;
+  updateBalance: (accountId: string, balance: ExchangeBalances, walletType?: WalletType) => void;
   
   // Utilities
   getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
@@ -129,6 +130,7 @@ export interface DataProviderActions {
   stopDataFetching: (subscriptionKey: string) => void;
   startWebSocketFetching: (exchange: string, symbol: string, dataType: DataType, provider: DataProvider, timeframe?: Timeframe, market?: MarketType) => Promise<void>;
   startRestFetching: (exchange: string, symbol: string, dataType: DataType, provider: DataProvider, timeframe?: Timeframe, market?: MarketType) => Promise<void>;
+  fetchBalance: (accountId: string, walletType?: WalletType) => Promise<void>;
   
   // Intelligent CCXT method selection
   selectOptimalOrderBookMethod: (exchange: string, exchangeInstance: any) => OrderBookMethodSelection;

@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { DataProviderStore } from '../types';
-import type { DataProvider, DataType, CCXTBrowserProvider, CCXTServerProvider, Timeframe, MarketType } from '../../types/dataProviders';
+import type { DataProvider, DataType, CCXTBrowserProvider, CCXTServerProvider, Timeframe, MarketType, WalletType } from '../../types/dataProviders';
 import { getCCXT, getCCXTPro } from '../utils/ccxtUtils';
 import { useUserStore } from '../userStore';
 import { getAccountForExchange, convertAccountForProvider, createExchangeInstance } from '../utils/providerUtils';
@@ -11,9 +11,8 @@ export interface FetchingActions {
   stopDataFetching: (subscriptionKey: string) => void;
   startWebSocketFetching: (exchange: string, symbol: string, dataType: DataType, provider: DataProvider, timeframe?: Timeframe, market?: MarketType) => Promise<void>;
   startRestFetching: (exchange: string, symbol: string, dataType: DataType, provider: DataProvider, timeframe?: Timeframe, market?: MarketType) => Promise<void>;
+  fetchBalance: (accountId: string, walletType: WalletType) => Promise<void>;
 }
-
-
 
 export const createFetchingActions: StateCreator<
   DataProviderStore,
@@ -441,70 +440,91 @@ export const createFetchingActions: StateCreator<
               }
               break;
             case 'balance':
-                              // Set defaultType based on market type (CCXT best practice)
-                if (market === 'futures') {
-                  exchangeInstance.options = exchangeInstance.options || {};
-                  exchangeInstance.options['defaultType'] = 'future';
-                } else if (market === 'margin') {
-                  exchangeInstance.options = exchangeInstance.options || {};
-                  exchangeInstance.options['defaultType'] = 'margin';
-                } else if (market === 'spot') {
-                  exchangeInstance.options = exchangeInstance.options || {};
-                  exchangeInstance.options['defaultType'] = 'spot';
-                }
+              // For balance requests, market parameter represents wallet type
+              // Cast market to WalletType since balance can use funding, spot, futures, margin
+              let walletType = market as WalletType; // spot, futures, margin, funding
               
-              console.log(`💰 [Balance] Fetching ${market} balance for ${exchange} with defaultType: ${exchangeInstance.options?.defaultType}`);
+              // Set defaultType based on wallet type (CCXT best practice)
+              if (walletType === 'futures') {
+                exchangeInstance.options = exchangeInstance.options || {};
+                exchangeInstance.options['defaultType'] = 'future';
+              } else if (walletType === 'margin') {
+                exchangeInstance.options = exchangeInstance.options || {};
+                exchangeInstance.options['defaultType'] = 'margin';
+              } else if (walletType === 'spot') {
+                exchangeInstance.options = exchangeInstance.options || {};
+                exchangeInstance.options['defaultType'] = 'spot';
+              }
               
-              // Use fetchBalance() for all types (CCXT recommended approach)
-              let balanceData = await exchangeInstance.fetchBalance();
+              console.log(`💰 [Balance] Fetching ${walletType} wallet balance for ${exchange} with defaultType: ${exchangeInstance.options?.defaultType}`);
               
-              // Try fetchFundingBalance() if supported for additional funding wallet data
-              if (exchangeInstance.has?.fetchFundingBalance) {
-                try {
-                  const fundingBalance = await exchangeInstance.fetchFundingBalance();
-                  console.log(`💰 [Balance] Also got funding balance for ${exchange}:`, {
-                    fundingCurrencies: Object.keys(fundingBalance).filter(k => k !== 'info' && k !== 'datetime' && k !== 'timestamp').length
-                  });
-                  // Merge funding balance into main balance if needed
-                  if (fundingBalance && typeof fundingBalance === 'object') {
-                    // Add funding balances to the main balance structure
-                    Object.entries(fundingBalance).forEach(([currency, data]: [string, any]) => {
-                      if (currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
-                          data && typeof data === 'object') {
-                        // If currency already exists, add funding amounts to it
-                        if (balanceData[currency]) {
-                          balanceData[currency].funding = data;
-                        } else {
-                          // Create new entry for funding-only currencies
-                          balanceData[currency] = {
-                            free: 0,
-                            used: 0,
-                            total: 0,
-                            funding: data
-                          };
-                        }
-                      }
-                    });
-                  }
-                } catch (fundingError) {
-                  console.warn(`⚠️ [Balance] Could not fetch funding balance for ${exchange}:`, fundingError.message);
+              // Use fetchBalance() with type parameter for specific wallet types
+              let balanceParams: any = {};
+              
+              // For funding wallet, use specific parameters
+              if (walletType === 'funding') {
+                // Different exchanges handle funding differently
+                if (exchange.toLowerCase() === 'bybit') {
+                  // Bybit: use /v5/asset/balance/all-balance endpoint
+                  balanceParams = { type: 'funding' };
+                } else if (exchange.toLowerCase() === 'binance') {
+                  // Binance: use funding wallet endpoint
+                  balanceParams = { type: 'funding' };
+                } else if (exchange.toLowerCase() === 'okx') {
+                  // OKX: use funding account
+                  balanceParams = { type: 'funding' };
+                } else {
+                  // Generic approach for other exchanges
+                  balanceParams = { type: 'funding' };
                 }
               }
               
-              // Try fetchDepositAddresses() if supported for wallet addresses
-              if (exchangeInstance.has?.fetchDepositAddresses) {
-                try {
-                  const addresses = await exchangeInstance.fetchDepositAddresses();
-                  console.log(`🏦 [Balance] Got deposit addresses for ${exchange}:`, {
-                    currencies: Object.keys(addresses).length
-                  });
-                  // Store addresses in balance info for future use
-                  if (balanceData.info) {
-                    balanceData.info.depositAddresses = addresses;
+              let balanceData;
+              
+              // Try to fetch balance with specific wallet type
+              try {
+                if (walletType === 'funding') {
+                  // For funding wallet, try different approaches
+                  if (exchange.toLowerCase() === 'bybit') {
+                    // Bybit specific: use direct API call
+                    try {
+                      const allBalanceResponse = await exchangeInstance.privateGetV5AssetBalanceAllBalance();
+                      console.log(`💰 [Balance] Got Bybit funding balance:`, allBalanceResponse);
+                      
+                      balanceData = { info: allBalanceResponse };
+                      
+                      if (allBalanceResponse?.result?.list) {
+                        allBalanceResponse.result.list.forEach((account: any) => {
+                          if (account.accountType === 'FUNDING' && account.coin) {
+                            account.coin.forEach((coinData: any) => {
+                              if (coinData.walletBalance && parseFloat(coinData.walletBalance) > 0) {
+                                const currency = coinData.coin;
+                                balanceData[currency] = {
+                                  free: parseFloat(coinData.walletBalance || '0'),
+                                  used: 0,
+                                  total: parseFloat(coinData.walletBalance || '0')
+                                };
+                              }
+                            });
+                          }
+                        });
+                      }
+                    } catch (bybitError) {
+                      console.warn(`⚠️ [Balance] Bybit funding balance failed, trying generic:`, bybitError.message);
+                      balanceData = await exchangeInstance.fetchBalance(balanceParams);
+                    }
+                  } else {
+                    // Generic funding balance fetch
+                    balanceData = await exchangeInstance.fetchBalance(balanceParams);
                   }
-                } catch (addressError) {
-                  console.warn(`⚠️ [Balance] Could not fetch deposit addresses for ${exchange}:`, addressError.message);
+                } else {
+                  // Regular trading wallet balance
+                  balanceData = await exchangeInstance.fetchBalance();
                 }
+              } catch (balanceError) {
+                console.warn(`⚠️ [Balance] Failed to fetch ${walletType} balance for ${exchange}:`, balanceError.message);
+                // Fallback to regular fetchBalance
+                balanceData = await exchangeInstance.fetchBalance();
               }
               
               if (balanceData) {
@@ -527,12 +547,12 @@ export const createFetchingActions: StateCreator<
                   info: balanceData.info
                 };
                 
-                console.log(`💰 [Balance] Received via REST for ${exchange} (${market}):`, {
+                console.log(`💰 [Balance] Received ${walletType} wallet via REST for ${exchange}:`, {
                   currencies: balances.length,
                   totalBalance: balances.reduce((sum, b) => sum + b.total, 0)
                 });
                 
-                get().updateBalance(exchange, exchangeBalances, market);
+                get().updateBalance(exchange, exchangeBalances, walletType);
               }
               break;
           }
@@ -557,6 +577,138 @@ export const createFetchingActions: StateCreator<
     } catch (error) {
       console.error(`❌ Failed to start REST polling for ${exchange} ${symbol} ${dataType}:`, error);
       throw error;
+    }
+  },
+
+  fetchBalance: async (accountId: string, walletType: WalletType = 'trading') => {
+    // Get account info from userStore
+    const { useUserStore } = await import('../userStore');
+    const userStore = useUserStore.getState();
+    
+    // Find account by ID
+    let account: any = null;
+    for (const user of userStore.users) {
+      account = user.accounts.find(acc => acc.id === accountId);
+      if (account) break;
+    }
+    
+    if (!account) {
+      console.error(`❌ [Balance] Account with ID ${accountId} not found`);
+      return;
+    }
+    
+    const exchange = account.exchange;
+    
+    console.log(`🔄 [Balance] Fetching balance for account ${accountId} (${exchange}:${walletType})`);
+    
+    try {
+      const provider = get().getProviderForExchange(exchange);
+      
+      if (!provider) {
+        console.error(`❌ [Balance] No provider found for exchange ${exchange}`);
+        return;
+      }
+      
+      if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
+        console.error(`❌ [Balance] Provider type ${provider.type} not supported for balance fetching`);
+        return;
+      }
+      
+      const ccxt = getCCXT();
+      if (!ccxt) {
+        console.error('❌ [Balance] CCXT not available');
+        return;
+      }
+      
+      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      
+      // Set defaultType based on wallet type (CCXT best practice)
+      if (walletType === 'futures') {
+        exchangeInstance.options = exchangeInstance.options || {};
+        exchangeInstance.options['defaultType'] = 'future';
+      } else if (walletType === 'margin') {
+        exchangeInstance.options = exchangeInstance.options || {};
+        exchangeInstance.options['defaultType'] = 'margin';
+      } else if (walletType === 'spot') {
+        exchangeInstance.options = exchangeInstance.options || {};
+        exchangeInstance.options['defaultType'] = 'spot';
+      }
+      
+      console.log(`💰 [Balance] Fetching ${walletType} balance for account ${accountId} (${exchange}) with defaultType: ${exchangeInstance.options?.defaultType}`);
+      
+      // Use fetchBalance() for all types (CCXT recommended approach)
+      let balanceData = await exchangeInstance.fetchBalance();
+      
+      // For funding wallet, try special handling for different exchanges
+      if (walletType === 'funding') {
+        if (exchange === 'bybit' && exchangeInstance.has?.fetchBalance) {
+          try {
+            // For Bybit, use the all-balance endpoint for funding wallet
+            const fundingBalance = await exchangeInstance.fetchBalance({ type: 'funding' });
+            if (fundingBalance) {
+              balanceData = fundingBalance;
+              console.log(`💰 [Balance] Got Bybit funding balance for account ${accountId}:`, {
+                currencies: Object.keys(fundingBalance).filter(k => k !== 'info' && k !== 'datetime' && k !== 'timestamp').length
+              });
+            }
+          } catch (bybitError) {
+            console.warn(`⚠️ [Balance] Bybit funding balance failed for account ${accountId}, trying fetchFundingBalance:`, bybitError.message);
+            
+            // Fallback to fetchFundingBalance if available
+            if (exchangeInstance.has?.fetchFundingBalance) {
+              try {
+                balanceData = await exchangeInstance.fetchFundingBalance();
+              } catch (fallbackError) {
+                console.error(`❌ [Balance] Both funding methods failed for account ${accountId}:`, fallbackError.message);
+                return;
+              }
+            }
+          }
+        } else if (exchangeInstance.has?.fetchFundingBalance) {
+          // For other exchanges, try fetchFundingBalance
+          try {
+            balanceData = await exchangeInstance.fetchFundingBalance();
+          } catch (fundingError) {
+            console.warn(`⚠️ [Balance] fetchFundingBalance failed for account ${accountId} (${exchange}):`, fundingError.message);
+            return;
+          }
+        } else {
+          console.warn(`⚠️ [Balance] Funding balance not supported for account ${accountId} (${exchange})`);
+          return;
+        }
+      }
+      
+      if (!balanceData) {
+        console.warn(`⚠️ [Balance] No balance data received for account ${accountId} (${exchange}:${walletType})`);
+        return;
+      }
+      
+      // Transform CCXT balance format to our format
+      const balances = Object.entries(balanceData)
+        .filter(([currency, data]: [string, any]) => 
+          currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
+          data && typeof data === 'object' && (data.total > 0 || data.free > 0 || data.used > 0)
+        )
+        .map(([currency, data]: [string, any]) => ({
+          currency,
+          free: data.free || 0,
+          used: data.used || 0,
+          total: data.total || 0
+        }));
+        
+      const exchangeBalances = {
+        timestamp: balanceData.timestamp || Date.now(),
+        balances,
+        info: balanceData.info
+      };
+      
+      console.log(`✅ [Balance] Fetched balance for account ${accountId} (${exchange}:${walletType}) (currencies: ${balances.length})`);
+      
+      // Update store
+      get().updateBalance(accountId, exchangeBalances, walletType);
+      
+    } catch (error) {
+      console.error(`❌ [Balance] Error fetching balance for account ${accountId}:`, error);
     }
   }
 }); 

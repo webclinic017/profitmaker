@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTheme } from '../../hooks/useTheme';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { useUserStore, ExchangeAccount } from '../../store/userStore';
-import { MarketType, Balance } from '../../types/dataProviders';
+import { MarketType, WalletType, Balance } from '../../types/dataProviders';
 import { Input } from '../ui/input';
 
 interface UserBalancesWidgetProps {
@@ -30,7 +30,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     unsubscribe, 
     initializeBalanceData,
     getBalance,
-    getActiveSubscriptionsList
+    getActiveSubscriptionsList,
+    fetchBalance
   } = useDataProviderStore();
 
   // User store integration
@@ -61,96 +62,85 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'currency' | 'total' | 'free' | 'used' | 'account'>('total');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [selectedMarket, setSelectedMarket] = useState<MarketType>('spot');
+
 
   // Theme integration
   const { theme } = useTheme();
 
-  // Get all balances for all user accounts
-  const getAllBalances = useCallback(() => {
-    if (!activeUser?.accounts) {
-      console.log(`🚫 [UserBalances] No active user or accounts for getting balances`);
-      return [];
-    }
+  // Get balances for all user accounts
+  const allBalances = useMemo(() => {
+    if (!activeUser?.accounts) return [];
     
-    console.log(`💰 [UserBalances] Getting balances for ${activeUser.accounts.length} accounts, market: ${selectedMarket}`);
-    
-    const allBalances: (Balance & { accountInfo: ExchangeAccount })[] = [];
+    const balances: Array<{
+      accountId: string;
+      exchange: string;
+      email: string;
+      walletType: WalletType;
+      balances: Balance[];
+      timestamp?: number;
+    }> = [];
     
     activeUser.accounts.forEach(account => {
-      // Get balances for all market types
-      const spotBalance = getBalance(account.exchange, 'spot');
-      const futuresBalance = getBalance(account.exchange, 'futures');
-      const marginBalance = getBalance(account.exchange, 'margin');
+      if (!account.key || !account.privateKey) return; // Skip accounts without API keys
       
-      console.log(`💳 [UserBalances] Account ${account.exchange} (${account.email}):`, {
-        spotBalances: spotBalance?.balances?.length || 0,
-        futuresBalances: futuresBalance?.balances?.length || 0,
-        marginBalances: marginBalance?.balances?.length || 0,
-        spotTimestamp: spotBalance?.timestamp,
-        futuresTimestamp: futuresBalance?.timestamp,
-        marginTimestamp: marginBalance?.timestamp
+      ['trading', 'funding'].forEach(walletType => {
+        const exchangeBalances = getBalance(account.id, walletType as WalletType);
+        
+        if (exchangeBalances?.balances && exchangeBalances.balances.length > 0) {
+          balances.push({
+            accountId: account.id,
+            exchange: account.exchange,
+            email: account.email,
+            walletType: walletType as WalletType,
+            balances: exchangeBalances.balances,
+            timestamp: exchangeBalances.timestamp
+          });
+        }
       });
-      
-      // Add balances based on selected market
-      let targetBalance;
-      switch (selectedMarket) {
-        case 'spot':
-          targetBalance = spotBalance;
-          break;
-        case 'futures':
-          targetBalance = futuresBalance;
-          break;
-        case 'margin':
-          targetBalance = marginBalance;
-          break;
-        default:
-          targetBalance = spotBalance;
-      }
-      
-      if (targetBalance?.balances) {
-        targetBalance.balances.forEach(balance => {
-          // Add regular balance
-          allBalances.push({ ...balance, accountInfo: account });
-          
-          // Add funding balance as separate entry if available
-          if (balance.funding && balance.funding.total > 0) {
-            allBalances.push({
-              currency: balance.currency + ' (Funding)',
-              free: balance.funding.free,
-              used: balance.funding.used,
-              total: balance.funding.total,
-              usdValue: balance.usdValue, // Assume same USD value for simplicity
-              accountInfo: account
-            });
-          }
-        });
-      }
     });
     
-    console.log(`💰 [UserBalances] Total balances found: ${allBalances.length}`);
-    return allBalances;
-  }, [activeUser?.accounts, getBalance, selectedMarket]);
+    return balances;
+  }, [activeUser?.accounts, getBalance]);
 
   // Filter and sort balances
   const filteredAndSortedBalances = useMemo(() => {
-    let filtered = getAllBalances();
+    // Flatten balances from all accounts
+    let flatBalances: (Balance & { 
+      accountId: string; 
+      exchange: string; 
+      email: string; 
+      walletType: WalletType;
+      timestamp?: number;
+    })[] = [];
+    
+    allBalances.forEach(accountBalance => {
+      accountBalance.balances.forEach(balance => {
+        flatBalances.push({
+          ...balance,
+          accountId: accountBalance.accountId,
+          exchange: accountBalance.exchange,
+          email: accountBalance.email,
+          walletType: accountBalance.walletType,
+          timestamp: accountBalance.timestamp
+        });
+      });
+    });
 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
-      filtered = filtered.filter(balance => 
+      flatBalances = flatBalances.filter(balance => 
         balance.currency.toLowerCase().includes(query) ||
-        balance.accountInfo.exchange.toLowerCase().includes(query) ||
-        balance.accountInfo.email.toLowerCase().includes(query)
+        balance.exchange.toLowerCase().includes(query) ||
+        balance.email.toLowerCase().includes(query)
       );
     }
 
     // Filter out zero balances
-    filtered = filtered.filter(balance => balance.total > 0);
+    flatBalances = flatBalances.filter(balance => balance.total > 0);
 
     // Apply sorting
-    filtered.sort((a, b) => {
+    flatBalances.sort((a, b) => {
       let compareResult = 0;
       
       switch (sortBy) {
@@ -158,27 +148,27 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           compareResult = a.currency.localeCompare(b.currency);
           break;
         case 'total':
-          compareResult = a.total - b.total;
+          compareResult = b.total - a.total;
           break;  
         case 'free':
-          compareResult = a.free - b.free;
+          compareResult = b.free - a.free;
           break;
         case 'used':
-          compareResult = a.used - b.used;
+          compareResult = b.used - a.used;
           break;
         case 'account':
-          compareResult = a.accountInfo.exchange.localeCompare(b.accountInfo.exchange) ||
-                        a.accountInfo.email.localeCompare(b.accountInfo.email);
+          compareResult = a.exchange.localeCompare(b.exchange) ||
+                        a.email.localeCompare(b.email);
           break;
         default:
-          compareResult = a.total - b.total;
+          compareResult = b.total - a.total;
       }
       
       return sortDirection === 'desc' ? -compareResult : compareResult;
     });
 
-    return filtered;
-  }, [getAllBalances, searchQuery, sortBy, sortDirection]);
+    return flatBalances;
+  }, [allBalances, searchQuery, sortBy, sortDirection]);
 
   // Format currency value
   const formatCurrency = useCallback((value: number, currency: string) => {
@@ -215,55 +205,31 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       return;
     }
     
-    console.log(`🚀 [UserBalances] Starting subscription for ${activeUser.accounts.length} accounts:`, 
+    console.log(`🚀 [UserBalances] Starting balance fetch for ${activeUser.accounts.length} accounts:`, 
       activeUser.accounts.map(acc => ({ exchange: acc.exchange, email: acc.email, hasKeys: !!(acc.key && acc.privateKey) }))
     );
     
     for (const account of activeUser.accounts) {
+      if (!account.key || !account.privateKey) {
+        console.log(`⚠️ [UserBalances] Skipping account ${account.exchange} (${account.email}) - no API keys`);
+        continue;
+      }
+      
       try {
-        console.log(`🚀 [UserBalances] Subscribing to balance for ${account.exchange}:${selectedMarket} (${account.email})`);
-        console.log(`🔑 [UserBalances] Account has API keys: ${!!(account.key && account.privateKey)}`);
+        console.log(`🚀 [UserBalances] Fetching balances for account ${account.id} (${account.exchange}:${account.email})`);
         
-        // Initialize data first
-        await initializeBalanceData(account.exchange, selectedMarket);
+        // Fetch both trading and funding balances
+        await fetchBalance(account.id, 'trading');
+        await fetchBalance(account.id, 'funding');
         
-        // Also try to get wallet addresses if needed
-        if (account.key && account.privateKey) {
-          await getWalletAddresses(account.exchange);
-        }
-        
-        // Then subscribe for real-time updates
-        await subscribe(
-          `${widgetId}-${account.id}`,
-          account.exchange,
-          '', // No symbol needed for balance
-          'balance',
-          undefined, // No timeframe needed
-          selectedMarket
-        );
-        
-        console.log(`✅ [UserBalances] Subscribed to ${account.exchange}:${selectedMarket}`);
+        console.log(`✅ [UserBalances] Fetched balances for account ${account.id} (${account.exchange})`);
       } catch (error) {
-        console.error(`❌ [UserBalances] Failed to subscribe to ${account.exchange}:`, error);
+        console.error(`❌ [UserBalances] Failed to fetch balances for account ${account.id} (${account.exchange}):`, error);
       }
     }
-  }, [activeUser?.accounts, selectedMarket, initializeBalanceData, subscribe, widgetId, getWalletAddresses]);
+  }, [activeUser?.accounts, fetchBalance]);
 
-  // Unsubscribe from all accounts
-  const unsubscribeFromAllAccounts = useCallback(() => {
-    if (!activeUser?.accounts) return;
-    
-    activeUser.accounts.forEach(account => {
-      console.log(`🛑 [UserBalances] Unsubscribing from ${account.exchange}:${selectedMarket}`);
-      unsubscribe(`${widgetId}-${account.id}`, account.exchange, '', 'balance', undefined, selectedMarket);
-    });
-  }, [activeUser?.accounts, selectedMarket, unsubscribe, widgetId]);
 
-  // Handle market type change
-  const handleMarketChange = (market: MarketType) => {
-    unsubscribeFromAllAccounts();
-    setSelectedMarket(market);
-  };
 
   // Handle sort
   const handleSort = (column: typeof sortBy) => {
@@ -275,16 +241,12 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     }
   };
 
-  // Auto-subscribe when user or market changes
+  // Auto-fetch balances when user changes
   useEffect(() => {
     if (activeUser?.accounts && activeUser.accounts.length > 0) {
       subscribeToAllAccounts();
     }
-    
-    return () => {
-      unsubscribeFromAllAccounts();
-    };
-  }, [activeUser?.accounts, selectedMarket]);
+  }, [activeUser?.accounts, subscribeToAllAccounts]);
 
   // Check if we have any accounts with API keys
   const accountsWithKeys = activeUser?.accounts.filter(acc => acc.key && acc.privateKey) || [];
@@ -299,9 +261,15 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     overscan: 5,
   });
 
-  const renderBalanceRow = useCallback((balance: Balance & { accountInfo: ExchangeAccount }, index: number, style?: React.CSSProperties) => (
+  const renderBalanceRow = useCallback((balance: Balance & { 
+    accountId: string; 
+    exchange: string; 
+    email: string; 
+    walletType: WalletType;
+    timestamp?: number;
+  }, index: number, style?: React.CSSProperties) => (
     <div
-      key={`${balance.accountInfo.id}-${balance.currency}`}
+      key={`${balance.accountId}-${balance.currency}-${balance.walletType}`}
       className={`flex items-center py-2 px-3 text-sm border-b border-terminal-border/30 hover:bg-terminal-accent/10 ${
         index % 2 === 0 ? 'bg-terminal-background/50' : ''
       }`}
@@ -313,8 +281,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           {balance.currency}
         </span>
         <span className="text-xs text-terminal-muted truncate">
-          {balance.accountInfo.exchange} • {balance.accountInfo.email}
-          {balance.currency.includes('(Funding)') && (
+          {balance.exchange} • {balance.email}
+          {balance.walletType === 'funding' && (
             <span className="ml-1 px-1 bg-terminal-accent/20 text-terminal-accent rounded text-xs">
               FUNDING
             </span>
@@ -400,42 +368,6 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Market selector */}
-          <div className="flex bg-terminal-background border border-terminal-border rounded">
-            <button
-              onClick={() => handleMarketChange('spot')}
-              className={`px-2 py-1 text-xs ${
-                selectedMarket === 'spot'
-                  ? 'bg-terminal-accent text-white'
-                  : 'text-terminal-muted hover:text-terminal-text'
-              }`}
-            >
-              Spot
-            </button>
-            <button
-              onClick={() => handleMarketChange('futures')}
-              className={`px-2 py-1 text-xs border-l border-terminal-border ${
-                selectedMarket === 'futures'
-                  ? 'bg-terminal-accent text-white'
-                  : 'text-terminal-muted hover:text-terminal-text'
-              }`}
-            >
-              Futures
-            </button>
-            <button
-              onClick={() => handleMarketChange('margin' as MarketType)}
-              className={`px-2 py-1 text-xs border-l border-terminal-border rounded-r ${
-                selectedMarket === 'margin'
-                  ? 'bg-terminal-accent text-white'
-                  : 'text-terminal-muted hover:text-terminal-text'
-              }`}
-            >
-              Margin
-            </button>
-          </div>
-          
-
-          
           {/* Refresh button */}
           <button
             onClick={subscribeToAllAccounts}
@@ -515,7 +447,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
               {searchQuery ? 'No matching balances found' : 'No balances available'}
             </p>
             <p className="text-xs text-terminal-muted mt-1">
-              {activeUser.email} • {selectedMarket} market
+              {activeUser.email}
             </p>
           </div>
         ) : filteredAndSortedBalances.length > 50 ? (
