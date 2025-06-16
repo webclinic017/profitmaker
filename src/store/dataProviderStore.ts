@@ -44,7 +44,8 @@ export const useDataProviderStore = create<DataProviderStore>()(
           restIntervals: {
             trades: 1000,   // 1 second
             candles: 5000,  // 5 seconds
-            orderbook: 500  // 0.5 seconds
+            orderbook: 500, // 0.5 seconds
+            balance: 30000  // 30 seconds
           }
         },
         activeSubscriptions: {},
@@ -52,7 +53,8 @@ export const useDataProviderStore = create<DataProviderStore>()(
         marketData: {
           candles: {}, // [exchange][market][symbol][timeframe] -> Candle[]
           trades: {},  // [exchange][market][symbol] -> Trade[]
-          orderbook: {} // [exchange][market][symbol] -> OrderBook
+          orderbook: {}, // [exchange][market][symbol] -> OrderBook
+          balance: {} // [exchange][market] -> ExchangeBalances
         },
         chartUpdateListeners: {}, // Event system for Chart widgets
         loading: false,

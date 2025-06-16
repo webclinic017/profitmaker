@@ -91,15 +91,15 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
 
-    /* Modern Dark Trading Theme - like TradingView/Binance/Bybit dark */
+    /* Modern Dark Trading Theme - optimized for OrderBook readability */
     --terminal-bg: 220 13% 11%;           /* #181B20 */
     --terminal-widget: 222 16% 16%;       /* #23272F */
     --terminal-accent: 217 29% 16%;       /* #242D39 */
     --terminal-text: 210 40% 98%;         /* #F7FAFC */
-    --terminal-muted: 210 13% 69%;        /* #A0AEC0 */
+    --terminal-muted: 210 15% 75%;        /* #B8C4D0 - улучшенная контрастность */
     --terminal-positive: 152 77% 43%;     /* #16C784 */
     --terminal-negative: 356 77% 57%;     /* #EA3943 */
-    --terminal-border: 220 21% 23%;       /* #2D3748 */
+    --terminal-border: 220 21% 25%;       /* #343A46 - чуть светлее для лучшей видимости */
   }
 }
 

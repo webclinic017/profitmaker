@@ -444,11 +444,11 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
                   height: '24px !important',
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                className="grid grid-cols-3 gap-2 text-xs px-2 py-1 bg-red-50 hover:bg-red-100 border-l-2 border-red-500"
+                className="grid grid-cols-3 gap-2 text-xs px-2 py-1 bg-red-50/20 hover:bg-red-50/30 dark:bg-red-900/20 dark:hover:bg-red-900/30 border-l-2 border-red-500 dark:border-red-400"
               >
-                <div className="font-mono text-red-600 leading-none">{formatPrice(ask.price)}</div>
-                <div className="font-mono text-right leading-none">{formatAmount(ask.amount)}</div>
-                <div className="font-mono text-right text-gray-600 leading-none">
+                <div className="font-mono text-red-600 dark:text-red-400 leading-none">{formatPrice(ask.price)}</div>
+                <div className="font-mono text-right text-terminal-text leading-none">{formatAmount(ask.amount)}</div>
+                <div className="font-mono text-right text-terminal-muted leading-none">
                   {showCumulative ? formatAmount((ask as any).cumulative || 0) : formatVolume(ask.total)}
                 </div>
               </div>
@@ -492,11 +492,11 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
                   height: '24px !important',
                   transform: `translateY(${virtualRow.start}px)`,
                 }}
-                className="grid grid-cols-3 gap-2 text-xs px-2 py-1 bg-green-50 hover:bg-green-100 border-l-2 border-green-500"
+                className="grid grid-cols-3 gap-2 text-xs px-2 py-1 bg-green-50/20 hover:bg-green-50/30 dark:bg-green-900/20 dark:hover:bg-green-900/30 border-l-2 border-green-500 dark:border-green-400"
               >
-                <div className="font-mono text-green-600 leading-none">{formatPrice(bid.price)}</div>
-                <div className="font-mono text-right leading-none">{formatAmount(bid.amount)}</div>
-                <div className="font-mono text-right text-gray-600 leading-none">
+                <div className="font-mono text-green-600 dark:text-green-400 leading-none">{formatPrice(bid.price)}</div>
+                <div className="font-mono text-right text-terminal-text leading-none">{formatAmount(bid.amount)}</div>
+                <div className="font-mono text-right text-terminal-muted leading-none">
                   {showCumulative ? formatAmount((bid as any).cumulative || 0) : formatVolume(bid.total)}
                 </div>
               </div>
@@ -512,7 +512,7 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
   return (
     <div className="w-full h-full flex flex-col">
       {!processedOrderBook ? (
-        <div className="flex-1 flex items-center justify-center text-gray-400">
+        <div className="flex-1 flex items-center justify-center text-terminal-muted">
           <div className="text-center">
             {(() => {
               console.log(`🎨 [OrderBook-${widgetId}] Render: No processed data`, {
@@ -537,7 +537,7 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
           })()}
           
           {/* Headers */}
-          <div className="grid grid-cols-3 gap-2 text-xs font-medium text-gray-500 px-2 py-1 border-b border-gray-200">
+          <div className="grid grid-cols-3 gap-2 text-xs font-medium text-terminal-muted px-2 py-1 border-b border-terminal-border">
             <div>Price</div>
             <div className="text-right">Volume</div>
             <div className="text-right">{showCumulative ? 'Cumul.' : 'Total'}</div>
@@ -547,9 +547,9 @@ const OrderBookWidgetV2Inner: React.FC<OrderBookWidgetV2Props> = ({
           <VirtualizedAsks asks={processedOrderBook.asks} />
 
           {/* Spread */}
-          <div className="bg-gray-100 p-2 text-center border-y border-gray-200 flex-shrink-0">
-            <div className="text-xs text-gray-600">Spread: {formatPrice(processedOrderBook.spread)}</div>
-            <div className="text-xs text-gray-500">({processedOrderBook.spreadPercent.toFixed(4)}%)</div>
+          <div className="bg-terminal-accent p-2 text-center border-y border-terminal-border flex-shrink-0">
+            <div className="text-xs text-terminal-text">Spread: {formatPrice(processedOrderBook.spread)}</div>
+            <div className="text-xs text-terminal-muted">({processedOrderBook.spreadPercent.toFixed(4)}%)</div>
           </div>
 
           {/* Bids (buys) - bottom - Virtualized */}

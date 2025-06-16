@@ -158,6 +158,10 @@ export const createFetchingActions: StateCreator<
             }
           });
           break;
+        case 'balance':
+          watchMethod = 'watchBalance';
+          hasSupport = !!exchangeInstance.has?.[watchMethod];
+          break;
         default:
           throw new Error(`Unsupported data type: ${dataType}`);
       }
@@ -291,6 +295,47 @@ export const createFetchingActions: StateCreator<
                   console.warn(`⚠️ [OrderBook] DEBUG OrderBook is null/undefined, not calling updateOrderBook`);
                 }
                 break;
+              case 'balance':
+                // Set defaultType based on market type for WebSocket too
+                if (market === 'futures') {
+                  exchangeInstance.options = exchangeInstance.options || {};
+                  exchangeInstance.options['defaultType'] = 'future';
+                } else if (market === 'spot') {
+                  exchangeInstance.options = exchangeInstance.options || {};
+                  exchangeInstance.options['defaultType'] = 'spot';
+                }
+                
+                console.log(`💰 [Balance WS] Watching ${market} balance for ${exchange} with defaultType: ${exchangeInstance.options?.defaultType}`);
+                
+                const balanceData = await exchangeInstance.watchBalance();
+                if (balanceData) {
+                  // Transform CCXT balance format to our format
+                  const balances = Object.entries(balanceData)
+                    .filter(([currency, data]: [string, any]) => 
+                      currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
+                      data && typeof data === 'object' && (data.total > 0 || data.free > 0 || data.used > 0)
+                    )
+                    .map(([currency, data]: [string, any]) => ({
+                      currency,
+                      free: data.free || 0,
+                      used: data.used || 0,
+                      total: data.total || 0
+                    }));
+                    
+                  const exchangeBalances = {
+                    timestamp: balanceData.timestamp || Date.now(),
+                    balances,
+                    info: balanceData.info
+                  };
+                  
+                  console.log(`💰 [Balance WS] Received balance update for ${exchange} (${market}):`, {
+                    currencies: balances.length,
+                    totalBalance: balances.reduce((sum, b) => sum + b.total, 0)
+                  });
+                  
+                  get().updateBalance(exchange, exchangeBalances, market);
+                }
+                break;
             }
           } catch (error) {
             console.error(`❌ CCXT Pro WebSocket error for ${subscriptionKey}:`, error);
@@ -393,6 +438,101 @@ export const createFetchingActions: StateCreator<
                   timestamp: orderbook.timestamp
                 });
                 get().updateOrderBook(exchange, symbol, orderbook, market);
+              }
+              break;
+            case 'balance':
+                              // Set defaultType based on market type (CCXT best practice)
+                if (market === 'futures') {
+                  exchangeInstance.options = exchangeInstance.options || {};
+                  exchangeInstance.options['defaultType'] = 'future';
+                } else if (market === 'margin') {
+                  exchangeInstance.options = exchangeInstance.options || {};
+                  exchangeInstance.options['defaultType'] = 'margin';
+                } else if (market === 'spot') {
+                  exchangeInstance.options = exchangeInstance.options || {};
+                  exchangeInstance.options['defaultType'] = 'spot';
+                }
+              
+              console.log(`💰 [Balance] Fetching ${market} balance for ${exchange} with defaultType: ${exchangeInstance.options?.defaultType}`);
+              
+              // Use fetchBalance() for all types (CCXT recommended approach)
+              let balanceData = await exchangeInstance.fetchBalance();
+              
+              // Try fetchFundingBalance() if supported for additional funding wallet data
+              if (exchangeInstance.has?.fetchFundingBalance) {
+                try {
+                  const fundingBalance = await exchangeInstance.fetchFundingBalance();
+                  console.log(`💰 [Balance] Also got funding balance for ${exchange}:`, {
+                    fundingCurrencies: Object.keys(fundingBalance).filter(k => k !== 'info' && k !== 'datetime' && k !== 'timestamp').length
+                  });
+                  // Merge funding balance into main balance if needed
+                  if (fundingBalance && typeof fundingBalance === 'object') {
+                    // Add funding balances to the main balance structure
+                    Object.entries(fundingBalance).forEach(([currency, data]: [string, any]) => {
+                      if (currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
+                          data && typeof data === 'object') {
+                        // If currency already exists, add funding amounts to it
+                        if (balanceData[currency]) {
+                          balanceData[currency].funding = data;
+                        } else {
+                          // Create new entry for funding-only currencies
+                          balanceData[currency] = {
+                            free: 0,
+                            used: 0,
+                            total: 0,
+                            funding: data
+                          };
+                        }
+                      }
+                    });
+                  }
+                } catch (fundingError) {
+                  console.warn(`⚠️ [Balance] Could not fetch funding balance for ${exchange}:`, fundingError.message);
+                }
+              }
+              
+              // Try fetchDepositAddresses() if supported for wallet addresses
+              if (exchangeInstance.has?.fetchDepositAddresses) {
+                try {
+                  const addresses = await exchangeInstance.fetchDepositAddresses();
+                  console.log(`🏦 [Balance] Got deposit addresses for ${exchange}:`, {
+                    currencies: Object.keys(addresses).length
+                  });
+                  // Store addresses in balance info for future use
+                  if (balanceData.info) {
+                    balanceData.info.depositAddresses = addresses;
+                  }
+                } catch (addressError) {
+                  console.warn(`⚠️ [Balance] Could not fetch deposit addresses for ${exchange}:`, addressError.message);
+                }
+              }
+              
+              if (balanceData) {
+                // Transform CCXT balance format to our format
+                const balances = Object.entries(balanceData)
+                  .filter(([currency, data]: [string, any]) => 
+                    currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
+                    data && typeof data === 'object' && (data.total > 0 || data.free > 0 || data.used > 0)
+                  )
+                  .map(([currency, data]: [string, any]) => ({
+                    currency,
+                    free: data.free || 0,
+                    used: data.used || 0,
+                    total: data.total || 0
+                  }));
+                  
+                const exchangeBalances = {
+                  timestamp: balanceData.timestamp || Date.now(),
+                  balances,
+                  info: balanceData.info
+                };
+                
+                console.log(`💰 [Balance] Received via REST for ${exchange} (${market}):`, {
+                  currencies: balances.length,
+                  totalBalance: balances.reduce((sum, b) => sum + b.total, 0)
+                });
+                
+                get().updateBalance(exchange, exchangeBalances, market);
               }
               break;
           }

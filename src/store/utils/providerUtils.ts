@@ -1,5 +1,6 @@
 import type { DataProvider, ExchangeAccountForProvider, ProviderExchangeMapping } from '../../types/dataProviders';
 import type { User, ExchangeAccount } from '../userStore';
+import { useUserStore } from '../userStore';
 
 /**
  * Создает CCXT exchange instance с пользовательскими ключами
@@ -14,11 +15,9 @@ export const createExchangeInstance = (exchange: string, provider: DataProvider,
     throw new Error(`Exchange ${exchange} not found in CCXT`);
   }
   
-  // Get user credentials for this exchange - импорт должен быть в начале файла
-  // но для избежания циклических зависимостей делаем через require
+  // Get user credentials for this exchange
   let activeUser: User | undefined;
   try {
-    const { useUserStore } = require('../userStore');
     const userState = useUserStore.getState();
     activeUser = userState.users.find((u: User) => u.id === userState.activeUserId);
   } catch (error) {

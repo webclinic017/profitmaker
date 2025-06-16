@@ -10,6 +10,7 @@ export { DataProviderSettingsWidget } from './DataProviderSettingsWidget';
 export { default as TransactionHistory } from './TransactionHistory';
 export { default as Portfolio } from './Portfolio';
 export { default as OrderForm } from './OrderForm';
+export { default as UserBalancesWidget } from './UserBalancesWidget';
 
 // New Deals Widget System
 export { default as DealsWidget } from './DealsWidget';

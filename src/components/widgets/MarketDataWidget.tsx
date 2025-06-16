@@ -177,7 +177,7 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
                     {formatPrice(lastCandle.close)}
                   </span>
                   <div className={`flex items-center gap-1 ${
-                    priceChange >= 0 ? 'text-green-600' : 'text-red-600'
+                    priceChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                   }`}>
                     {priceChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
                     <span className="font-medium">
@@ -196,11 +196,11 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
                   </div>
                   <div>
                     <p className="text-muted-foreground">High</p>
-                    <p className="font-medium text-green-600">{formatPrice(lastCandle.high)}</p>
+                    <p className="font-medium text-green-600 dark:text-green-400">{formatPrice(lastCandle.high)}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Low</p>
-                    <p className="font-medium text-red-600">{formatPrice(lastCandle.low)}</p>
+                    <p className="font-medium text-red-600 dark:text-red-400">{formatPrice(lastCandle.low)}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Volume</p>
@@ -250,11 +250,11 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                   {/* Buy orders */}
                   <div>
-                    <h4 className="text-sm font-medium text-green-600 mb-2">Buy (Bid)</h4>
+                    <h4 className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">Buy (Bid)</h4>
                     <div className="space-y-1">
                       {orderbook.data.bids.slice(0, 5).map((bid, index) => (
                         <div key={index} className="flex justify-between text-xs">
-                          <span className="text-green-600">{formatPrice(bid.price)}</span>
+                          <span className="text-green-600 dark:text-green-400">{formatPrice(bid.price)}</span>
                           <span className="text-muted-foreground">{formatVolume(bid.amount)}</span>
                         </div>
                       ))}
@@ -263,11 +263,11 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
 
                   {/* Sell orders */}
                   <div>
-                    <h4 className="text-sm font-medium text-red-600 mb-2">Sell (Ask)</h4>
+                    <h4 className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">Sell (Ask)</h4>
                     <div className="space-y-1">
                       {orderbook.data.asks.slice(0, 5).map((ask, index) => (
                         <div key={index} className="flex justify-between text-xs">
-                          <span className="text-red-600">{formatPrice(ask.price)}</span>
+                          <span className="text-red-600 dark:text-red-400">{formatPrice(ask.price)}</span>
                           <span className="text-muted-foreground">{formatVolume(ask.amount)}</span>
                         </div>
                       ))}
@@ -315,7 +315,7 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
                       >
                         {trade.side}
                       </Badge>
-                      <span className={trade.side === 'buy' ? 'text-green-600' : 'text-red-600'}>
+                      <span className={trade.side === 'buy' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                         {formatPrice(trade.price)}
                       </span>
                     </div>

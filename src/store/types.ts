@@ -7,6 +7,7 @@ import type {
   Candle,
   Trade,
   OrderBook,
+  ExchangeBalances,
   ProviderOperationResult,
   DataFetchMethod,
   OrderBookMethodSelection,
@@ -38,6 +39,7 @@ export interface DataProviderState {
     candles: Record<string, Record<string, Record<string, Record<string, Candle[]>>>>; // [exchange][market][symbol][timeframe] -> Candle[]
     trades: Record<string, Record<string, Record<string, Trade[]>>>;   // [exchange][market][symbol] -> Trade[]
     orderbook: Record<string, Record<string, Record<string, OrderBook>>>; // [exchange][market][symbol] -> OrderBook
+    balance: Record<string, Record<string, ExchangeBalances>>; // [exchange][market] -> ExchangeBalances
   };
   
   // Event system for notifying Chart widgets
@@ -90,6 +92,7 @@ export interface DataProviderActions {
   getCandles: (exchange: string, symbol: string, timeframe?: Timeframe, market?: MarketType) => Candle[];
   getTrades: (exchange: string, symbol: string, market?: MarketType) => Trade[];
   getOrderBook: (exchange: string, symbol: string, market?: MarketType) => OrderBook | null;
+  getBalance: (exchange: string, market?: MarketType) => ExchangeBalances | null;
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
@@ -100,6 +103,9 @@ export interface DataProviderActions {
   // REST data initialization for OrderBook widgets
   initializeOrderBookData: (exchange: string, symbol: string, market: MarketType) => Promise<OrderBook>;
   
+  // REST data initialization for Balance widgets
+  initializeBalanceData: (exchange: string, market: MarketType) => Promise<ExchangeBalances>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
@@ -107,6 +113,7 @@ export interface DataProviderActions {
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market?: MarketType) => void;
+  updateBalance: (exchange: string, balance: ExchangeBalances, market?: MarketType) => void;
   
   // Utilities
   getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;

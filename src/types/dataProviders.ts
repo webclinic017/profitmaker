@@ -27,14 +27,34 @@ export interface OrderBook {
   asks: OrderBookEntry[];
 }
 
+// Balance types
+export interface Balance {
+  currency: string;
+  free: number;      // Available balance
+  used: number;      // Locked/Used balance
+  total: number;     // Total balance (free + used)
+  usdValue?: number; // USD value (if available)
+  funding?: {        // Funding wallet balance (if available)
+    free: number;
+    used: number;
+    total: number;
+  };
+}
+
+export interface ExchangeBalances {
+  timestamp: number;
+  balances: Balance[];
+  info?: any; // Raw response from exchange
+}
+
 // Data subscription types
-export type DataType = 'candles' | 'trades' | 'orderbook';
+export type DataType = 'candles' | 'trades' | 'orderbook' | 'balance';
 
 // Supported timeframes for candles
 export type Timeframe = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '6h' | '12h' | '1d' | '1w' | '1M';
 
 // Market types
-export type MarketType = 'spot' | 'futures';
+export type MarketType = 'spot' | 'futures' | 'margin';
 
 export interface DataSubscription {
   id: string;
@@ -192,6 +212,7 @@ export interface SubscriptionData {
   candles: Record<string, DataState<Candle[]>>;
   trades: Record<string, DataState<Trade[]>>;
   orderbook: Record<string, DataState<OrderBook>>;
+  balance: Record<string, DataState<ExchangeBalances>>;
 }
 
 // Parameters for creating subscription
@@ -220,6 +241,7 @@ export interface DataFetchSettings {
     trades: number; // milliseconds
     candles: number; // milliseconds  
     orderbook: number; // milliseconds
+    balance: number; // milliseconds
   };
 }
 

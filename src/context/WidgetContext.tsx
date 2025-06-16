@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from "sonner";
 
-export type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactions' | 'watchlist' | 'news' | 'calendar' | 'positions' | 'orderbook' | 'orderbookV2' | 'trades' | 'tradesV2' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug';
+export type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactions' | 'watchlist' | 'news' | 'calendar' | 'positions' | 'orderbook' | 'orderbookV2' | 'trades' | 'tradesV2' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'userBalances';
 
 export interface WidgetGroup {
   id: string;
@@ -58,7 +58,8 @@ const defaultWidgetSizes: Record<WidgetType, { width: number; height: number }> 
   dataProviderSettings: { width: 500, height: 450 },
   dataProviderDemo: { width: 700, height: 400 },
   dataProviderSetup: { width: 500, height: 400 },
-  dataProviderDebug: { width: 700, height: 500 }
+  dataProviderDebug: { width: 700, height: 500 },
+  userBalances: { width: 700, height: 600 }
 };
 
 const widgetTitles: Record<WidgetType, string> = {
@@ -77,7 +78,8 @@ const widgetTitles: Record<WidgetType, string> = {
   dataProviderSettings: 'Data Provider Settings',
   dataProviderDemo: 'Data Provider Demo',
   dataProviderSetup: 'Data Provider Setup',
-  dataProviderDebug: 'Data Provider Debug'
+  dataProviderDebug: 'Data Provider Debug',
+  userBalances: 'User Balances'
 };
 
 // Group color palette - aligned with GroupSelector colors

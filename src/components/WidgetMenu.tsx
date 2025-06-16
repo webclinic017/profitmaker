@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { useGroupStore } from '@/store/groupStore';
-import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp } from 'lucide-react';
+import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp, Wallet } from 'lucide-react';
 
-type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactionHistory' | 'custom' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs';
+type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactionHistory' | 'custom' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs' | 'userBalances';
 
 interface WidgetMenuProps {
   position: { x: number; y: number };
@@ -68,7 +68,8 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       debugCCXTCache: { width: 700, height: 500 },
       exchanges: { width: 600, height: 500 },
       markets: { width: 500, height: 450 },
-      pairs: { width: 650, height: 550 }
+      pairs: { width: 650, height: 550 },
+      userBalances: { width: 700, height: 600 }
     };
     
     const size = defaultSizes[type];
@@ -101,7 +102,8 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       debugCCXTCache: 'Debug CCXT Cache',
       exchanges: 'Exchanges Diagnostic',
       markets: 'Markets Diagnostic',
-      pairs: 'Pairs Diagnostic'
+      pairs: 'Pairs Diagnostic',
+      userBalances: 'User Balances'
     };
     
     // Widgets that don't need group selector (diagnostic, portfolio, settings, etc.)
@@ -113,7 +115,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     const shouldHideGroupSelector = widgetsWithoutGroupSelector.includes(type);
     
     // Widgets that need transparent group by default (trading widgets)
-    const widgetsNeedingTransparentGroup = ['chart', 'orderForm', 'orderbook', 'trades'];
+    const widgetsNeedingTransparentGroup = ['chart', 'orderForm', 'orderbook', 'trades', 'userBalances'];
     const transparentGroup = getTransparentGroup();
     const defaultGroupId = widgetsNeedingTransparentGroup.includes(type) && transparentGroup 
       ? transparentGroup.id 
@@ -138,6 +140,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   const widgetOptions = [
     { type: 'chart' as WidgetType, label: 'Price Chart', icon: <LineChart size={16} /> },
     { type: 'portfolio' as WidgetType, label: 'Portfolio', icon: <PieChart size={16} /> },
+    { type: 'userBalances' as WidgetType, label: 'User Balances', icon: <Wallet size={16} /> },
     { type: 'orderForm' as WidgetType, label: 'Place Order', icon: <FileText size={16} /> },
     { type: 'transactionHistory' as WidgetType, label: 'Transaction History', icon: <ListOrdered size={16} /> },
     { type: 'orderbook' as WidgetType, label: 'Order Book', icon: <BookOpen size={16} /> },

@@ -5,6 +5,7 @@ import TabNavigation from '@/components/TabNavigation';
 import { useDashboardStore } from '@/store/dashboardStore';
 import ChartWidget from '@/components/widgets/Chart';
 import PortfolioWidget from '@/components/widgets/Portfolio';
+import UserBalancesWidget from '@/components/widgets/UserBalancesWidget';
 import OrderFormWidget from '@/components/widgets/OrderForm';
 import TransactionHistoryWidget from '@/components/widgets/TransactionHistory';
 import { OrderBookWidgetV2 } from '@/components/widgets/OrderBookWidget';
@@ -27,6 +28,7 @@ import CollapsedWidgetsZone from '@/components/CollapsedWidgetsZone';
 const widgetComponents: Record<string, React.FC<any>> = {
   chart: ChartWidget,
   portfolio: PortfolioWidget,
+  userBalances: UserBalancesWidget,
   orderForm: OrderFormWidget,
   transactionHistory: TransactionHistoryWidget,
   custom: PortfolioWidget, // Placeholder

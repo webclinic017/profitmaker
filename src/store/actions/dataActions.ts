@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { DataProviderStore } from '../types';
-import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, ActiveSubscription, Timeframe, MarketType } from '../../types/dataProviders';
+import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, ExchangeBalances, ActiveSubscription, Timeframe, MarketType } from '../../types/dataProviders';
 import { getCCXT } from '../utils/ccxtUtils';
 import { createExchangeInstance } from '../utils/providerUtils';
 import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
@@ -14,6 +14,7 @@ export interface DataActions {
   getCandles: (exchange: string, symbol: string, timeframe?: Timeframe, market?: MarketType) => Candle[];
   getTrades: (exchange: string, symbol: string, market?: MarketType) => Trade[];
   getOrderBook: (exchange: string, symbol: string, market?: MarketType) => OrderBook | null;
+  getBalance: (exchange: string, market?: MarketType) => ExchangeBalances | null;
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
@@ -24,6 +25,9 @@ export interface DataActions {
   // REST data initialization for OrderBook widgets
   initializeOrderBookData: (exchange: string, symbol: string, market: MarketType) => Promise<OrderBook>;
   
+  // REST data initialization for Balance widgets  
+  initializeBalanceData: (exchange: string, market: MarketType) => Promise<ExchangeBalances>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
@@ -31,6 +35,7 @@ export interface DataActions {
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market?: MarketType) => void;
+  updateBalance: (exchange: string, balance: ExchangeBalances, market?: MarketType) => void;
   
   // Utilities
   getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
@@ -136,6 +141,22 @@ export const createDataActions: StateCreator<
       result: result,
       allExchanges: Object.keys(state.marketData.orderbook),
       fullOrderbookData: state.marketData.orderbook
+    });
+    
+    return result;
+  },
+
+  getBalance: (exchange: string, market: MarketType = 'spot'): ExchangeBalances | null => {
+    const state = get();
+    const result = state.marketData.balance[exchange]?.[market] || null;
+    
+    console.log(`💰 [Balance] Requesting data for ${exchange}:${market}:`, {
+      exchange,
+      market,
+      hasExchange: !!state.marketData.balance[exchange],
+      hasMarket: !!state.marketData.balance[exchange]?.[market],
+      result: result,
+      allExchanges: Object.keys(state.marketData.balance)
     });
     
     return result;
@@ -281,6 +302,36 @@ export const createDataActions: StateCreator<
       
       // Update last update timestamp
       const subscriptionKey = get().getSubscriptionKey(exchange, symbol, 'orderbook', undefined, market);
+      if (state.activeSubscriptions[subscriptionKey]) {
+        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
+      }
+    });
+  },
+
+  updateBalance: (exchange: string, balance: ExchangeBalances, market: MarketType = 'spot') => {
+    console.log(`💰 [Balance] Saving data for ${exchange}:${market}:`, {
+      exchange,
+      market,
+      balance,
+      balancesCount: balance.balances?.length || 0,
+      timestamp: balance.timestamp
+    });
+    
+    set(state => {
+      if (!state.marketData.balance[exchange]) {
+        state.marketData.balance[exchange] = {};
+      }
+      state.marketData.balance[exchange][market] = balance;
+      
+      console.log(`✅ [Balance] Data saved to state:`, {
+        exchange,
+        market,
+        savedSuccessfully: !!state.marketData.balance[exchange][market],
+        allExchanges: Object.keys(state.marketData.balance)
+      });
+      
+      // Update last update timestamp
+      const subscriptionKey = get().getSubscriptionKey(exchange, '', 'balance', undefined, market);
       if (state.activeSubscriptions[subscriptionKey]) {
         state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
       }
@@ -464,6 +515,118 @@ export const createDataActions: StateCreator<
       
     } catch (error) {
       console.error(`❌ [OrderBook] Failed to load orderbook:`, error);
+      throw error;
+    }
+  },
+
+  // REST data initialization for Balance widgets
+  initializeBalanceData: async (exchange: string, market: MarketType): Promise<ExchangeBalances> => {
+    // Get optimal provider for this exchange
+    const provider = get().getProviderForExchange(exchange);
+    
+    if (!provider) {
+      throw new Error(`No suitable provider found for exchange ${exchange}`);
+    }
+    
+    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
+      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
+    }
+    
+    console.log(`🚀 [Balance] Loading initial balance for ${exchange}:${market} using provider ${provider.id}`);
+    
+    try {
+      // Use CCXT utilities
+      const ccxt = getCCXT();
+      
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      
+      // Set defaultType based on market type (CCXT best practice)
+      if (market === 'futures') {
+        exchangeInstance.options = exchangeInstance.options || {};
+        exchangeInstance.options['defaultType'] = 'future';
+      } else if (market === 'margin') {
+        exchangeInstance.options = exchangeInstance.options || {};
+        exchangeInstance.options['defaultType'] = 'margin';
+      } else if (market === 'spot') {
+        exchangeInstance.options = exchangeInstance.options || {};
+        exchangeInstance.options['defaultType'] = 'spot';
+      }
+      
+      console.log(`💰 [Balance Init] Fetching ${market} balance for ${exchange} with defaultType: ${exchangeInstance.options?.defaultType}`);
+      
+      // Use fetchBalance() for all types (CCXT recommended approach)
+      let balanceData = await exchangeInstance.fetchBalance();
+      
+      // Try fetchFundingBalance() if supported for additional funding wallet data
+      if (exchangeInstance.has?.fetchFundingBalance) {
+        try {
+          const fundingBalance = await exchangeInstance.fetchFundingBalance();
+          console.log(`💰 [Balance Init] Also got funding balance for ${exchange}:`, {
+            fundingCurrencies: Object.keys(fundingBalance).filter(k => k !== 'info' && k !== 'datetime' && k !== 'timestamp').length
+          });
+          // Merge funding balance into main balance if needed
+          if (fundingBalance && typeof fundingBalance === 'object') {
+            // Add funding balances to the main balance structure
+            Object.entries(fundingBalance).forEach(([currency, data]: [string, any]) => {
+              if (currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
+                  data && typeof data === 'object') {
+                // If currency already exists, add funding amounts to it
+                if (balanceData[currency]) {
+                  balanceData[currency].funding = data;
+                } else {
+                  // Create new entry for funding-only currencies
+                  balanceData[currency] = {
+                    free: 0,
+                    used: 0,
+                    total: 0,
+                    funding: data
+                  };
+                }
+              }
+            });
+          }
+        } catch (fundingError) {
+          console.warn(`⚠️ [Balance Init] Could not fetch funding balance for ${exchange}:`, fundingError.message);
+        }
+      }
+      
+      if (!balanceData) {
+        throw new Error('No balance data received from exchange');
+      }
+      
+      // Transform CCXT balance format to our format
+      const balances = Object.entries(balanceData)
+        .filter(([currency, data]: [string, any]) => 
+          currency !== 'info' && currency !== 'datetime' && currency !== 'timestamp' && 
+          data && typeof data === 'object' && (data.total > 0 || data.free > 0 || data.used > 0)
+        )
+        .map(([currency, data]: [string, any]) => ({
+          currency,
+          free: data.free || 0,
+          used: data.used || 0,
+          total: data.total || 0
+        }));
+        
+      const exchangeBalances = {
+        timestamp: balanceData.timestamp || Date.now(),
+        balances,
+        info: balanceData.info
+      };
+      
+      console.log(`✅ [Balance] Loaded balance for ${exchange}:${market} (currencies: ${balances.length})`);
+      
+      // Save balance to store AND return it
+      get().updateBalance(exchange, exchangeBalances, market);
+      console.log(`💾 [Balance] Balance saved to store for ${exchange}:${market}`);
+      
+      return exchangeBalances;
+      
+    } catch (error) {
+      console.error(`❌ [Balance] Failed to load balance:`, error);
       throw error;
     }
   },
