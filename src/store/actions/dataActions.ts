@@ -1417,7 +1417,21 @@ export const createDataActions: StateCreator<
             }
             
             console.log(`🔍 [fetchOpenOrders] About to call fetchOpenOrders for ${category} with symbol: ${symbol}`);
+            console.log(`🔍 [fetchOpenOrders] Instance before call:`, {
+              defaultType: exchangeInstance.defaultType,
+              options: exchangeInstance.options,
+              verbose: exchangeInstance.verbose
+            });
+            
+            // Enable verbose logging for this specific call to see the actual API request
+            const originalVerbose = exchangeInstance.verbose;
+            exchangeInstance.verbose = true;
+            
             const orders = await exchangeInstance.fetchOpenOrders(symbol);
+            
+            // Restore original verbose setting
+            exchangeInstance.verbose = originalVerbose;
+            
             console.log(`✅ [fetchOpenOrders] Fetched ${orders.length} orders from Bybit ${category}`);
             allOrders.push(...orders);
             

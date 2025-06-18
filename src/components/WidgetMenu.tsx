@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { useGroupStore } from '@/store/groupStore';
-import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp, Wallet } from 'lucide-react';
+import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp, Wallet, ChevronRight } from 'lucide-react';
 
-type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactionHistory' | 'custom' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs' | 'userBalances' | 'userTradingData';
+type WidgetType = 'chart' | 'orderForm' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs' | 'userBalances' | 'userTradingData';
 
 interface WidgetMenuProps {
   position: { x: number; y: number };
@@ -16,6 +16,8 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   const getActiveDashboard = useDashboardStore(s => s.getActiveDashboard);
   const { getTransparentGroup } = useGroupStore();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const diagnosticsMenuRef = useRef<HTMLDivElement>(null);
   
   // Debug logging for widget menu
   React.useEffect(() => {
@@ -31,7 +33,8 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   useEffect(() => {
     // Close menu when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node) &&
+          diagnosticsMenuRef.current && !diagnosticsMenuRef.current.contains(event.target as Node)) {
         onClose();
       }
     };
@@ -52,10 +55,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     // Default sizes for different widget types
     const defaultSizes = {
       chart: { width: 650, height: 330 },
-      portfolio: { width: 800, height: 350 },
       orderForm: { width: 350, height: 550 },
-      transactionHistory: { width: 400, height: 350 },
-      custom: { width: 400, height: 300 },
       orderbook: { width: 500, height: 650 },
       trades: { width: 600, height: 550 },
       deals: { width: 900, height: 600 },
@@ -87,10 +87,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     // Widget titles mapping
     const widgetTitles = {
       chart: 'Chart',
-      portfolio: 'Balance',
       orderForm: 'Place Order',
-      transactionHistory: 'Transaction History',
-      custom: 'Custom Widget',
       orderbook: 'Order Book',
       trades: 'Trades',
       deals: 'Deals',
@@ -105,14 +102,14 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       markets: 'Markets Diagnostic',
       pairs: 'Pairs Diagnostic',
       userBalances: 'User Balances',
-  userTradingData: 'User Trading Data'
+      userTradingData: 'User Trading Data'
     };
     
     // Widgets that don't need group selector (diagnostic, portfolio, settings, etc.)
     const widgetsWithoutGroupSelector = [
       'markets', 'exchanges', 'pairs', 'dataProviderDebug', 'dataProviderDemo', 'dataProviderSetup', 
       'debugUserData', 'debugCCXTCache', 'notificationTest',
-      'portfolio', 'transactionHistory', 'deals', 'dataProviderSettings', 'userBalances', 'userTradingData'
+      'deals', 'dataProviderSettings', 'userBalances', 'userTradingData'
     ];
     const shouldHideGroupSelector = widgetsWithoutGroupSelector.includes(type);
     
@@ -139,56 +136,129 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     onClose();
   };
 
-  const widgetOptions = [
-    { type: 'chart' as WidgetType, label: 'Price Chart', icon: <LineChart size={16} /> },
-    { type: 'portfolio' as WidgetType, label: 'Portfolio', icon: <PieChart size={16} /> },
-          { type: 'userBalances' as WidgetType, label: 'User Balances', icon: <Wallet size={16} /> },
-      { type: 'userTradingData' as WidgetType, label: 'User Trading Data', icon: <BarChart3 size={16} /> },
-    { type: 'orderForm' as WidgetType, label: 'Place Order', icon: <FileText size={16} /> },
-    { type: 'transactionHistory' as WidgetType, label: 'Transaction History', icon: <ListOrdered size={16} /> },
-    { type: 'orderbook' as WidgetType, label: 'Order Book', icon: <BookOpen size={16} /> },
+  // Widget categories
+  const publicDataWidgets = [
+    { type: 'chart' as WidgetType, label: 'Chart', icon: <LineChart size={16} /> },
+    { type: 'orderbook' as WidgetType, label: 'Order Book (not ready)', icon: <BookOpen size={16} /> },
     { type: 'trades' as WidgetType, label: 'Trades', icon: <ArrowUpDown size={16} /> },
-    { type: 'deals' as WidgetType, label: 'Deals', icon: <Handshake size={16} /> },
-    { type: 'dataProviderSettings' as WidgetType, label: 'Data Provider Settings (REST/WS)', icon: <Settings size={16} /> },
-    { type: 'dataProviderDemo' as WidgetType, label: 'Data Provider Demo (Deduplication)', icon: <Bug size={16} /> },
-    { type: 'dataProviderSetup' as WidgetType, label: 'Data Provider Setup', icon: <Settings size={16} /> },
-    { type: 'dataProviderDebug' as WidgetType, label: 'Data Provider Debug', icon: <Bug size={16} /> },
-    { type: 'notificationTest' as WidgetType, label: 'Notification System Test', icon: <Bell size={16} /> },
-    { type: 'debugUserData' as WidgetType, label: 'Debug User Data', icon: <Users size={16} /> },
-    { type: 'debugCCXTCache' as WidgetType, label: 'Debug CCXT Cache', icon: <Database size={16} /> },
+  ];
+
+  const privateDataWidgets = [
+    { type: 'userBalances' as WidgetType, label: 'User Balances', icon: <Wallet size={16} /> },
+    { type: 'userTradingData' as WidgetType, label: 'User Trading Data (not ready)', icon: <BarChart3 size={16} /> },
+    { type: 'deals' as WidgetType, label: 'Deals (not ready)', icon: <Handshake size={16} /> },
+    { type: 'orderForm' as WidgetType, label: 'Place Order (not ready)', icon: <FileText size={16} /> },
+  ];
+
+  const diagnosticWidgets = [
     { type: 'exchanges' as WidgetType, label: 'Exchanges Diagnostic', icon: <Globe size={16} /> },
     { type: 'markets' as WidgetType, label: 'Markets Diagnostic', icon: <Server size={16} /> },
     { type: 'pairs' as WidgetType, label: 'Pairs Diagnostic', icon: <TrendingUp size={16} /> },
-    { type: 'custom' as WidgetType, label: 'Custom Widget', icon: <BarChart3 size={16} /> },
+    { type: 'debugUserData' as WidgetType, label: 'Debug User Data', icon: <Users size={16} /> },
+    { type: 'debugCCXTCache' as WidgetType, label: 'Debug CCXT Cache', icon: <Database size={16} /> },
+    { type: 'notificationTest' as WidgetType, label: 'Notification Test', icon: <Bell size={16} /> },
+    { type: 'dataProviderSettings' as WidgetType, label: 'Data Provider Settings', icon: <Settings size={16} /> },
+    { type: 'dataProviderDemo' as WidgetType, label: 'Data Provider Demo', icon: <Bug size={16} /> },
+    { type: 'dataProviderSetup' as WidgetType, label: 'Data Provider Setup', icon: <Settings size={16} /> },
+    { type: 'dataProviderDebug' as WidgetType, label: 'Data Provider Debug', icon: <Bug size={16} /> },
   ];
 
-  return (
-    <div
-      ref={menuRef}
-      className="widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10002] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text"
-      style={{ left: adjustedPosition.x, top: adjustedPosition.y, width: '300px' }}
+  const renderWidgetButton = (widget: any) => (
+    <button
+      key={widget.type}
+      className={`flex items-center w-full space-x-3 px-3 py-2 rounded-md transition-colors text-left text-sm ${
+        widget.disabled 
+          ? 'text-terminal-muted/50 cursor-not-allowed' 
+          : 'hover:bg-terminal-accent/50 hover:text-terminal-text'
+      }`}
+      onClick={() => !widget.disabled && handleAddWidget(widget.type)}
+      disabled={widget.disabled}
     >
-      <div className="px-3 py-2 border-b border-terminal-border/50">
-        <h3 className="text-sm font-medium">Add Widget</h3>
+      <span className={widget.disabled ? 'text-terminal-muted/50' : 'text-terminal-muted'}>
+        {widget.icon}
+      </span>
+      <span>{widget.label}</span>
+    </button>
+  );
+
+  return (
+    <>
+      <div
+        ref={menuRef}
+        className="widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10002] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text"
+        style={{ left: adjustedPosition.x, top: adjustedPosition.y, width: '300px' }}
+      >
+        <div className="px-3 py-2 border-b border-terminal-border/50">
+          <h3 className="text-sm font-medium">Add Widget</h3>
+        </div>
+        
+        <div className="p-2">
+          {/* Public Data Section */}
+          <div className="mb-3">
+            <div className="px-3 py-1 text-xs font-medium text-terminal-muted/70 uppercase tracking-wide">
+              Public Data
+            </div>
+            <div className="space-y-1">
+              {publicDataWidgets.map(renderWidgetButton)}
+            </div>
+          </div>
+
+          {/* Private Data Section */}
+          <div className="mb-3">
+            <div className="px-3 py-1 text-xs font-medium text-terminal-muted/70 uppercase tracking-wide">
+              Private Data
+            </div>
+            <div className="space-y-1">
+              {privateDataWidgets.map(renderWidgetButton)}
+            </div>
+          </div>
+
+          {/* Diagnostics Section with submenu */}
+          <div>
+            <button
+              className="flex items-center justify-between w-full px-3 py-2 rounded-md hover:bg-terminal-accent/50 hover:text-terminal-text transition-colors text-left text-sm"
+              onMouseEnter={() => setShowDiagnostics(true)}
+              onMouseLeave={() => setShowDiagnostics(false)}
+            >
+              <div className="flex items-center space-x-3">
+                <span className="text-terminal-muted">
+                  <Bug size={16} />
+                </span>
+                <span>Diagnostics</span>
+              </div>
+              <ChevronRight size={14} className="text-terminal-muted" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-2 border-t border-terminal-border/50 text-xs text-terminal-muted px-3">
+          Select a widget to add to the workspace
+        </div>
       </div>
-      
-      <div className="p-2">
-        {widgetOptions.map((option) => (
-          <button
-            key={option.type}
-            className="flex items-center w-full space-x-3 px-3 py-2 rounded-md hover:bg-terminal-accent/50 hover:text-terminal-text transition-colors text-left text-sm"
-            onClick={() => handleAddWidget(option.type)}
-          >
-            <span className="text-terminal-muted">{option.icon}</span>
-            <span>{option.label}</span>
-          </button>
-        ))}
-      </div>
-      
-      <div className="p-2 border-t border-terminal-border/50 text-xs text-terminal-muted px-3">
-        Select a widget to add to the workspace
-      </div>
-    </div>
+
+      {/* Diagnostics Submenu */}
+      {showDiagnostics && (
+        <div
+          ref={diagnosticsMenuRef}
+          className="widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10003] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text"
+          style={{ 
+            left: adjustedPosition.x + 300, 
+            top: adjustedPosition.y + 120, // Position relative to Diagnostics button
+            width: '280px' 
+          }}
+          onMouseEnter={() => setShowDiagnostics(true)}
+          onMouseLeave={() => setShowDiagnostics(false)}
+        >
+          <div className="px-3 py-2 border-b border-terminal-border/50">
+            <h3 className="text-sm font-medium">Diagnostics</h3>
+          </div>
+          
+          <div className="p-2 space-y-1">
+            {diagnosticWidgets.map(renderWidgetButton)}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

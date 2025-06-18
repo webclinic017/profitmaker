@@ -136,17 +136,31 @@ class CCXTInstanceManager {
       console.log(`🔍 [CCXTInstanceManager] Bybit mapping: ${marketType} -> ${defaultType}`);
     }
 
-    console.log(`🔍 [CCXTInstanceManager] Creating ${exchange} instance with defaultType: ${defaultType}`);
-    const exchangeInstance = new ExchangeClass({
+    const instanceConfig = {
       sandbox: accountConfig.sandbox || false,
       apiKey: accountConfig.apiKey,
       secret: accountConfig.secret,
       password: accountConfig.password,
       enableRateLimit: true,
       defaultType: defaultType,
+    };
+    
+    console.log(`🔍 [CCXTInstanceManager] Creating ${exchange} instance with config:`, {
+      sandbox: instanceConfig.sandbox,
+      apiKey: instanceConfig.apiKey ? 'SET' : 'NOT_SET',
+      secret: instanceConfig.secret ? 'SET' : 'NOT_SET',
+      defaultType: instanceConfig.defaultType,
+      enableRateLimit: instanceConfig.enableRateLimit
     });
     
-    console.log(`🔍 [CCXTInstanceManager] Created instance defaultType: ${exchangeInstance.defaultType}`);
+    const exchangeInstance = new ExchangeClass(instanceConfig);
+    
+    console.log(`🔍 [CCXTInstanceManager] Created instance:`, {
+      defaultType: exchangeInstance.defaultType,
+      options: exchangeInstance.options,
+      hasApiKey: !!exchangeInstance.apiKey,
+      hasSecret: !!exchangeInstance.secret
+    });
 
     // Загружаем markets с кэшированием
     await this.loadMarketsWithCache(exchangeInstance, exchange);
