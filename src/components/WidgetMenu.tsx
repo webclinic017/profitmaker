@@ -3,7 +3,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import { useGroupStore } from '@/store/groupStore';
 import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp, Wallet } from 'lucide-react';
 
-type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactionHistory' | 'custom' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs' | 'userBalances';
+type WidgetType = 'chart' | 'portfolio' | 'orderForm' | 'transactionHistory' | 'custom' | 'orderbook' | 'trades' | 'deals' | 'dataProviderSettings' | 'dataProviderDemo' | 'dataProviderSetup' | 'dataProviderDebug' | 'notificationTest' | 'debugUserData' | 'debugCCXTCache' | 'exchanges' | 'markets' | 'pairs' | 'userBalances' | 'userTradingData';
 
 interface WidgetMenuProps {
   position: { x: number; y: number };
@@ -69,7 +69,8 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       exchanges: { width: 600, height: 500 },
       markets: { width: 500, height: 450 },
       pairs: { width: 650, height: 550 },
-      userBalances: { width: 700, height: 600 }
+      userBalances: { width: 700, height: 600 },
+      userTradingData: { width: 800, height: 650 }
     };
     
     const size = defaultSizes[type];
@@ -103,14 +104,15 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       exchanges: 'Exchanges Diagnostic',
       markets: 'Markets Diagnostic',
       pairs: 'Pairs Diagnostic',
-      userBalances: 'User Balances'
+      userBalances: 'User Balances',
+  userTradingData: 'User Trading Data'
     };
     
     // Widgets that don't need group selector (diagnostic, portfolio, settings, etc.)
     const widgetsWithoutGroupSelector = [
       'markets', 'exchanges', 'pairs', 'dataProviderDebug', 'dataProviderDemo', 'dataProviderSetup', 
       'debugUserData', 'debugCCXTCache', 'notificationTest',
-      'portfolio', 'transactionHistory', 'deals', 'dataProviderSettings', 'userBalances'
+      'portfolio', 'transactionHistory', 'deals', 'dataProviderSettings', 'userBalances', 'userTradingData'
     ];
     const shouldHideGroupSelector = widgetsWithoutGroupSelector.includes(type);
     
@@ -140,7 +142,8 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   const widgetOptions = [
     { type: 'chart' as WidgetType, label: 'Price Chart', icon: <LineChart size={16} /> },
     { type: 'portfolio' as WidgetType, label: 'Portfolio', icon: <PieChart size={16} /> },
-    { type: 'userBalances' as WidgetType, label: 'User Balances', icon: <Wallet size={16} /> },
+          { type: 'userBalances' as WidgetType, label: 'User Balances', icon: <Wallet size={16} /> },
+      { type: 'userTradingData' as WidgetType, label: 'User Trading Data', icon: <BarChart3 size={16} /> },
     { type: 'orderForm' as WidgetType, label: 'Place Order', icon: <FileText size={16} /> },
     { type: 'transactionHistory' as WidgetType, label: 'Transaction History', icon: <ListOrdered size={16} /> },
     { type: 'orderbook' as WidgetType, label: 'Order Book', icon: <BookOpen size={16} /> },

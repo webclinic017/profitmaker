@@ -79,7 +79,8 @@ const widgetTitles: Record<WidgetType, string> = {
   dataProviderDemo: 'Data Provider Demo',
   dataProviderSetup: 'Data Provider Setup',
   dataProviderDebug: 'Data Provider Debug',
-  userBalances: 'User Balances'
+  userBalances: 'User Balances',
+  userTradingData: 'User Trading Data'
 };
 
 // Group color palette - aligned with GroupSelector colors

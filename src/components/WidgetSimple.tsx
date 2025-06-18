@@ -456,7 +456,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   }, [id, widgetType, userTitle, defaultTitle, groupId, openSettingsDrawer]);
 
   // Check if widget has settings available
-  const hasSettings = widgetType && ['chart', 'orderbook', 'orderBook', 'portfolio', 'trades', 'orderForm', 'userBalances'].includes(widgetType);
+  const hasSettings = widgetType && ['chart', 'orderbook', 'orderBook', 'portfolio', 'trades', 'orderForm', 'userBalances', 'userTradingData'].includes(widgetType);
 
   // Check if group has complete instrument data to hide widget title
   const selectedGroup = groupId ? getGroupById(groupId) : undefined;
