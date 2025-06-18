@@ -174,10 +174,13 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
     }
   }, [accounts, settings.showClosedOrders, dataProvider]);
 
-  // Load orders on mount and when accounts change
+  // Load orders only when this tab is active
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    // Check if this tab is active
+    if (settings.activeTab === 'orders') {
+      loadOrders();
+    }
+  }, [loadOrders, settings.activeTab]);
 
   // Debug orders state changes
   useEffect(() => {

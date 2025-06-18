@@ -102,10 +102,13 @@ const UserPositionsTab: React.FC<UserPositionsTabProps> = ({
     }
   }, [accounts, settings.showZeroPositions, dataProvider]);
 
-  // Load positions on mount and when accounts change
+  // Load positions only when this tab is active
   useEffect(() => {
-    loadPositions();
-  }, [loadPositions]);
+    // Check if this tab is active
+    if (settings.activeTab === 'positions') {
+      loadPositions();
+    }
+  }, [loadPositions, settings.activeTab]);
 
   // Format currency value
   const formatCurrency = useCallback((value: number, currency?: string) => {

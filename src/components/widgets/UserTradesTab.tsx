@@ -98,10 +98,13 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
     }
   }, [accounts, settings.tradesLimit, dataProvider]);
 
-  // Load trades on mount and when accounts change
+  // Load trades only when this tab is active
   useEffect(() => {
-    loadTrades();
-  }, [loadTrades]);
+    // Check if this tab is active
+    if (settings.activeTab === 'trades') {
+      loadTrades();
+    }
+  }, [loadTrades, settings.activeTab]);
 
   // Format currency value
   const formatCurrency = useCallback((value: number, currency?: string) => {

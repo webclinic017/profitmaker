@@ -9,18 +9,38 @@ interface CachedExchangeInstance {
 }
 
 /**
+ * Кэш для loadMarkets() чтобы избежать повторных запросов
+ */
+interface MarketsCache {
+  [exchangeName: string]: {
+    markets: any;
+    timestamp: number;
+  };
+}
+
+/**
  * Менеджер кэширования CCXT exchange instances
  * Избегает создания нового instance на каждый запрос
  */
 class CCXTInstanceManager {
   private cache = new Map<string, CachedExchangeInstance>();
   private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 1 день
+  private marketsCache: MarketsCache = {};
+  private readonly MARKETS_CACHE_TTL = 60 * 60 * 1000; // 1 час для markets
 
   /**
    * Создает уникальный ключ для кэша
    */
   private createCacheKey(exchange: string, provider: CCXTBrowserProvider): string {
-    return `${exchange}:${provider.id}:${provider.config.sandbox ? 'sandbox' : 'live'}`;
+    const defaultType = (provider.config.options as any)?.defaultType || 'default';
+    return `${exchange}:${provider.id}:${provider.config.sandbox ? 'sandbox' : 'live'}:${defaultType}`;
+  }
+
+  /**
+   * Создает уникальный ключ для кэша с учетом типа рынка
+   */
+  private createMarketCacheKey(exchange: string, providerId: string, sandbox: boolean, marketType: string): string {
+    return `${exchange}:${providerId}:${sandbox ? 'sandbox' : 'live'}:${marketType}`;
   }
 
   /**
@@ -29,6 +49,139 @@ class CCXTInstanceManager {
   private isValid(cached: CachedExchangeInstance): boolean {
     const now = Date.now();
     return (now - cached.lastAccess) < this.CACHE_TTL;
+  }
+
+  /**
+   * Проверяет валидность кэшированных markets
+   */
+  private isMarketsValid(exchange: string): boolean {
+    const cached = this.marketsCache[exchange];
+    if (!cached) return false;
+    
+    const now = Date.now();
+    return (now - cached.timestamp) < this.MARKETS_CACHE_TTL;
+  }
+
+  /**
+   * Загружает markets с кэшированием
+   */
+  private async loadMarketsWithCache(exchangeInstance: any, exchange: string): Promise<void> {
+    // Проверяем кэш markets
+    if (this.isMarketsValid(exchange)) {
+      console.log(`📋 [CCXTInstanceManager] Using cached markets for ${exchange}`);
+      exchangeInstance.markets = this.marketsCache[exchange].markets;
+      return;
+    }
+
+    console.log(`🔄 [CCXTInstanceManager] Loading fresh markets for ${exchange}`);
+    await exchangeInstance.loadMarkets();
+    
+    // Кэшируем markets
+    this.marketsCache[exchange] = {
+      markets: exchangeInstance.markets,
+      timestamp: Date.now()
+    };
+    
+    console.log(`✅ [CCXTInstanceManager] Cached markets for ${exchange}`);
+  }
+
+  /**
+   * Получает или создает exchange instance для конкретного типа рынка
+   */
+  async getExchangeInstanceForMarket(
+    exchange: string, 
+    accountId: string, 
+    accountConfig: {
+      apiKey: string;
+      secret: string;
+      password?: string;
+      sandbox?: boolean;
+    },
+    marketType: string = 'spot'
+  ): Promise<any> {
+    const cacheKey = this.createMarketCacheKey(exchange, accountId, accountConfig.sandbox || false, marketType);
+    const cached = this.cache.get(cacheKey);
+
+    // Проверяем кэш
+    if (cached && this.isValid(cached)) {
+      cached.lastAccess = Date.now();
+      console.log(`📋 [CCXTInstanceManager] Using cached instance for ${exchange}:${marketType}`);
+      return cached.instance;
+    }
+
+    // Создаем новый instance
+    console.log(`🔄 [CCXTInstanceManager] Creating new instance for ${exchange}:${marketType}`);
+    
+    const ccxt = getCCXT();
+    if (!ccxt) {
+      throw new Error('CCXT not available');
+    }
+
+    const ExchangeClass = ccxt[exchange];
+    if (!ExchangeClass) {
+      throw new Error(`Exchange ${exchange} not found in CCXT`);
+    }
+
+    // Маппинг типов рынков для Bybit
+    let defaultType = marketType;
+    if (exchange === 'bybit') {
+      const bybitCategoryMap: Record<string, string> = {
+        'spot': 'spot',
+        'futures': 'linear',
+        'swap': 'linear', 
+        'margin': 'spot',
+        'options': 'option'
+      };
+      defaultType = bybitCategoryMap[marketType] || marketType;
+      console.log(`🔍 [CCXTInstanceManager] Bybit mapping: ${marketType} -> ${defaultType}`);
+    }
+
+    console.log(`🔍 [CCXTInstanceManager] Creating ${exchange} instance with defaultType: ${defaultType}`);
+    const exchangeInstance = new ExchangeClass({
+      sandbox: accountConfig.sandbox || false,
+      apiKey: accountConfig.apiKey,
+      secret: accountConfig.secret,
+      password: accountConfig.password,
+      enableRateLimit: true,
+      defaultType: defaultType,
+    });
+    
+    console.log(`🔍 [CCXTInstanceManager] Created instance defaultType: ${exchangeInstance.defaultType}`);
+
+    // Загружаем markets с кэшированием
+    await this.loadMarketsWithCache(exchangeInstance, exchange);
+
+    // Создаем провайдер конфиг для кэша
+    const providerConfig: CCXTBrowserProvider = {
+      id: accountId,
+      name: `Account ${accountId} - ${marketType}`,
+      type: 'ccxt-browser',
+      exchanges: [exchange],
+      status: 'connected',
+      priority: 1,
+      config: {
+        sandbox: accountConfig.sandbox || false,
+        options: {
+          apiKey: accountConfig.apiKey,
+          secret: accountConfig.secret,
+          password: accountConfig.password,
+          enableRateLimit: true,
+          defaultType: defaultType,
+        }
+      }
+    };
+
+    const cachedInstance: CachedExchangeInstance = {
+      instance: exchangeInstance,
+      provider: providerConfig,
+      lastAccess: Date.now(),
+      marketsLoaded: true
+    };
+
+    this.cache.set(cacheKey, cachedInstance);
+    console.log(`✅ [CCXTInstanceManager] Cached new instance for ${exchange}:${marketType}, cache size: ${this.cache.size}`);
+
+    return exchangeInstance;
   }
 
   /**
@@ -64,8 +217,8 @@ class CCXTInstanceManager {
       // API ключи теперь передаются через provider.config.options
     });
 
-    // Загружаем markets только один раз
-    await exchangeInstance.loadMarkets();
+    // Загружаем markets с кэшированием
+    await this.loadMarketsWithCache(exchangeInstance, exchange);
 
     const cachedInstance: CachedExchangeInstance = {
       instance: exchangeInstance,
