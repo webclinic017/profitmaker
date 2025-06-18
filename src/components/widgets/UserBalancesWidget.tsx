@@ -400,7 +400,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   if (!activeUser) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-4">
-        <User className="h-12 w-12 text-terminal-muted mb-4" />
+        <User className="h-12 w-12 text-terminal-text/80 mb-4" />
         <h3 className="text-lg font-medium text-terminal-text mb-2">No Active User</h3>
         <p className="text-terminal-muted">
           Please select or create a user account to view balances
@@ -412,7 +412,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   if (!hasValidAccounts) {
     return (
       <div className="h-full flex flex-col items-center justify-center text-center p-4">
-        <Wallet className="h-12 w-12 text-terminal-muted mb-4" />
+        <Wallet className="h-12 w-12 text-terminal-text/80 mb-4" />
         <h3 className="text-lg font-medium text-terminal-text mb-2">No API Keys Configured</h3>
         <p className="text-terminal-muted mb-4">
           Add API keys to your exchange accounts to view balances
@@ -431,7 +431,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-terminal-border">
         <div className="flex items-center gap-2">
-          <Wallet className="h-4 w-4 text-terminal-accent" />
+          <Wallet className="h-4 w-4 text-terminal-text/80" />
           <h3 className="font-medium text-terminal-text">User Balances</h3>
           <span className="text-xs text-terminal-muted">
             ({filteredAndSortedBalances.length} assets)
@@ -445,7 +445,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
             className="p-1.5 hover:bg-terminal-accent/20 rounded transition-colors"
             title="Refresh balances"
           >
-            <RefreshCw className="h-3.5 w-3.5 text-terminal-muted" />
+            <RefreshCw className="h-3.5 w-3.5 text-terminal-text/80" />
           </button>
         </div>
       </div>
@@ -453,13 +453,13 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       {/* Search */}
       <div className="p-3 border-b border-terminal-border">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-terminal-muted" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-terminal-text/80" />
           <Input
             type="text"
             placeholder="Search currencies, exchanges, or accounts..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-terminal-background border-terminal-border text-terminal-text placeholder-terminal-muted"
+            className="pl-10 bg-terminal-bg border-terminal-border text-terminal-text placeholder-terminal-muted focus:outline-none focus:border-terminal-accent"
           />
         </div>
       </div>
@@ -472,7 +472,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         >
           Account
           {sortBy === 'account' && (
-            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />
+            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
           )}
         </button>
         
@@ -482,7 +482,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         >
           Free
           {sortBy === 'free' && (
-            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />
+            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
           )}
         </button>
         
@@ -492,7 +492,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         >
           Locked
           {sortBy === 'used' && (
-            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />
+            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
           )}
         </button>
         
@@ -502,7 +502,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         >
           Total
           {sortBy === 'total' && (
-            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />
+            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
           )}
         </button>
         
@@ -513,7 +513,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       <div className="flex-1 overflow-hidden">
         {filteredAndSortedBalances.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
-            <Wallet className="h-8 w-8 text-terminal-muted mb-2" />
+            <Wallet className="h-8 w-8 text-terminal-text/80 mb-2" />
             <p className="text-terminal-muted">
               {searchQuery ? 'No matching balances found' : 'No balances available'}
             </p>
