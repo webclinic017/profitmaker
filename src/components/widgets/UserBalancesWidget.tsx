@@ -61,7 +61,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   // Widget state
   const [accountBalances, setAccountBalances] = useState<Map<string, AccountBalance>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'currency' | 'total' | 'free' | 'used' | 'account'>('total');
+  const [sortBy, setSortBy] = useState<'currency' | 'total' | 'free' | 'used' | 'account' | 'walletType'>('total');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
 
@@ -230,6 +230,9 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           compareResult = a.exchange.localeCompare(b.exchange) ||
                         a.email.localeCompare(b.email);
           break;
+        case 'walletType':
+          compareResult = a.walletType.localeCompare(b.walletType);
+          break;
         default:
           compareResult = b.total - a.total;
       }
@@ -353,12 +356,18 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         </span>
         <span className="text-xs text-terminal-muted truncate">
           {balance.exchange} • {balance.email}
-          {balance.walletType === 'funding' && (
-            <span className="ml-1 px-1 bg-terminal-accent/20 text-terminal-accent rounded text-xs">
-              FUNDING
-            </span>
-          )}
         </span>
+      </div>
+
+      {/* Wallet Type */}
+      <div className="text-center min-w-0 flex-1">
+        <div className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+          balance.walletType === 'funding' 
+            ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200' 
+            : 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200'
+        }`}>
+          {balance.walletType.toUpperCase()}
+        </div>
       </div>
       
       {/* Free amount */}
@@ -472,6 +481,16 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         >
           Account
           {sortBy === 'account' && (
+            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
+          )}
+        </button>
+        
+        <button 
+          onClick={() => handleSort('walletType')}
+          className="flex items-center gap-1 justify-center text-center min-w-0 flex-1 hover:text-terminal-text"
+        >
+          Wallet Type
+          {sortBy === 'walletType' && (
             sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
           )}
         </button>
