@@ -1112,6 +1112,7 @@ export const createDataActions: StateCreator<
   },
 
   fetchOrders: async (accountId: string, symbol?: string, since?: number, limit?: number): Promise<any[]> => {
+    console.log(`🔍 [fetchOrders] ============ STARTING FETCH ORDERS ============`);
     console.log(`🔍 [fetchOrders] Starting fetchOrders for accountId: ${accountId}, symbol: ${symbol}`);
     
     const { useUserStore } = await import('../userStore');
@@ -1126,6 +1127,12 @@ export const createDataActions: StateCreator<
     }
     
     console.log(`🔄 [fetchOrders] Loading orders for account ${accountId} (${account.exchange})`);
+    console.log(`🔄 [fetchOrders] Account details:`, {
+      id: account.id,
+      exchange: account.exchange,
+      hasKey: !!account.key,
+      hasSecret: !!account.privateKey
+    });
     
     try {
       const ccxt = getCCXT();
@@ -1138,25 +1145,10 @@ export const createDataActions: StateCreator<
         throw new Error(`Exchange ${account.exchange} not found in CCXT`);
       }
       
-      const exchangeInstance = new ExchangeClass({
-        apiKey: account.key,
-        secret: account.privateKey,
-        password: account.password,
-        sandbox: false,
-        enableRateLimit: true,
-      });
-      
-      await exchangeInstance.loadMarkets();
-      
-      console.log(`🔍 [fetchOrders] Checking exchange capabilities for ${account.exchange}:`);
-      console.log(`🔍 [fetchOrders] has.fetchOrders: ${exchangeInstance.has.fetchOrders}`);
-      console.log(`🔍 [fetchOrders] has.fetchOpenOrders: ${exchangeInstance.has.fetchOpenOrders}`);
-      console.log(`🔍 [fetchOrders] has.fetchClosedOrders: ${exchangeInstance.has.fetchClosedOrders}`);
-      console.log(`🔍 [fetchOrders] has.fetchCanceledOrders: ${exchangeInstance.has.fetchCanceledOrders}`);
-      
       // Get supported markets for this exchange
       const supportedMarkets = await get().getMarketsForExchange(account.exchange);
       console.log(`🏪 [fetchOrders] Supported markets for ${account.exchange}:`, supportedMarkets);
+      console.log(`🏪 [fetchOrders] Market count: ${supportedMarkets.length}`);
       
       let allOrders: any[] = [];
       
@@ -1166,6 +1158,20 @@ export const createDataActions: StateCreator<
         const marketLabel = marketCategory || 'default';
         
         console.log(`🔄 [fetchOrders] Fetching orders for market: ${marketLabel}`);
+        
+        // Create provider config with market-specific settings
+        const providerConfig: any = {
+          id: `${account.id}-${marketCategory || 'default'}`,
+          name: `CCXT Browser Provider for ${account.exchange} (${marketCategory || 'default'})`,
+          type: 'ccxt-browser' as const,
+          status: 'connected' as const,
+          exchanges: [account.exchange],
+          priority: 1,
+          config: {
+            sandbox: false,
+            options: {} as any
+          }
+        };
         
         // Set market category for Bybit and similar exchanges
         if (marketCategory && account.exchange === 'bybit') {
@@ -1180,11 +1186,28 @@ export const createDataActions: StateCreator<
           
           const bybitCategory = bybitCategoryMap[marketCategory];
           if (bybitCategory) {
-            exchangeInstance.options = exchangeInstance.options || {};
-            exchangeInstance.options.defaultType = bybitCategory;
+            providerConfig.config.options.defaultType = bybitCategory;
             console.log(`🏪 [fetchOrders] Set Bybit category to: ${bybitCategory} for market: ${marketCategory}`);
           }
         }
+        
+        // Get exchange instance through instance manager
+        const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
+        const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(account.exchange, providerConfig);
+        
+        // Set API credentials for authenticated requests
+        exchangeInstance.apiKey = account.key;
+        exchangeInstance.secret = account.privateKey;
+        if (account.password) {
+          exchangeInstance.password = account.password;
+        }
+        
+        console.log(`🔍 [fetchOrders] Exchange capabilities for ${account.exchange} (${marketLabel}):`);
+        console.log(`🔍 [fetchOrders] has.fetchOrders: ${exchangeInstance.has.fetchOrders}`);
+        console.log(`🔍 [fetchOrders] has.fetchOpenOrders: ${exchangeInstance.has.fetchOpenOrders}`);
+        console.log(`🔍 [fetchOrders] has.fetchClosedOrders: ${exchangeInstance.has.fetchClosedOrders}`);
+        console.log(`🔍 [fetchOrders] has.fetchCanceledOrders: ${exchangeInstance.has.fetchCanceledOrders}`);
+        console.log(`🔍 [fetchOrders] defaultType: ${exchangeInstance.options?.defaultType}`);
         
         // Try fetchOrders first
         if (exchangeInstance.has.fetchOrders) {
