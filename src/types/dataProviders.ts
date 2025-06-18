@@ -27,6 +27,17 @@ export interface OrderBook {
   asks: OrderBookEntry[];
 }
 
+// Ticker data (lightweight alternative to OrderBook for price calculations)
+export interface Ticker {
+  symbol: string;
+  timestamp: number;
+  bid: number;        // Best bid price
+  ask: number;        // Best ask price
+  last?: number;      // Last trade price (optional)
+  close?: number;     // 24h close price (optional)
+  midPrice?: number;  // Calculated mid price ((bid + ask) / 2)
+}
+
 // Balance types
 export interface Balance {
   currency: string;
@@ -48,7 +59,7 @@ export interface ExchangeBalances {
 }
 
 // Data subscription types
-export type DataType = 'candles' | 'trades' | 'orderbook' | 'balance';
+export type DataType = 'candles' | 'trades' | 'orderbook' | 'balance' | 'ticker';
 
 // Supported timeframes for candles
 export type Timeframe = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '2h' | '4h' | '6h' | '12h' | '1d' | '1w' | '1M';
@@ -216,6 +227,7 @@ export interface SubscriptionData {
   trades: Record<string, DataState<Trade[]>>;
   orderbook: Record<string, DataState<OrderBook>>;
   balance: Record<string, DataState<ExchangeBalances>>;
+  ticker: Record<string, DataState<Ticker>>;
 }
 
 // Parameters for creating subscription
@@ -245,6 +257,7 @@ export interface DataFetchSettings {
     candles: number; // milliseconds  
     orderbook: number; // milliseconds
     balance: number; // milliseconds
+    ticker: number; // milliseconds
   };
 }
 

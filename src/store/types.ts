@@ -7,6 +7,7 @@ import type {
   Candle,
   Trade,
   OrderBook,
+  Ticker,
   ExchangeBalances,
   ProviderOperationResult,
   DataFetchMethod,
@@ -41,6 +42,7 @@ export interface DataProviderState {
     trades: Record<string, Record<string, Record<string, Trade[]>>>;   // [exchange][market][symbol] -> Trade[]
     orderbook: Record<string, Record<string, Record<string, OrderBook>>>; // [exchange][market][symbol] -> OrderBook
     balance: Record<string, Record<string, ExchangeBalances>>; // [accountId][walletType] -> ExchangeBalances
+    ticker: Record<string, Record<string, Record<string, Ticker & { lastUpdate: number }>>>; // [exchange][market][symbol] -> Ticker with cache timestamp
   };
   
   // Event system for notifying Chart widgets
@@ -94,6 +96,8 @@ export interface DataProviderActions {
   getTrades: (exchange: string, symbol: string, market?: MarketType) => Trade[];
   getOrderBook: (exchange: string, symbol: string, market?: MarketType) => OrderBook | null;
   getBalance: (accountId: string, walletType?: WalletType) => ExchangeBalances | null;
+  getTicker: (exchange: string, symbol: string, market?: MarketType, maxAge?: number) => Ticker | null;
+  getTickerWithRefresh: (exchange: string, symbol: string, market?: MarketType, forceRefresh?: boolean) => Promise<Ticker | null>;
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
@@ -107,6 +111,9 @@ export interface DataProviderActions {
   // REST data initialization for Balance widgets
   initializeBalanceData: (accountId: string, walletType: WalletType) => Promise<ExchangeBalances>;
   
+  // REST data initialization for Ticker widgets
+  initializeTickerData: (exchange: string, symbol: string, market: MarketType) => Promise<Ticker>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
@@ -115,6 +122,7 @@ export interface DataProviderActions {
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market?: MarketType) => void;
   updateBalance: (accountId: string, balance: ExchangeBalances, walletType?: WalletType) => void;
+  updateTicker: (exchange: string, symbol: string, ticker: Ticker, market?: MarketType) => void;
   
   // Utilities
   getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;

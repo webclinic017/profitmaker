@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { DataProviderStore } from '../types';
-import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, ExchangeBalances, ActiveSubscription, Timeframe, MarketType, WalletType } from '../../types/dataProviders';
+import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, Ticker, ExchangeBalances, ActiveSubscription, Timeframe, MarketType, WalletType } from '../../types/dataProviders';
 import { getCCXT } from '../utils/ccxtUtils';
 import { createExchangeInstance } from '../utils/providerUtils';
 import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
@@ -15,6 +15,8 @@ export interface DataActions {
   getTrades: (exchange: string, symbol: string, market?: MarketType) => Trade[];
   getOrderBook: (exchange: string, symbol: string, market?: MarketType) => OrderBook | null;
   getBalance: (accountId: string, walletType?: WalletType) => ExchangeBalances | null;
+  getTicker: (exchange: string, symbol: string, market?: MarketType, maxAge?: number) => Ticker | null;
+  getTickerWithRefresh: (exchange: string, symbol: string, market?: MarketType, forceRefresh?: boolean) => Promise<Ticker | null>;
   
   // REST data initialization for Chart widgets
   initializeChartData: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType) => Promise<Candle[]>;
@@ -28,6 +30,9 @@ export interface DataActions {
   // REST data initialization for Balance widgets  
   initializeBalanceData: (accountId: string, walletType: WalletType) => Promise<ExchangeBalances>;
   
+  // REST data initialization for Ticker widgets
+  initializeTickerData: (exchange: string, symbol: string, market: MarketType) => Promise<Ticker>;
+  
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
@@ -36,6 +41,7 @@ export interface DataActions {
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
   updateOrderBook: (exchange: string, symbol: string, orderbook: OrderBook, market?: MarketType) => void;
   updateBalance: (accountId: string, balance: ExchangeBalances, walletType?: WalletType) => void;
+  updateTicker: (exchange: string, symbol: string, ticker: Ticker, market?: MarketType) => void;
   
   // Utilities
   getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
@@ -161,6 +167,65 @@ export const createDataActions: StateCreator<
     });
     
     return result;
+  },
+
+  getTicker: (exchange: string, symbol: string, market: MarketType = 'spot', maxAge = 600000): Ticker | null => {
+    const state = get();
+    const tickerData = state.marketData.ticker[exchange]?.[market]?.[symbol];
+    
+    if (!tickerData) {
+      console.log(`🎯 [Ticker] No ticker data for ${exchange}:${market}:${symbol}`);
+      return null;
+    }
+    
+    const now = Date.now();
+    const age = now - tickerData.lastUpdate;
+    
+    if (age > maxAge) {
+      console.log(`⏰ [Ticker] Data is too old for ${exchange}:${market}:${symbol}, age: ${age}ms, maxAge: ${maxAge}ms`);
+      return null;
+    }
+    
+    console.log(`✅ [Ticker] Returning cached data for ${exchange}:${market}:${symbol}, age: ${age}ms`);
+    return {
+      symbol: tickerData.symbol,
+      timestamp: tickerData.timestamp,
+      bid: tickerData.bid,
+      ask: tickerData.ask,
+      last: tickerData.last,
+      close: tickerData.close,
+      midPrice: tickerData.midPrice
+    };
+  },
+
+  getTickerWithRefresh: async (exchange: string, symbol: string, market = 'spot' as MarketType, forceRefresh = false): Promise<Ticker | null> => {
+    const maxAge = 600000; // 10 minutes
+    
+    // If not forced refresh, check if we have valid cached data
+    if (!forceRefresh) {
+      const cached = get().getTicker(exchange, symbol, market, maxAge);
+      if (cached) {
+        console.log(`💾 [TickerWithRefresh] Using cached data for ${exchange}:${market}:${symbol}`);
+        return cached;
+      }
+    }
+    
+    try {
+      console.log(`🔄 [TickerWithRefresh] Fetching fresh data for ${exchange}:${market}:${symbol}, forceRefresh: ${forceRefresh}`);
+      const ticker = await get().initializeTickerData(exchange, symbol, market);
+      return ticker;
+    } catch (error) {
+      console.error(`❌ [TickerWithRefresh] Failed to fetch ticker for ${exchange}:${market}:${symbol}:`, error);
+      
+      // On error, return cached data even if expired (better than nothing)
+      const cached = get().getTicker(exchange, symbol, market, Infinity);
+      if (cached) {
+        console.log(`🆘 [TickerWithRefresh] Returning expired cached data due to fetch error`);
+        return cached;
+      }
+      
+      return null;
+    }
   },
 
   // Central store data updates
@@ -334,6 +399,48 @@ export const createDataActions: StateCreator<
       
       // Update last update timestamp
       const subscriptionKey = get().getSubscriptionKey('', accountId, 'balance', undefined, effectiveWalletType as MarketType);
+      if (state.activeSubscriptions[subscriptionKey]) {
+        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
+      }
+    });
+  },
+
+  updateTicker: (exchange: string, symbol: string, ticker: Ticker, market: MarketType = 'spot') => {
+    console.log(`🎯 [Ticker] Saving data for ${exchange}:${market}:${symbol}:`, {
+      exchange,
+      market,
+      symbol,
+      ticker,
+      bid: ticker.bid,
+      ask: ticker.ask,
+      midPrice: ticker.midPrice,
+      timestamp: ticker.timestamp
+    });
+    
+    set(state => {
+      if (!state.marketData.ticker[exchange]) {
+        state.marketData.ticker[exchange] = {};
+      }
+      if (!state.marketData.ticker[exchange][market]) {
+        state.marketData.ticker[exchange][market] = {};
+      }
+      
+      // Add lastUpdate timestamp for caching
+      state.marketData.ticker[exchange][market][symbol] = {
+        ...ticker,
+        lastUpdate: Date.now()
+      };
+      
+      console.log(`✅ [Ticker] Data saved to state:`, {
+        exchange,
+        market,
+        symbol,
+        savedSuccessfully: !!state.marketData.ticker[exchange][market][symbol],
+        allExchanges: Object.keys(state.marketData.ticker)
+      });
+      
+      // Update last update timestamp for subscription
+      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, 'ticker', undefined, market);
       if (state.activeSubscriptions[subscriptionKey]) {
         state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
       }
@@ -646,6 +753,68 @@ export const createDataActions: StateCreator<
       
     } catch (error) {
       console.error(`❌ [Balance] Failed to load balance for account ${accountId}:`, error);
+      throw error;
+    }
+  },
+
+  // REST data initialization for Ticker widgets
+  initializeTickerData: async (exchange: string, symbol: string, market: MarketType): Promise<Ticker> => {
+    // Get optimal provider for this exchange
+    const provider = get().getProviderForExchange(exchange);
+    
+    if (!provider) {
+      throw new Error(`No suitable provider found for exchange ${exchange}`);
+    }
+    
+    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
+      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
+    }
+    
+    console.log(`🚀 [Ticker] Loading ticker for ${exchange}:${market}:${symbol} using provider ${provider.id}`);
+    
+    try {
+      // Use CCXT utilities
+      const ccxt = getCCXT();
+      
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      
+      // Load ticker via REST
+      const tickerData = await exchangeInstance.fetchTicker(symbol);
+      
+      if (!tickerData) {
+        throw new Error('No ticker data received from exchange');
+      }
+      
+      // Transform CCXT ticker format to our format
+      const ticker: Ticker = {
+        symbol: tickerData.symbol,
+        timestamp: tickerData.timestamp || Date.now(),
+        bid: tickerData.bid || 0,
+        ask: tickerData.ask || 0,
+        last: tickerData.last,
+        close: tickerData.close,
+        midPrice: tickerData.bid && tickerData.ask ? (tickerData.bid + tickerData.ask) / 2 : undefined
+      };
+      
+      console.log(`✅ [Ticker] Loaded ticker for ${exchange}:${market}:${symbol}:`, {
+        bid: ticker.bid,
+        ask: ticker.ask,
+        midPrice: ticker.midPrice,
+        last: ticker.last
+      });
+      
+      // Save ticker to store AND return it
+      get().updateTicker(exchange, symbol, ticker, market);
+      console.log(`💾 [Ticker] Ticker saved to store for ${exchange}:${market}:${symbol}`);
+      
+      return ticker;
+      
+    } catch (error) {
+      console.error(`❌ [Ticker] Failed to load ticker for ${exchange}:${market}:${symbol}:`, error);
       throw error;
     }
   },

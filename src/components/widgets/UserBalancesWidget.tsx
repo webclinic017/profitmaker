@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { RefreshCw, Search, TrendingUp, TrendingDown, Wallet, User } from 'lucide-react';
+import { Loader2, RefreshCw, Search, TrendingUp, TrendingDown, Wallet, User } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTheme } from '../../hooks/useTheme';
 import { useDataProviderStore } from '../../store/dataProviderStore';
@@ -32,7 +32,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     getBalance,
     getActiveSubscriptionsList,
     fetchBalance,
-    getOrderBook
+    getOrderBook,
+    getTickerWithRefresh
   } = useDataProviderStore();
 
   // User store integration
@@ -63,6 +64,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'currency' | 'total' | 'free' | 'used' | 'account' | 'walletType'>('total');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [loadingPrices, setLoadingPrices] = useState<Set<string>>(new Set());
+  const [usdValues, setUsdValues] = useState<Map<string, { value?: number, rate?: string, loading: boolean }>>(new Map());
 
 
   // Theme integration
@@ -103,8 +106,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     return balances;
   }, [activeUser?.accounts, getBalance]);
 
-  // Calculate USD value for a currency
-  const calculateUsdValue = useCallback((currency: string, amount: number, exchange: string, accountId: string): { value: number | undefined, rate?: string } => {
+  // Get USD value from cached state or return loading indicator
+  const calculateUsdValue = useCallback((currency: string, amount: number, exchange: string, accountId: string): { value?: number, rate?: string, loading: boolean } => {
     // Full list of stablecoins pegged to fiat currencies (1:1 conversion)
     const stablecoins = new Set([
       // USD stablecoins
@@ -131,41 +134,81 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     
     // Direct USD equivalents (1:1 conversion)
     if (stablecoins.has(currency)) {
-      return { value: amount, rate: '1:1' };
+      return { value: amount, rate: '1:1', loading: false };
     }
     
-    // Try to get price from orderbook data for CURRENCY/USDT pair
-    const symbol = `${currency}/USDT`;
-    const orderbook = getOrderBook(exchange, symbol, 'spot');
+    // Check cached USD values
+    const priceKey = `${exchange}:${currency}:${amount}`;
+    const cachedValue = usdValues.get(priceKey);
     
-    if (orderbook?.bids && orderbook.bids.length > 0) {
-      const bestBid = orderbook.bids[0][0]; // Best bid price
-      const usdValue = amount * bestBid;
-      return { 
-        value: usdValue, 
-        rate: `${bestBid.toFixed(6)} USDT` 
-      };
+    if (cachedValue) {
+      return cachedValue;
     }
     
-    // Try alternative quote currencies if USDT pair not available
-    const alternativeQuotes = ['USDC', 'USD', 'BUSD'];
-    for (const quote of alternativeQuotes) {
-      const altSymbol = `${currency}/${quote}`;
-      const altOrderbook = getOrderBook(exchange, altSymbol, 'spot');
+    // If no cached value, trigger async price fetch
+    fetchUsdPrice(currency, amount, exchange, accountId);
+    
+    return { value: undefined, loading: true };
+  }, [usdValues]);
+  
+  // Async function to fetch USD price using tickers
+  const fetchUsdPrice = useCallback(async (currency: string, amount: number, exchange: string, accountId: string) => {
+    const priceKey = `${exchange}:${currency}:${amount}`;
+    
+    // Skip if already loading or cached
+    if (usdValues.has(priceKey)) {
+      return;
+    }
+    
+    // Set loading state
+    setUsdValues(prev => new Map(prev).set(priceKey, { loading: true }));
+    
+    try {
+      // Try to get price from ticker data for CURRENCY/USDT pair
+      const symbol = `${currency}/USDT`;
+      const ticker = await getTickerWithRefresh(exchange, symbol, 'spot', false);
       
-      if (altOrderbook?.bids && altOrderbook.bids.length > 0) {
-        const bestBid = altOrderbook.bids[0][0];
-        const usdValue = amount * bestBid;
-        return { 
+      if (ticker?.bid && ticker.bid > 0) {
+        const usdValue = amount * ticker.bid;
+        setUsdValues(prev => new Map(prev).set(priceKey, { 
           value: usdValue, 
-          rate: `${bestBid.toFixed(6)} ${quote}` 
-        };
+          rate: `${ticker.bid.toFixed(6)} USDT`,
+          loading: false
+        }));
+        return;
       }
+      
+      // Try alternative quote currencies if USDT pair not available
+      const alternativeQuotes = ['USDC', 'USD', 'BUSD'];
+      for (const quote of alternativeQuotes) {
+        const altSymbol = `${currency}/${quote}`;
+        const altTicker = await getTickerWithRefresh(exchange, altSymbol, 'spot', false);
+        
+        if (altTicker?.bid && altTicker.bid > 0) {
+          const usdValue = amount * altTicker.bid;
+          setUsdValues(prev => new Map(prev).set(priceKey, { 
+            value: usdValue, 
+            rate: `${altTicker.bid.toFixed(6)} ${quote}`,
+            loading: false
+          }));
+          return;
+        }
+      }
+      
+      // If no price data available
+      setUsdValues(prev => new Map(prev).set(priceKey, { 
+        value: undefined,
+        loading: false
+      }));
+      
+    } catch (error) {
+      console.warn(`⚠️ [USD Calc] Failed to fetch price for ${exchange}:${currency}:`, error);
+      setUsdValues(prev => new Map(prev).set(priceKey, { 
+        value: undefined,
+        loading: false
+      }));
     }
-    
-    // If no price data available
-    return { value: undefined };
-  }, [getOrderBook]);
+  }, [getTickerWithRefresh, usdValues]);
 
   // Filter and sort balances
   const filteredAndSortedBalances = useMemo(() => {
@@ -177,6 +220,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       walletType: WalletType;
       timestamp?: number;
       usdRate?: string;
+      priceLoading?: boolean;
     })[] = [];
     
     allBalances.forEach(accountBalance => {
@@ -191,7 +235,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           walletType: accountBalance.walletType,
           timestamp: accountBalance.timestamp,
           usdValue: usdData.value,
-          usdRate: usdData.rate
+          usdRate: usdData.rate,
+          priceLoading: usdData.loading
         });
       });
     });
@@ -341,6 +386,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     walletType: WalletType;
     timestamp?: number;
     usdRate?: string;
+    priceLoading?: boolean;
   }, index: number, style?: React.CSSProperties) => (
     <div
       key={`${balance.accountId}-${balance.currency}-${balance.walletType}`}
@@ -396,8 +442,14 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       
       {/* USD Value */}
       <div className="text-right min-w-0 flex-1">
-        <div className="font-medium truncate text-emerald-600 dark:text-emerald-400">
-          {balance.usdValue !== undefined ? `$${formatCurrency(balance.usdValue, 'USD')}` : '-'}
+        <div className="font-medium truncate text-emerald-600 dark:text-emerald-400 flex items-center justify-end gap-1">
+          {balance.priceLoading ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : balance.usdValue !== undefined ? (
+            `$${formatCurrency(balance.usdValue, 'USD')}`
+          ) : (
+            '-'
+          )}
         </div>
         <div className="text-xs text-terminal-muted">
           {balance.usdRate ? `(${balance.usdRate})` : 'USD'}

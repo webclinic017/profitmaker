@@ -45,7 +45,8 @@ export const useDataProviderStore = create<DataProviderStore>()(
             trades: 1000,   // 1 second
             candles: 5000,  // 5 seconds
             orderbook: 500, // 0.5 seconds
-            balance: 30000  // 30 seconds
+            balance: 30000, // 30 seconds
+            ticker: 600000  // 10 minutes (600 seconds)
           }
         },
         activeSubscriptions: {},
@@ -54,7 +55,8 @@ export const useDataProviderStore = create<DataProviderStore>()(
           candles: {}, // [exchange][market][symbol][timeframe] -> Candle[]
           trades: {},  // [exchange][market][symbol] -> Trade[]
           orderbook: {}, // [exchange][market][symbol] -> OrderBook
-          balance: {} // [exchange][market] -> ExchangeBalances
+          balance: {}, // [exchange][market] -> ExchangeBalances
+          ticker: {} // [exchange][market][symbol] -> Ticker with cache timestamp
         },
         chartUpdateListeners: {}, // Event system for Chart widgets
         loading: false,
