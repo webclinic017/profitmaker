@@ -42,13 +42,16 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   const selectedAccounts = useMemo(() => {
     if (!hasValidAccounts) return [];
     
+    // Safe check for selectedAccountIds
+    const selectedIds = widgetSettings.selectedAccountIds || [];
+    
     // If no specific accounts selected, return all accounts
-    if (widgetSettings.selectedAccountIds.length === 0) {
+    if (selectedIds.length === 0) {
       return accountsWithKeys;
     }
     
     // Return only selected accounts that have API keys
-    return accountsWithKeys.filter(acc => widgetSettings.selectedAccountIds.includes(acc.id));
+    return accountsWithKeys.filter(acc => selectedIds.includes(acc.id));
   }, [widgetSettings.selectedAccountIds, accountsWithKeys, hasValidAccounts]);
 
   // Handle tab change
@@ -58,7 +61,7 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
 
   // Handle account selection
   const handleAccountToggle = (accountId: string) => {
-    const currentSelected = widgetSettings.selectedAccountIds;
+    const currentSelected = widgetSettings.selectedAccountIds || [];
     let newSelected: string[];
     
     if (currentSelected.includes(accountId)) {
@@ -74,7 +77,8 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
 
   // Handle select all accounts
   const handleSelectAll = () => {
-    if (widgetSettings.selectedAccountIds.length === accountsWithKeys.length) {
+    const selectedIds = widgetSettings.selectedAccountIds || [];
+    if (selectedIds.length === accountsWithKeys.length) {
       // Deselect all
       updateWidget(widgetId, { selectedAccountIds: [] });
     } else {
@@ -164,8 +168,8 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
                   >
                     <Check
                       className={`mr-2 h-3 w-3 ${
-                        widgetSettings.selectedAccountIds.length === 0 || 
-                        widgetSettings.selectedAccountIds.length === accountsWithKeys.length
+                        (widgetSettings.selectedAccountIds || []).length === 0 || 
+                        (widgetSettings.selectedAccountIds || []).length === accountsWithKeys.length
                           ? 'opacity-100' 
                           : 'opacity-0'
                       }`}
@@ -180,8 +184,8 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
                     >
                       <Check
                         className={`mr-2 h-3 w-3 ${
-                          widgetSettings.selectedAccountIds.includes(account.id) ||
-                          widgetSettings.selectedAccountIds.length === 0
+                          (widgetSettings.selectedAccountIds || []).includes(account.id) ||
+                          (widgetSettings.selectedAccountIds || []).length === 0
                             ? 'opacity-100' 
                             : 'opacity-0'
                         }`}

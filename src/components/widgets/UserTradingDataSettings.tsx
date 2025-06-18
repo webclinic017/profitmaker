@@ -83,7 +83,7 @@ const UserTradingDataSettings: React.FC<UserTradingDataSettingsProps> = ({
         <h3 className="text-sm font-medium text-terminal-text">Current Settings</h3>
         <div className="text-xs text-terminal-muted space-y-1">
           <p>Active Tab: <span className="text-terminal-text">{settings.activeTab}</span></p>
-          <p>Selected Accounts: <span className="text-terminal-text">{settings.selectedAccountIds.length === 0 ? 'All' : settings.selectedAccountIds.length}</span></p>
+          <p>Selected Accounts: <span className="text-terminal-text">{(settings.selectedAccountIds || []).length === 0 ? 'All' : (settings.selectedAccountIds || []).length}</span></p>
           <p>Zero Positions: <span className="text-terminal-text">{settings.showZeroPositions ? 'Yes' : 'No'}</span></p>
           <p>Closed Orders: <span className="text-terminal-text">{settings.showClosedOrders ? 'Yes' : 'No'}</span></p>
           <p>Trades Limit: <span className="text-terminal-text">{settings.tradesLimit}</span></p>
