@@ -14,7 +14,7 @@ interface CachedExchangeInstance {
  */
 class CCXTInstanceManager {
   private cache = new Map<string, CachedExchangeInstance>();
-  private readonly CACHE_TTL = 30 * 60 * 1000; // 30 минут
+  private readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 1 день
 
   /**
    * Создает уникальный ключ для кэша
@@ -61,8 +61,7 @@ class CCXTInstanceManager {
     const exchangeInstance = new ExchangeClass({
       sandbox: provider.config.sandbox || false,
       ...provider.config.options,
-      // Добавляем пользовательские ключи если есть
-      // TODO: Интегрировать с userStore для получения API ключей
+      // API ключи теперь передаются через provider.config.options
     });
 
     // Загружаем markets только один раз

@@ -929,23 +929,29 @@ export const createDataActions: StateCreator<
     console.log(`🔄 [fetchMyTrades] Loading trades for account ${accountId} (${account.exchange})`);
     
     try {
-      const ccxt = getCCXT();
-      if (!ccxt) {
-        throw new Error('CCXT not available');
-      }
+      // Use CCXTInstanceManager for better performance and consistency
+      const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
       
-      const ExchangeClass = ccxt[account.exchange];
-      if (!ExchangeClass) {
-        throw new Error(`Exchange ${account.exchange} not found in CCXT`);
-      }
+      // Create provider config for the account
+      const providerConfig = {
+        id: `temp-provider-${account.id}`,
+        name: `Temp Provider for ${account.exchange}`,
+        type: 'ccxt-browser' as const,
+        exchanges: [account.exchange],
+        status: 'connected' as const,
+        priority: 1,
+        config: {
+          sandbox: false,
+          options: {
+            apiKey: account.key,
+            secret: account.privateKey,
+            password: account.password,
+            enableRateLimit: true,
+          }
+        }
+      };
       
-      const exchangeInstance = new ExchangeClass({
-        apiKey: account.key,
-        secret: account.privateKey,
-        password: account.password,
-        sandbox: false,
-        enableRateLimit: true,
-      });
+      const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(account.exchange, providerConfig);
       
       // Intercept HTTP requests to log them
       const originalFetch = exchangeInstance.fetch;
@@ -1379,30 +1385,33 @@ export const createDataActions: StateCreator<
     console.log(`🔄 [fetchOpenOrders] Loading open orders for account ${accountId} (${account.exchange})`);
     
     try {
-      const ccxt = getCCXT();
-      if (!ccxt) {
-        throw new Error('CCXT not available');
-      }
+      // Use CCXTInstanceManager for better performance and consistency
+      const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
       
-      console.log(`🔍 [fetchOpenOrders] CCXT available, looking for exchange: ${account.exchange}`);
+      console.log(`🔍 [fetchOpenOrders] Using CCXTInstanceManager for exchange: ${account.exchange}`);
       
-      const ExchangeClass = ccxt[account.exchange];
-      if (!ExchangeClass) {
-        const error = `Exchange ${account.exchange} not found in CCXT`;
-        console.error(`❌ [fetchOpenOrders] ${error}`);
-        console.log(`🔍 [fetchOpenOrders] Available exchanges:`, Object.keys(ccxt));
-        throw new Error(error);
-      }
+      // Create provider config for the account
+      const providerConfig = {
+        id: `temp-provider-${account.id}`,
+        name: `Temp Provider for ${account.exchange}`,
+        type: 'ccxt-browser' as const,
+        exchanges: [account.exchange],
+        status: 'connected' as const,
+        priority: 1,
+        config: {
+          sandbox: false,
+          options: {
+            apiKey: account.key,
+            secret: account.privateKey,
+            password: account.password,
+            enableRateLimit: true,
+          }
+        }
+      };
       
       console.log(`🔍 [fetchOpenOrders] Creating exchange instance for ${account.exchange}`);
       
-      const exchangeInstance = new ExchangeClass({
-        apiKey: account.key,
-        secret: account.privateKey,
-        password: account.password,
-        sandbox: false,
-        enableRateLimit: true,
-      });
+      const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(account.exchange, providerConfig);
       
       // Intercept HTTP requests to log them
       const originalFetch = exchangeInstance.fetch;
@@ -1508,23 +1517,29 @@ export const createDataActions: StateCreator<
     console.log(`🔄 [fetchPositions] Loading positions for account ${accountId} (${account.exchange})`);
     
     try {
-      const ccxt = getCCXT();
-      if (!ccxt) {
-        throw new Error('CCXT not available');
-      }
+      // Use CCXTInstanceManager for better performance and consistency
+      const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
       
-      const ExchangeClass = ccxt[account.exchange];
-      if (!ExchangeClass) {
-        throw new Error(`Exchange ${account.exchange} not found in CCXT`);
-      }
+      // Create provider config for the account
+      const providerConfig = {
+        id: `temp-provider-${account.id}`,
+        name: `Temp Provider for ${account.exchange}`,
+        type: 'ccxt-browser' as const,
+        exchanges: [account.exchange],
+        status: 'connected' as const,
+        priority: 1,
+        config: {
+          sandbox: false,
+          options: {
+            apiKey: account.key,
+            secret: account.privateKey,
+            password: account.password,
+            enableRateLimit: true,
+          }
+        }
+      };
       
-             const exchangeInstance = new ExchangeClass({
-         apiKey: account.key,
-         secret: account.privateKey,
-         password: account.password,
-         sandbox: false,
-         enableRateLimit: true,
-       });
+      const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(account.exchange, providerConfig);
       
       await exchangeInstance.loadMarkets();
       
