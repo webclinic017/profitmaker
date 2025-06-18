@@ -913,13 +913,17 @@ export const createDataActions: StateCreator<
 
   // User trading data methods
   fetchMyTrades: async (accountId: string, symbol?: string, since?: number, limit?: number): Promise<Trade[]> => {
+    console.log(`🔍 [fetchMyTrades] Starting fetchMyTrades for accountId: ${accountId}, symbol: ${symbol}`);
+    
     const { useUserStore } = await import('../userStore');
     const { users } = useUserStore.getState();
     const user = users.find(u => u.accounts.some(acc => acc.id === accountId));
     const account = user?.accounts.find(acc => acc.id === accountId);
     
     if (!account || !account.key || !account.privateKey) {
-      throw new Error(`Account ${accountId} not found or missing API keys`);
+      const error = `Account ${accountId} not found or missing API keys`;
+      console.error(`❌ [fetchMyTrades] ${error}`);
+      throw new Error(error);
     }
     
     console.log(`🔄 [fetchMyTrades] Loading trades for account ${accountId} (${account.exchange})`);
@@ -935,17 +939,50 @@ export const createDataActions: StateCreator<
         throw new Error(`Exchange ${account.exchange} not found in CCXT`);
       }
       
-             const exchangeInstance = new ExchangeClass({
-         apiKey: account.key,
-         secret: account.privateKey,
-         password: account.password,
-         sandbox: false,
-         enableRateLimit: true,
-       });
-       
-       await exchangeInstance.loadMarkets();
-       
-       const trades = await exchangeInstance.fetchMyTrades(symbol, since, limit);
+      const exchangeInstance = new ExchangeClass({
+        apiKey: account.key,
+        secret: account.privateKey,
+        password: account.password,
+        sandbox: false,
+        enableRateLimit: true,
+      });
+      
+      await exchangeInstance.loadMarkets();
+      
+      console.log(`🔍 [fetchMyTrades] Checking fetchMyTrades capability for ${account.exchange}: ${exchangeInstance.has.fetchMyTrades}`);
+      
+      // Check if exchange supports fetchMyTrades
+      if (!exchangeInstance.has.fetchMyTrades) {
+        console.warn(`⚠️ [fetchMyTrades] Exchange ${account.exchange} does not support fetchMyTrades`);
+        return [];
+      }
+      
+      let trades: any[] = [];
+      
+      try {
+        // Try to fetch trades for all symbols or specific symbol
+        trades = await exchangeInstance.fetchMyTrades(symbol, since, limit);
+      } catch (error) {
+        console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades with symbol=${symbol}, error:`, error.message);
+        
+        // Some exchanges might require specific symbols, try to get popular trading pairs
+        if (!symbol && account.exchange === 'bybit') {
+          console.log(`🔄 [fetchMyTrades] Trying to fetch trades for popular symbols on ${account.exchange}`);
+          const popularSymbols = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT'];
+          
+          for (const popularSymbol of popularSymbols) {
+            try {
+              const symbolTrades = await exchangeInstance.fetchMyTrades(popularSymbol, since, Math.min(limit || 100, 20));
+              trades.push(...symbolTrades);
+              console.log(`✅ [fetchMyTrades] Fetched ${symbolTrades.length} trades for ${popularSymbol}`);
+            } catch (symbolError) {
+              console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades for ${popularSymbol}:`, symbolError.message);
+            }
+          }
+        } else {
+          throw error; // Re-throw if not a known case
+        }
+      }
       
       console.log(`✅ [fetchMyTrades] Loaded ${trades.length} trades for account ${accountId}`);
       
@@ -963,18 +1000,28 @@ export const createDataActions: StateCreator<
       
     } catch (error) {
       console.error(`❌ [fetchMyTrades] Failed to load trades for account ${accountId}:`, error);
+      console.error(`❌ [fetchMyTrades] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        accountId,
+        exchange: account.exchange
+      });
       throw error;
     }
   },
 
   fetchOrders: async (accountId: string, symbol?: string, since?: number, limit?: number): Promise<any[]> => {
+    console.log(`🔍 [fetchOrders] Starting fetchOrders for accountId: ${accountId}, symbol: ${symbol}`);
+    
     const { useUserStore } = await import('../userStore');
     const { users } = useUserStore.getState();
     const user = users.find(u => u.accounts.some(acc => acc.id === accountId));
     const account = user?.accounts.find(acc => acc.id === accountId);
     
     if (!account || !account.key || !account.privateKey) {
-      throw new Error(`Account ${accountId} not found or missing API keys`);
+      const error = `Account ${accountId} not found or missing API keys`;
+      console.error(`❌ [fetchOrders] ${error}`);
+      throw new Error(error);
     }
     
     console.log(`🔄 [fetchOrders] Loading orders for account ${accountId} (${account.exchange})`);
@@ -990,24 +1037,124 @@ export const createDataActions: StateCreator<
         throw new Error(`Exchange ${account.exchange} not found in CCXT`);
       }
       
-             const exchangeInstance = new ExchangeClass({
-         apiKey: account.key,
-         secret: account.privateKey,
-         password: account.password,
-         sandbox: false,
-         enableRateLimit: true,
-       });
-       
-       await exchangeInstance.loadMarkets();
-       
-       const orders = await exchangeInstance.fetchOrders(symbol, since, limit);
+      const exchangeInstance = new ExchangeClass({
+        apiKey: account.key,
+        secret: account.privateKey,
+        password: account.password,
+        sandbox: false,
+        enableRateLimit: true,
+      });
       
-      console.log(`✅ [fetchOrders] Loaded ${orders.length} orders for account ${accountId}`);
+      await exchangeInstance.loadMarkets();
       
-      return orders;
+      console.log(`🔍 [fetchOrders] Checking exchange capabilities for ${account.exchange}:`);
+      console.log(`🔍 [fetchOrders] has.fetchOrders: ${exchangeInstance.has.fetchOrders}`);
+      console.log(`🔍 [fetchOrders] has.fetchOpenOrders: ${exchangeInstance.has.fetchOpenOrders}`);
+      console.log(`🔍 [fetchOrders] has.fetchClosedOrders: ${exchangeInstance.has.fetchClosedOrders}`);
+      console.log(`🔍 [fetchOrders] has.fetchCanceledOrders: ${exchangeInstance.has.fetchCanceledOrders}`);
+      
+      let allOrders: any[] = [];
+      
+      // Check if exchange supports fetchOrders
+      if (exchangeInstance.has.fetchOrders) {
+        try {
+          console.log(`🔄 [fetchOrders] Trying fetchOrders for ${account.exchange}`);
+          const orders = await exchangeInstance.fetchOrders(symbol, since, limit);
+          allOrders = orders;
+          console.log(`✅ [fetchOrders] fetchOrders successful: ${orders.length} orders`);
+        } catch (error) {
+          console.warn(`⚠️ [fetchOrders] fetchOrders failed for ${account.exchange}, trying alternative methods:`, error.message);
+          
+          // Fallback to alternative methods for exchanges like Bybit
+          if (exchangeInstance.has.fetchOpenOrders || exchangeInstance.has.fetchClosedOrders) {
+            console.log(`🔄 [fetchOrders] Using fallback methods for ${account.exchange}`);
+            
+            // Fetch open orders
+            if (exchangeInstance.has.fetchOpenOrders) {
+              try {
+                const openOrders = await exchangeInstance.fetchOpenOrders(symbol);
+                allOrders.push(...openOrders);
+                console.log(`✅ [fetchOrders] Fetched ${openOrders.length} open orders`);
+              } catch (openError) {
+                console.warn(`⚠️ [fetchOrders] Failed to fetch open orders:`, openError.message);
+              }
+            }
+            
+            // Fetch closed orders
+            if (exchangeInstance.has.fetchClosedOrders) {
+              try {
+                const closedOrders = await exchangeInstance.fetchClosedOrders(symbol, since, limit);
+                allOrders.push(...closedOrders);
+                console.log(`✅ [fetchOrders] Fetched ${closedOrders.length} closed orders`);
+              } catch (closedError) {
+                console.warn(`⚠️ [fetchOrders] Failed to fetch closed orders:`, closedError.message);
+              }
+            }
+            
+            // Fetch canceled orders
+            if (exchangeInstance.has.fetchCanceledOrders) {
+              try {
+                const canceledOrders = await exchangeInstance.fetchCanceledOrders(symbol, since, limit);
+                allOrders.push(...canceledOrders);
+                console.log(`✅ [fetchOrders] Fetched ${canceledOrders.length} canceled orders`);
+              } catch (canceledError) {
+                console.warn(`⚠️ [fetchOrders] Failed to fetch canceled orders:`, canceledError.message);
+              }
+            }
+          } else {
+            throw error; // Re-throw if no alternative methods available
+          }
+        }
+      } else {
+        console.warn(`⚠️ [fetchOrders] Exchange ${account.exchange} does not support fetchOrders`);
+        
+        // Use alternative methods if available
+        if (exchangeInstance.has.fetchOpenOrders || exchangeInstance.has.fetchClosedOrders) {
+          console.log(`🔄 [fetchOrders] Using alternative methods for ${account.exchange}`);
+          
+          // Fetch open orders
+          if (exchangeInstance.has.fetchOpenOrders) {
+            try {
+              const openOrders = await exchangeInstance.fetchOpenOrders(symbol);
+              allOrders.push(...openOrders);
+              console.log(`✅ [fetchOrders] Fetched ${openOrders.length} open orders`);
+            } catch (openError) {
+              console.warn(`⚠️ [fetchOrders] Failed to fetch open orders:`, openError.message);
+            }
+          }
+          
+          // Fetch closed orders
+          if (exchangeInstance.has.fetchClosedOrders) {
+            try {
+              const closedOrders = await exchangeInstance.fetchClosedOrders(symbol, since, limit);
+              allOrders.push(...closedOrders);
+              console.log(`✅ [fetchOrders] Fetched ${closedOrders.length} closed orders`);
+            } catch (closedError) {
+              console.warn(`⚠️ [fetchOrders] Failed to fetch closed orders:`, closedError.message);
+            }
+          }
+        } else {
+          throw new Error(`Exchange ${account.exchange} does not support any order fetching methods`);
+        }
+      }
+      
+      // Sort by timestamp (newest first) and remove duplicates
+      const uniqueOrders = allOrders.filter((order, index, self) => 
+        index === self.findIndex(o => o.id === order.id)
+      ).sort((a, b) => b.timestamp - a.timestamp);
+      
+      console.log(`✅ [fetchOrders] Total unique orders loaded: ${uniqueOrders.length} for account ${accountId}`);
+      
+      return uniqueOrders;
       
     } catch (error) {
       console.error(`❌ [fetchOrders] Failed to load orders for account ${accountId}:`, error);
+      console.error(`❌ [fetchOrders] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        accountId,
+        exchange: account.exchange
+      });
       throw error;
     }
   },

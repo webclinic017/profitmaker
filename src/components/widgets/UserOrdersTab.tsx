@@ -90,13 +90,22 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
           
           if (settings.showClosedOrders) {
             console.log(`📋 [UserOrdersTab] Fetching ALL orders (open + closed) for account ${account.id}`);
-            // Fetch all orders (open + closed)
-            orders = await dataProvider.fetchOrders(
-              account.id,
-              undefined, // symbol - get all symbols
-              undefined, // since - get recent orders
-              100 // limit
-            );
+            try {
+              // Try to fetch all orders (open + closed)
+              orders = await dataProvider.fetchOrders(
+                account.id,
+                undefined, // symbol - get all symbols
+                undefined, // since - get recent orders
+                100 // limit
+              );
+            } catch (error) {
+              console.warn(`⚠️ [UserOrdersTab] fetchOrders failed for ${account.id}, falling back to fetchOpenOrders:`, error.message);
+              // Fallback to open orders only if fetchOrders fails
+              orders = await dataProvider.fetchOpenOrders(
+                account.id,
+                undefined // symbol - get all symbols
+              );
+            }
           } else {
             console.log(`📋 [UserOrdersTab] Fetching OPEN orders only for account ${account.id}`);
             // Fetch only open orders
