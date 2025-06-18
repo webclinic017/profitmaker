@@ -49,26 +49,102 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
 
   // Load orders for accounts
   const loadOrders = useCallback(async () => {
-    if (!accounts.length) return;
+    console.log(`🔍 [UserOrdersTab] Starting loadOrders. Accounts length: ${accounts.length}`);
+    console.log(`🔍 [UserOrdersTab] Settings:`, { showClosedOrders: settings.showClosedOrders });
+    console.log(`🔍 [UserOrdersTab] Accounts:`, accounts.map(acc => ({ 
+      id: acc.id, 
+      exchange: acc.exchange, 
+      email: acc.email,
+      hasKey: !!acc.key,
+      hasPrivateKey: !!acc.privateKey 
+    })));
+    
+    if (!accounts.length) {
+      console.log(`⚠️ [UserOrdersTab] No accounts found, returning early`);
+      return;
+    }
     
     setLoading(true);
     setError(null);
     
     try {
-      console.log(`📊 Loading orders for ${accounts.length} account(s)`);
+      console.log(`📊 [UserOrdersTab] Loading orders for ${accounts.length} account(s)`);
       
-      // For now, show empty state until real API integration is implemented
-      // Real implementation will use CCXT fetchOrders()/fetchOpenOrders() methods through data provider
-      setOrders([]);
+      const allOrders: (Order & { accountId: string; exchange: string; email: string; })[] = [];
       
-      console.log(`ℹ️ User orders will be loaded when API integration is implemented`);
+      // Load orders from each account
+      for (const account of accounts) {
+        try {
+          console.log(`🔄 [UserOrdersTab] Fetching orders for account ${account.id} (${account.exchange})`);
+          console.log(`🔍 [UserOrdersTab] Account details:`, {
+            id: account.id,
+            exchange: account.exchange,
+            email: account.email,
+            hasKey: !!account.key,
+            hasPrivateKey: !!account.privateKey,
+            keyLength: account.key?.length || 0,
+            privateKeyLength: account.privateKey?.length || 0
+          });
+          
+          let orders: any[] = [];
+          
+          if (settings.showClosedOrders) {
+            console.log(`📋 [UserOrdersTab] Fetching ALL orders (open + closed) for account ${account.id}`);
+            // Fetch all orders (open + closed)
+            orders = await dataProvider.fetchOrders(
+              account.id,
+              undefined, // symbol - get all symbols
+              undefined, // since - get recent orders
+              100 // limit
+            );
+          } else {
+            console.log(`📋 [UserOrdersTab] Fetching OPEN orders only for account ${account.id}`);
+            // Fetch only open orders
+            orders = await dataProvider.fetchOpenOrders(
+              account.id,
+              undefined // symbol - get all symbols
+            );
+          }
+          
+          console.log(`📊 [UserOrdersTab] Raw orders received for account ${account.id}:`, orders);
+          
+          // Transform and add account info
+          const ordersWithAccount = orders.map(order => ({
+            ...order,
+            accountId: account.id,
+            exchange: account.exchange || 'Unknown',
+            email: account.email || 'Unknown'
+          }));
+          
+          allOrders.push(...ordersWithAccount);
+          
+          console.log(`✅ [UserOrdersTab] Loaded ${orders.length} orders for account ${account.id}`);
+        } catch (error) {
+          console.error(`❌ [UserOrdersTab] Failed to load orders for account ${account.id}:`, error);
+          console.error(`❌ [UserOrdersTab] Error details:`, {
+            message: error instanceof Error ? error.message : 'Unknown error',
+            stack: error instanceof Error ? error.stack : undefined,
+            accountId: account.id,
+            exchange: account.exchange
+          });
+          // Continue with other accounts even if one fails
+        }
+      }
+      
+      // Sort orders by timestamp (newest first)
+      allOrders.sort((a, b) => b.timestamp - a.timestamp);
+      
+      setOrders(allOrders);
+      console.log(`✅ [UserOrdersTab] Total orders loaded: ${allOrders.length}`);
+      console.log(`📊 [UserOrdersTab] Final orders:`, allOrders);
+      
     } catch (error) {
-      console.error('❌ Failed to load orders:', error);
+      console.error('❌ [UserOrdersTab] Failed to load orders:', error);
       setError(error instanceof Error ? error.message : 'Failed to load orders');
     } finally {
       setLoading(false);
     }
-  }, [accounts, settings.showClosedOrders]);
+  }, [accounts, settings.showClosedOrders, dataProvider]);
 
   // Load orders on mount and when accounts change
   useEffect(() => {

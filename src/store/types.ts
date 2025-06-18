@@ -117,6 +117,12 @@ export interface DataProviderActions {
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
+  // User trading data methods
+  fetchMyTrades: (accountId: string, symbol?: string, since?: number, limit?: number) => Promise<Trade[]>;
+  fetchOrders: (accountId: string, symbol?: string, since?: number, limit?: number) => Promise<any[]>;
+  fetchOpenOrders: (accountId: string, symbol?: string) => Promise<any[]>;
+  fetchPositions: (accountId: string, symbols?: string[]) => Promise<any[]>;
+  
   // Central store data updates
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;

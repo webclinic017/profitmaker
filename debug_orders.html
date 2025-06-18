@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Orders - ProfitMaker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+        .debug-info {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left-color: #f44336;
+        }
+        .warning {
+            border-left-color: #ff9800;
+        }
+        pre {
+            background: #333;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Orders - ProfitMaker</h1>
+    
+    <div class="debug-info">
+        <h3>Инструкции для отладки:</h3>
+        <ol>
+            <li>Откройте браузер и перейдите к приложению ProfitMaker</li>
+            <li>Откройте DevTools (F12)</li>
+            <li>Перейдите на вкладку Console</li>
+            <li>Добавьте виджет "User Trading Data"</li>
+            <li>Перейдите на вкладку "Orders" в виджете</li>
+            <li>Нажмите кнопку refresh в заголовке виджета</li>
+            <li>Посмотрите на логи в консоли</li>
+        </ol>
+    </div>
+
+    <div class="debug-info">
+        <h3>Что искать в логах:</h3>
+        <ul>
+            <li><strong>🔍 [UserOrdersTab] Starting loadOrders</strong> - начало загрузки</li>
+            <li><strong>🔍 [UserOrdersTab] Accounts:</strong> - информация об аккаунтах</li>
+            <li><strong>🔍 [fetchOpenOrders] Starting fetchOpenOrders</strong> - начало CCXT запроса</li>
+            <li><strong>🔍 [fetchOpenOrders] Found account:</strong> - найденный аккаунт</li>
+            <li><strong>🔍 [fetchOpenOrders] CCXT available</strong> - CCXT доступен</li>
+            <li><strong>📊 [fetchOpenOrders] Raw orders:</strong> - полученные ордера</li>
+            <li><strong>❌ [fetchOpenOrders] Failed</strong> - ошибки</li>
+        </ul>
+    </div>
+
+    <div class="debug-info">
+        <h3>Возможные проблемы:</h3>
+        <ul>
+            <li><strong>No accounts found</strong> - нет аккаунтов с API ключами</li>
+            <li><strong>Account not found or missing API keys</strong> - аккаунт без ключей</li>
+            <li><strong>Exchange not found in CCXT</strong> - неподдерживаемая биржа</li>
+            <li><strong>Exchange does not support fetchOpenOrders</strong> - биржа не поддерживает метод</li>
+            <li><strong>API Error</strong> - ошибка API биржи (неверные ключи, лимиты, etc.)</li>
+        </ul>
+    </div>
+
+    <div class="debug-info">
+        <h3>Быстрые проверки:</h3>
+        <button onclick="checkLocalStorage()">Проверить LocalStorage</button>
+        <button onclick="checkConsole()">Очистить Console</button>
+        <button onclick="showHelp()">Показать помощь</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        function checkLocalStorage() {
+            const results = document.getElementById('results');
+            try {
+                const userStore = localStorage.getItem('user-store');
+                const tradingDataStore = localStorage.getItem('user-trading-data-widget-store');
+                
+                results.innerHTML = `
+                    <div class="debug-info">
+                        <h3>LocalStorage данные:</h3>
+                        <h4>User Store:</h4>
+                        <pre>${userStore ? JSON.stringify(JSON.parse(userStore), null, 2) : 'Не найдено'}</pre>
+                        <h4>Trading Data Widget Store:</h4>
+                        <pre>${tradingDataStore ? JSON.stringify(JSON.parse(tradingDataStore), null, 2) : 'Не найдено'}</pre>
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `<div class="debug-info error"><h3>Ошибка:</h3><pre>${error.message}</pre></div>`;
+            }
+        }
+
+        function checkConsole() {
+            console.clear();
+            console.log('🧹 Console очищен. Теперь попробуйте обновить ордера в виджете.');
+        }
+
+        function showHelp() {
+            const results = document.getElementById('results');
+            results.innerHTML = `
+                <div class="debug-info">
+                    <h3>Пошаговая отладка:</h3>
+                    <ol>
+                        <li><strong>Проверьте аккаунты:</strong> Убедитесь что у вас есть аккаунт с API ключами</li>
+                        <li><strong>Проверьте настройки виджета:</strong> Откройте настройки виджета и убедитесь что выбран правильный аккаунт</li>
+                        <li><strong>Проверьте биржу:</strong> Убедитесь что биржа поддерживается CCXT</li>
+                        <li><strong>Проверьте API ключи:</strong> Убедитесь что API ключи действительны и имеют права на чтение ордеров</li>
+                        <li><strong>Проверьте лимиты:</strong> Возможно превышен лимит запросов к API</li>
+                        <li><strong>Проверьте настройки виджета:</strong> Попробуйте переключить "Show Closed Orders" в настройках</li>
+                    </ol>
+                </div>
+            `;
+        }
+
+        // Автоматически показать помощь при загрузке
+        window.onload = function() {
+            console.log('🔧 Debug page loaded. Проверьте основное приложение в другой вкладке.');
+        };
+    </script>
+</body>
+</html> 

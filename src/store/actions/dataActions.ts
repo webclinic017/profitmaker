@@ -36,6 +36,12 @@ export interface DataActions {
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number) => Promise<Candle[]>;
   
+  // User trading data methods
+  fetchMyTrades: (accountId: string, symbol?: string, since?: number, limit?: number) => Promise<Trade[]>;
+  fetchOrders: (accountId: string, symbol?: string, since?: number, limit?: number) => Promise<any[]>;
+  fetchOpenOrders: (accountId: string, symbol?: string) => Promise<any[]>;
+  fetchPositions: (accountId: string, symbols?: string[]) => Promise<any[]>;
+  
   // Central store data updates
   updateCandles: (exchange: string, symbol: string, candles: Candle[], timeframe?: Timeframe, market?: MarketType) => void;
   updateTrades: (exchange: string, symbol: string, trades: Trade[], market?: MarketType) => void;
@@ -901,6 +907,244 @@ export const createDataActions: StateCreator<
       
     } catch (error) {
       console.error(`❌ [loadHistoricalCandles] Failed to load historical data:`, error);
+      throw error;
+    }
+  },
+
+  // User trading data methods
+  fetchMyTrades: async (accountId: string, symbol?: string, since?: number, limit?: number): Promise<Trade[]> => {
+    const { useUserStore } = await import('../userStore');
+    const { users } = useUserStore.getState();
+    const user = users.find(u => u.accounts.some(acc => acc.id === accountId));
+    const account = user?.accounts.find(acc => acc.id === accountId);
+    
+    if (!account || !account.key || !account.privateKey) {
+      throw new Error(`Account ${accountId} not found or missing API keys`);
+    }
+    
+    console.log(`🔄 [fetchMyTrades] Loading trades for account ${accountId} (${account.exchange})`);
+    
+    try {
+      const ccxt = getCCXT();
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const ExchangeClass = ccxt[account.exchange];
+      if (!ExchangeClass) {
+        throw new Error(`Exchange ${account.exchange} not found in CCXT`);
+      }
+      
+             const exchangeInstance = new ExchangeClass({
+         apiKey: account.key,
+         secret: account.privateKey,
+         password: account.password,
+         sandbox: false,
+         enableRateLimit: true,
+       });
+       
+       await exchangeInstance.loadMarkets();
+       
+       const trades = await exchangeInstance.fetchMyTrades(symbol, since, limit);
+      
+      console.log(`✅ [fetchMyTrades] Loaded ${trades.length} trades for account ${accountId}`);
+      
+      return trades.map((trade: any) => ({
+        id: trade.id,
+        timestamp: trade.timestamp,
+        symbol: trade.symbol,
+        side: trade.side,
+        amount: trade.amount,
+        price: trade.price,
+        cost: trade.cost,
+        fee: trade.fee,
+        info: trade.info
+      }));
+      
+    } catch (error) {
+      console.error(`❌ [fetchMyTrades] Failed to load trades for account ${accountId}:`, error);
+      throw error;
+    }
+  },
+
+  fetchOrders: async (accountId: string, symbol?: string, since?: number, limit?: number): Promise<any[]> => {
+    const { useUserStore } = await import('../userStore');
+    const { users } = useUserStore.getState();
+    const user = users.find(u => u.accounts.some(acc => acc.id === accountId));
+    const account = user?.accounts.find(acc => acc.id === accountId);
+    
+    if (!account || !account.key || !account.privateKey) {
+      throw new Error(`Account ${accountId} not found or missing API keys`);
+    }
+    
+    console.log(`🔄 [fetchOrders] Loading orders for account ${accountId} (${account.exchange})`);
+    
+    try {
+      const ccxt = getCCXT();
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const ExchangeClass = ccxt[account.exchange];
+      if (!ExchangeClass) {
+        throw new Error(`Exchange ${account.exchange} not found in CCXT`);
+      }
+      
+             const exchangeInstance = new ExchangeClass({
+         apiKey: account.key,
+         secret: account.privateKey,
+         password: account.password,
+         sandbox: false,
+         enableRateLimit: true,
+       });
+       
+       await exchangeInstance.loadMarkets();
+       
+       const orders = await exchangeInstance.fetchOrders(symbol, since, limit);
+      
+      console.log(`✅ [fetchOrders] Loaded ${orders.length} orders for account ${accountId}`);
+      
+      return orders;
+      
+    } catch (error) {
+      console.error(`❌ [fetchOrders] Failed to load orders for account ${accountId}:`, error);
+      throw error;
+    }
+  },
+
+  fetchOpenOrders: async (accountId: string, symbol?: string): Promise<any[]> => {
+    console.log(`🔍 [fetchOpenOrders] Starting fetchOpenOrders for accountId: ${accountId}, symbol: ${symbol}`);
+    
+    const { useUserStore } = await import('../userStore');
+    const { users } = useUserStore.getState();
+    
+    console.log(`🔍 [fetchOpenOrders] Total users in store: ${users.length}`);
+    
+    const user = users.find(u => u.accounts.some(acc => acc.id === accountId));
+    console.log(`🔍 [fetchOpenOrders] Found user:`, user ? { id: user.id, accountsCount: user.accounts.length } : 'null');
+    
+    const account = user?.accounts.find(acc => acc.id === accountId);
+    console.log(`🔍 [fetchOpenOrders] Found account:`, account ? {
+      id: account.id,
+      exchange: account.exchange,
+      email: account.email,
+      hasKey: !!account.key,
+      hasPrivateKey: !!account.privateKey,
+      keyLength: account.key?.length || 0,
+      privateKeyLength: account.privateKey?.length || 0
+    } : 'null');
+    
+    if (!account || !account.key || !account.privateKey) {
+      const error = `Account ${accountId} not found or missing API keys`;
+      console.error(`❌ [fetchOpenOrders] ${error}`);
+      throw new Error(error);
+    }
+    
+    console.log(`🔄 [fetchOpenOrders] Loading open orders for account ${accountId} (${account.exchange})`);
+    
+    try {
+      const ccxt = getCCXT();
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      console.log(`🔍 [fetchOpenOrders] CCXT available, looking for exchange: ${account.exchange}`);
+      
+      const ExchangeClass = ccxt[account.exchange];
+      if (!ExchangeClass) {
+        const error = `Exchange ${account.exchange} not found in CCXT`;
+        console.error(`❌ [fetchOpenOrders] ${error}`);
+        console.log(`🔍 [fetchOpenOrders] Available exchanges:`, Object.keys(ccxt));
+        throw new Error(error);
+      }
+      
+      console.log(`🔍 [fetchOpenOrders] Creating exchange instance for ${account.exchange}`);
+      
+      const exchangeInstance = new ExchangeClass({
+        apiKey: account.key,
+        secret: account.privateKey,
+        password: account.password,
+        sandbox: false,
+        enableRateLimit: true,
+      });
+      
+      console.log(`🔍 [fetchOpenOrders] Exchange instance created, loading markets...`);
+      await exchangeInstance.loadMarkets();
+      console.log(`🔍 [fetchOpenOrders] Markets loaded, checking fetchOpenOrders capability...`);
+      
+      // Check if exchange supports fetchOpenOrders
+      if (!exchangeInstance.has.fetchOpenOrders) {
+        console.warn(`⚠️ [fetchOpenOrders] Exchange ${account.exchange} does not support fetchOpenOrders`);
+        return [];
+      }
+      
+      console.log(`🔍 [fetchOpenOrders] Calling exchangeInstance.fetchOpenOrders(${symbol})`);
+      const orders = await exchangeInstance.fetchOpenOrders(symbol);
+      
+      console.log(`✅ [fetchOpenOrders] Loaded ${orders.length} open orders for account ${accountId}`);
+      console.log(`📊 [fetchOpenOrders] Raw orders:`, orders);
+      
+      return orders;
+      
+    } catch (error) {
+      console.error(`❌ [fetchOpenOrders] Failed to load open orders for account ${accountId}:`, error);
+      console.error(`❌ [fetchOpenOrders] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        accountId,
+        exchange: account.exchange
+      });
+      throw error;
+    }
+  },
+
+  fetchPositions: async (accountId: string, symbols?: string[]): Promise<any[]> => {
+    const { useUserStore } = await import('../userStore');
+    const { users } = useUserStore.getState();
+    const user = users.find(u => u.accounts.some(acc => acc.id === accountId));
+    const account = user?.accounts.find(acc => acc.id === accountId);
+    
+    if (!account || !account.key || !account.privateKey) {
+      throw new Error(`Account ${accountId} not found or missing API keys`);
+    }
+    
+    console.log(`🔄 [fetchPositions] Loading positions for account ${accountId} (${account.exchange})`);
+    
+    try {
+      const ccxt = getCCXT();
+      if (!ccxt) {
+        throw new Error('CCXT not available');
+      }
+      
+      const ExchangeClass = ccxt[account.exchange];
+      if (!ExchangeClass) {
+        throw new Error(`Exchange ${account.exchange} not found in CCXT`);
+      }
+      
+             const exchangeInstance = new ExchangeClass({
+         apiKey: account.key,
+         secret: account.privateKey,
+         password: account.password,
+         sandbox: false,
+         enableRateLimit: true,
+       });
+      
+      await exchangeInstance.loadMarkets();
+      
+      // Check if exchange supports positions
+      if (!exchangeInstance.has.fetchPositions) {
+        console.warn(`⚠️ [fetchPositions] Exchange ${account.exchange} does not support positions`);
+        return [];
+      }
+      
+      const positions = await exchangeInstance.fetchPositions(symbols);
+      
+      console.log(`✅ [fetchPositions] Loaded ${positions.length} positions for account ${accountId}`);
+      
+      return positions;
+      
+    } catch (error) {
+      console.error(`❌ [fetchPositions] Failed to load positions for account ${accountId}:`, error);
       throw error;
     }
   }

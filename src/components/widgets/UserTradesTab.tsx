@@ -53,18 +53,50 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
     try {
       console.log(`📊 Loading trades for ${accounts.length} account(s)`);
       
-      // For now, show empty state until real API integration is implemented
-      // Real implementation will use CCXT fetchMyTrades() method through data provider
-      setTrades([]);
+      const allTrades: (Trade & { accountId: string; exchange: string; email: string; })[] = [];
       
-      console.log(`ℹ️ User trades will be loaded when API integration is implemented`);
+      // Load trades from each account
+      for (const account of accounts) {
+        try {
+          console.log(`🔄 Fetching trades for account ${account.id} (${account.exchange})`);
+          
+          const trades = await dataProvider.fetchMyTrades(
+            account.id,
+            undefined, // symbol - get all symbols
+            undefined, // since - get recent trades
+            settings.tradesLimit
+          );
+          
+          // Transform and add account info
+          const tradesWithAccount = trades.map(trade => ({
+            ...trade,
+            accountId: account.id,
+            exchange: account.exchange || 'Unknown',
+            email: account.email || 'Unknown'
+          }));
+          
+          allTrades.push(...tradesWithAccount);
+          
+          console.log(`✅ Loaded ${trades.length} trades for account ${account.id}`);
+        } catch (error) {
+          console.error(`❌ Failed to load trades for account ${account.id}:`, error);
+          // Continue with other accounts even if one fails
+        }
+      }
+      
+      // Sort trades by timestamp (newest first)
+      allTrades.sort((a, b) => b.timestamp - a.timestamp);
+      
+      setTrades(allTrades);
+      console.log(`✅ Total trades loaded: ${allTrades.length}`);
+      
     } catch (error) {
       console.error('❌ Failed to load trades:', error);
       setError(error instanceof Error ? error.message : 'Failed to load trades');
     } finally {
       setLoading(false);
     }
-  }, [accounts, settings.tradesLimit]);
+  }, [accounts, settings.tradesLimit, dataProvider]);
 
   // Load trades on mount and when accounts change
   useEffect(() => {

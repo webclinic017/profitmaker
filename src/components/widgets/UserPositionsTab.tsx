@@ -54,18 +54,53 @@ const UserPositionsTab: React.FC<UserPositionsTabProps> = ({
     try {
       console.log(`📊 Loading positions for ${accounts.length} account(s)`);
       
-      // For now, show empty state until real API integration is implemented
-      // Real implementation will use CCXT fetchPositions() method through data provider
-      setPositions([]);
+      const allPositions: (Position & { accountId: string; exchange: string; email: string; })[] = [];
       
-      console.log(`ℹ️ User positions will be loaded when API integration is implemented`);
+      // Load positions from each account
+      for (const account of accounts) {
+        try {
+          console.log(`🔄 Fetching positions for account ${account.id} (${account.exchange})`);
+          
+          const positions = await dataProvider.fetchPositions(
+            account.id,
+            undefined // symbols - get all symbols
+          );
+          
+          // Transform and add account info, filter zero positions if needed
+          const positionsWithAccount = positions
+            .map(position => ({
+              ...position,
+              accountId: account.id,
+              exchange: account.exchange || 'Unknown',
+              email: account.email || 'Unknown'
+            }))
+            .filter(position => {
+              // If showZeroPositions is false, filter out positions with zero amount
+              return settings.showZeroPositions || Math.abs(position.amount) > 0.00000001;
+            });
+          
+          allPositions.push(...positionsWithAccount);
+          
+          console.log(`✅ Loaded ${positions.length} positions for account ${account.id}`);
+        } catch (error) {
+          console.error(`❌ Failed to load positions for account ${account.id}:`, error);
+          // Continue with other accounts even if one fails
+        }
+      }
+      
+      // Sort positions by notional value (largest first)
+      allPositions.sort((a, b) => Math.abs(b.notional) - Math.abs(a.notional));
+      
+      setPositions(allPositions);
+      console.log(`✅ Total positions loaded: ${allPositions.length}`);
+      
     } catch (error) {
       console.error('❌ Failed to load positions:', error);
       setError(error instanceof Error ? error.message : 'Failed to load positions');
     } finally {
       setLoading(false);
     }
-  }, [accounts, settings.showZeroPositions]);
+  }, [accounts, settings.showZeroPositions, dataProvider]);
 
   // Load positions on mount and when accounts change
   useEffect(() => {
