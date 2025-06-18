@@ -396,7 +396,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       
       {/* USD Value */}
       <div className="text-right min-w-0 flex-1">
-        <div className="text-terminal-accent truncate">
+        <div className="font-medium truncate text-emerald-600 dark:text-emerald-400">
           {balance.usdValue !== undefined ? `$${formatCurrency(balance.usdValue, 'USD')}` : '-'}
         </div>
         <div className="text-xs text-terminal-muted">
