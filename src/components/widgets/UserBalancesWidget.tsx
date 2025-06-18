@@ -62,7 +62,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   // Widget state
   const [accountBalances, setAccountBalances] = useState<Map<string, AccountBalance>>(new Map());
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'currency' | 'total' | 'free' | 'used' | 'account' | 'walletType'>('total');
+  const [sortBy, setSortBy] = useState<'currency' | 'total' | 'free' | 'used' | 'account' | 'walletType' | 'percentage'>('total');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [loadingPrices, setLoadingPrices] = useState<Set<string>>(new Set());
   const [usdValues, setUsdValues] = useState<Map<string, { value?: number, rate?: string, loading: boolean }>>(new Map());
@@ -244,6 +244,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       timestamp?: number;
       usdRate?: string;
       priceLoading?: boolean;
+      percentage?: number;
     })[] = [];
     
     allBalances.forEach(accountBalance => {
@@ -277,6 +278,17 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     // Filter out zero balances
     flatBalances = flatBalances.filter(balance => balance.total > 0);
 
+    // Calculate total USD value for percentage calculation
+    const totalUsdValue = flatBalances.reduce((sum, balance) => {
+      return sum + (balance.usdValue || 0);
+    }, 0);
+
+    // Calculate percentage for each balance
+    flatBalances = flatBalances.map(balance => ({
+      ...balance,
+      percentage: totalUsdValue > 0 && balance.usdValue ? (balance.usdValue / totalUsdValue) * 100 : 0
+    }));
+
     // Apply sorting
     flatBalances.sort((a, b) => {
       let compareResult = 0;
@@ -301,6 +313,9 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         case 'walletType':
           compareResult = a.walletType.localeCompare(b.walletType);
           break;
+        case 'percentage':
+          compareResult = (b.percentage || 0) - (a.percentage || 0);
+          break;
         default:
           compareResult = b.total - a.total;
       }
@@ -309,7 +324,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     });
 
     return flatBalances;
-  }, [allBalances, searchQuery, sortBy, sortDirection]);
+  }, [allBalances, searchQuery, sortBy, sortDirection, calculateUsdValue]);
 
   // Format currency value
   const formatCurrency = useCallback((value: number, currency: string) => {
@@ -410,6 +425,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     timestamp?: number;
     usdRate?: string;
     priceLoading?: boolean;
+    percentage?: number;
   }, index: number, style?: React.CSSProperties) => (
     <div
       key={`${balance.accountId}-${balance.currency}-${balance.walletType}`}
@@ -477,6 +493,18 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         <div className="text-xs text-terminal-muted">
           {balance.usdRate ? `(${balance.usdRate})` : 'USD'}
         </div>
+      </div>
+      
+      {/* Percentage */}
+      <div className="text-right min-w-0 flex-1">
+        <div className="font-medium text-terminal-text truncate">
+          {balance.percentage !== undefined && balance.percentage > 0 ? (
+            `${balance.percentage.toFixed(2)}%`
+          ) : (
+            '-'
+          )}
+        </div>
+        <div className="text-xs text-terminal-muted">Share</div>
       </div>
     </div>
   ), [formatCurrency]);
@@ -601,6 +629,16 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         </button>
         
         <div className="text-right min-w-0 flex-1">USD Value</div>
+        
+        <button 
+          onClick={() => handleSort('percentage')}
+          className="flex items-center gap-1 justify-end text-right min-w-0 flex-1 hover:text-terminal-text"
+        >
+          %
+          {sortBy === 'percentage' && (
+            sortDirection === 'asc' ? <TrendingUp className="h-3 w-3 text-terminal-text/80" /> : <TrendingDown className="h-3 w-3 text-terminal-text/80" />
+          )}
+        </button>
       </div>
 
       {/* Balance List */}
