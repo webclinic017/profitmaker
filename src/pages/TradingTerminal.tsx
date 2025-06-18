@@ -6,7 +6,7 @@ import { useDashboardStore } from '@/store/dashboardStore';
 import ChartWidget from '@/components/widgets/Chart';
 import PortfolioWidget from '@/components/widgets/Portfolio';
 import UserBalancesWidget from '@/components/widgets/UserBalancesWidget';
-import UserTradingDataWidget from '@/components/widgets/UserTradingDataWidget';
+import UserTradingDataWidget, { UserTradingDataHeaderActions } from '@/components/widgets/UserTradingDataWidget';
 import OrderFormWidget from '@/components/widgets/OrderForm';
 import TransactionHistoryWidget from '@/components/widgets/TransactionHistory';
 import { OrderBookWidgetV2 } from '@/components/widgets/OrderBookWidget';
@@ -132,6 +132,11 @@ const TradingTerminal: React.FC = () => {
         {widgets.map((widget) => {
           const WidgetComponent = widgetComponents[widget.type];
           
+          // Create header actions for specific widget types
+          const headerActions = widget.type === 'userTradingData' 
+            ? <UserTradingDataHeaderActions widgetId={widget.id} />
+            : undefined;
+          
           return (
             <Widget
               key={widget.id}
@@ -146,6 +151,7 @@ const TradingTerminal: React.FC = () => {
               groupId={widget.groupId}
               widgetType={widget.type}
               showGroupSelector={widget.showGroupSelector}
+              headerActions={headerActions}
               onRemove={() => activeDashboard && removeWidget(activeDashboard.id, widget.id)}
             >
               <WidgetComponent 

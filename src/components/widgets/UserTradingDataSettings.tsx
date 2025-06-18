@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { User } from 'lucide-react';
+import { useUserStore } from '../../store/userStore';
 import { UserTradingDataWidgetSettings } from '../../store/userTradingDataWidgetStore';
 
 interface UserTradingDataSettingsProps {
@@ -9,14 +12,27 @@ interface UserTradingDataSettingsProps {
   onShowZeroPositionsChange: (checked: boolean) => void;
   onShowClosedOrdersChange: (checked: boolean) => void;
   onTradesLimitChange: (limit: number) => void;
+  onAccountChange: (accountId: string) => void;
 }
 
 const UserTradingDataSettings: React.FC<UserTradingDataSettingsProps> = ({
   settings,
   onShowZeroPositionsChange,
   onShowClosedOrdersChange,
-  onTradesLimitChange
+  onTradesLimitChange,
+  onAccountChange
 }) => {
+  // User store integration
+  const { users, activeUserId } = useUserStore();
+  const activeUser = users.find(u => u.id === activeUserId);
+  
+  // Get all user accounts with API keys
+  const accountsWithKeys = useMemo(() => {
+    if (!activeUser?.accounts || !Array.isArray(activeUser.accounts)) {
+      return [];
+    }
+    return activeUser.accounts.filter(acc => acc.key && acc.privateKey);
+  }, [activeUser?.accounts]);
   const handleTradesLimitChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
     if (!isNaN(value) && value >= 10 && value <= 1000) {
@@ -26,6 +42,42 @@ const UserTradingDataSettings: React.FC<UserTradingDataSettingsProps> = ({
 
   return (
     <div className="space-y-6">
+      <div className="space-y-4">
+        <h3 className="text-sm font-medium text-terminal-text">Account Selection</h3>
+        
+        {/* Account Selector */}
+        <div className="space-y-2">
+          <Label className="text-sm text-terminal-text">Data Source</Label>
+          <p className="text-xs text-terminal-muted">
+            Choose which account(s) to display data for
+          </p>
+          <Select 
+            value={settings.selectedAccountId || 'all'}
+            onValueChange={onAccountChange}
+          >
+            <SelectTrigger className="w-full h-8 bg-terminal-bg border-terminal-border text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-terminal-widget border-terminal-border">
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <User className="w-3 h-3" />
+                  All Accounts ({accountsWithKeys.length})
+                </div>
+              </SelectItem>
+              {accountsWithKeys.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{account.exchange}</span>
+                    <span className="text-xs text-terminal-muted">{account.email}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       <div className="space-y-4">
         <h3 className="text-sm font-medium text-terminal-text">Display Options</h3>
         

@@ -27,12 +27,18 @@ const UserTradingDataSettingsWrapper: React.FC<UserTradingDataSettingsWrapperPro
     updateWidget(widgetId, { tradesLimit: limit });
   }, [widgetId, updateWidget]);
 
+  // Handler for account change
+  const handleAccountChange = useCallback((accountId: string) => {
+    updateWidget(widgetId, { selectedAccountId: accountId });
+  }, [widgetId, updateWidget]);
+
   return (
     <UserTradingDataSettings
       settings={widget.settings}
       onShowZeroPositionsChange={handleShowZeroPositionsChange}
       onShowClosedOrdersChange={handleShowClosedOrdersChange}
       onTradesLimitChange={handleTradesLimitChange}
+      onAccountChange={handleAccountChange}
     />
   );
 };

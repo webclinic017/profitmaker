@@ -20,6 +20,7 @@ interface WidgetSimpleProps {
   groupId?: string;
   widgetType?: string; // widget type for determining trading pair
   showGroupSelector?: boolean; // optional display of group selector circle
+  headerActions?: React.ReactNode; // optional additional actions in header
   onRemove: () => void;
 }
 
@@ -43,6 +44,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
   groupId,
   widgetType,
   showGroupSelector = true, // default to true for backward compatibility
+  headerActions,
   onRemove
 }) => {
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -537,6 +539,7 @@ const WidgetSimple: React.FC<WidgetSimpleProps> = ({
           )}
         </div>
         <div className="flex items-center space-x-1">
+          {!isCollapsed && headerActions}
           {!isCollapsed && hasSettings && (
             <button 
               className="p-1 rounded-sm hover:bg-terminal-widget/50 transition-colors"
