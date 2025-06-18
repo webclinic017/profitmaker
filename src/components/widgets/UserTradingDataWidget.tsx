@@ -78,26 +78,72 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   
   // Get all user accounts with API keys
   const accountsWithKeys = useMemo(() => {
+    console.log(`🔍 [UserTradingDataWidget] Computing accountsWithKeys:`, {
+      activeUser: activeUser ? {
+        id: activeUser.id,
+        email: activeUser.email,
+        accountsLength: activeUser.accounts?.length || 0
+      } : null,
+      allAccounts: activeUser?.accounts?.map(acc => ({
+        id: acc.id,
+        exchange: acc.exchange,
+        email: acc.email,
+        hasKey: !!acc.key,
+        hasPrivateKey: !!acc.privateKey,
+        keyLength: acc.key?.length || 0,
+        privateKeyLength: acc.privateKey?.length || 0
+      })) || []
+    });
+    
     if (!activeUser?.accounts || !Array.isArray(activeUser.accounts)) {
+      console.log(`⚠️ [UserTradingDataWidget] No accounts found or not array`);
       return [];
     }
-    return activeUser.accounts.filter(acc => acc.key && acc.privateKey);
+    
+    const filtered = activeUser.accounts.filter(acc => acc.key && acc.privateKey);
+    console.log(`✅ [UserTradingDataWidget] Filtered accounts with keys: ${filtered.length}`, filtered.map(acc => ({
+      id: acc.id,
+      exchange: acc.exchange,
+      email: acc.email
+    })));
+    
+    return filtered;
   }, [activeUser?.accounts]);
   
   const hasValidAccounts = accountsWithKeys.length > 0;
   
   // Get selected accounts based on settings
   const selectedAccounts = useMemo(() => {
+    console.log(`🔍 [UserTradingDataWidget] Computing selectedAccounts:`, {
+      hasValidAccounts,
+      accountsWithKeysLength: accountsWithKeys.length,
+      selectedAccountId: widgetSettings.selectedAccountId,
+      accountsWithKeys: accountsWithKeys.map(acc => ({
+        id: acc.id,
+        exchange: acc.exchange,
+        email: acc.email,
+        hasKey: !!acc.key,
+        hasPrivateKey: !!acc.privateKey
+      }))
+    });
+    
     if (!hasValidAccounts) return [];
     
     // If 'all' selected, return all accounts
     if (widgetSettings.selectedAccountId === 'all') {
+      console.log(`✅ [UserTradingDataWidget] Returning all accounts: ${accountsWithKeys.length}`);
       return accountsWithKeys;
     }
     
     // Return specific account
     const account = accountsWithKeys.find(acc => acc.id === widgetSettings.selectedAccountId);
-    return account ? [account] : accountsWithKeys; // Fallback to all if account not found
+    const result = account ? [account] : accountsWithKeys; // Fallback to all if account not found
+    console.log(`✅ [UserTradingDataWidget] Returning selected accounts: ${result.length}`, result.map(acc => ({
+      id: acc.id,
+      exchange: acc.exchange,
+      email: acc.email
+    })));
+    return result;
   }, [widgetSettings.selectedAccountId, accountsWithKeys, hasValidAccounts]);
 
   // Handle tab change

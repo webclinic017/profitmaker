@@ -36,6 +36,19 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
   accounts,
   settings
 }) => {
+  console.log(`🚀 [UserOrdersTab] Component mounted/re-rendered:`, {
+    widgetId,
+    accountsLength: accounts.length,
+    accounts: accounts.map(acc => ({
+      id: acc.id,
+      exchange: acc.exchange,
+      email: acc.email,
+      hasKey: !!acc.key,
+      hasPrivateKey: !!acc.privateKey
+    })),
+    settings
+  });
+
   const [orders, setOrders] = useState<Array<Order & { 
     accountId: string;
     exchange: string;
@@ -125,6 +138,8 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
             email: account.email || 'Unknown'
           }));
           
+          console.log(`📊 [UserOrdersTab] Orders with account info:`, ordersWithAccount);
+          
           allOrders.push(...ordersWithAccount);
           
           console.log(`✅ [UserOrdersTab] Loaded ${orders.length} orders for account ${account.id}`);
@@ -143,7 +158,11 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
       // Sort orders by timestamp (newest first)
       allOrders.sort((a, b) => b.timestamp - a.timestamp);
       
+      console.log(`🔄 [UserOrdersTab] Before setOrders - allOrders length: ${allOrders.length}`);
+      console.log(`📊 [UserOrdersTab] Before setOrders - allOrders:`, allOrders);
+      
       setOrders(allOrders);
+      
       console.log(`✅ [UserOrdersTab] Total orders loaded: ${allOrders.length}`);
       console.log(`📊 [UserOrdersTab] Final orders:`, allOrders);
       
@@ -159,6 +178,16 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  // Debug orders state changes
+  useEffect(() => {
+    console.log(`🔍 [UserOrdersTab] Orders state changed:`, {
+      ordersLength: orders.length,
+      orders: orders,
+      loading,
+      error
+    });
+  }, [orders, loading, error]);
 
   // Format currency value
   const formatCurrency = useCallback((value: number, currency?: string) => {
@@ -337,6 +366,16 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
         <div className="text-right min-w-0 flex-1">Price</div>
         <div className="text-right min-w-0 flex-1">Filled</div>
         <div className="text-center min-w-0 flex-1">Status</div>
+        <div className="text-right">
+          <button 
+            onClick={loadOrders}
+            disabled={loading}
+            className="px-2 py-1 bg-terminal-accent/20 hover:bg-terminal-accent/30 disabled:opacity-50 rounded text-xs"
+            title="Refresh orders"
+          >
+            {loading ? '...' : '↻'}
+          </button>
+        </div>
       </div>
 
       {/* Orders List */}

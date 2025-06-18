@@ -947,9 +947,49 @@ export const createDataActions: StateCreator<
         enableRateLimit: true,
       });
       
+      // Intercept HTTP requests to log them
+      const originalFetch = exchangeInstance.fetch;
+      exchangeInstance.fetch = function(url: string, method: string = 'GET', headers: any = {}, body: any = undefined) {
+        console.log(`🌐 [fetchMyTrades] HTTP Request:`, {
+          url,
+          method,
+          headers: Object.keys(headers),
+          bodyLength: body ? body.length : 0,
+          timestamp: new Date().toISOString()
+        });
+        
+        return originalFetch.call(this, url, method, headers, body).then((response: any) => {
+          console.log(`🌐 [fetchMyTrades] HTTP Response:`, {
+            url,
+            status: response?.status || 'unknown',
+            responseLength: typeof response === 'string' ? response.length : 'unknown',
+            timestamp: new Date().toISOString()
+          });
+          return response;
+        }).catch((error: any) => {
+          console.error(`🌐 [fetchMyTrades] HTTP Error:`, {
+            url,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          });
+          throw error;
+        });
+      };
+      
       await exchangeInstance.loadMarkets();
       
       console.log(`🔍 [fetchMyTrades] Checking fetchMyTrades capability for ${account.exchange}: ${exchangeInstance.has.fetchMyTrades}`);
+      console.log(`🔍 [fetchMyTrades] Exchange URLs:`, {
+        api: exchangeInstance.urls?.api,
+        test: exchangeInstance.urls?.test,
+        www: exchangeInstance.urls?.www
+      });
+      console.log(`🔍 [fetchMyTrades] Exchange options:`, {
+        apiKey: account.key ? `${account.key.substring(0, 8)}...` : 'none',
+        secret: account.privateKey ? `${account.privateKey.substring(0, 8)}...` : 'none',
+        sandbox: exchangeInstance.sandbox,
+        enableRateLimit: exchangeInstance.enableRateLimit
+      });
       
       // Check if exchange supports fetchMyTrades
       if (!exchangeInstance.has.fetchMyTrades) {
@@ -957,36 +997,97 @@ export const createDataActions: StateCreator<
         return [];
       }
       
-      let trades: any[] = [];
+      // Get supported markets for this exchange
+      const supportedMarkets = await get().getMarketsForExchange(account.exchange);
+      console.log(`🏪 [fetchMyTrades] Supported markets for ${account.exchange}:`, supportedMarkets);
       
-      try {
-        // Try to fetch trades for all symbols or specific symbol
-        trades = await exchangeInstance.fetchMyTrades(symbol, since, limit);
-      } catch (error) {
-        console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades with symbol=${symbol}, error:`, error.message);
+      let allTrades: any[] = [];
+      
+      // Function to fetch trades for a specific market category
+      const fetchTradesForMarket = async (marketCategory?: string) => {
+        let marketTrades: any[] = [];
+        const marketLabel = marketCategory || 'default';
         
-        // Some exchanges might require specific symbols, try to get popular trading pairs
-        if (!symbol && account.exchange === 'bybit') {
-          console.log(`🔄 [fetchMyTrades] Trying to fetch trades for popular symbols on ${account.exchange}`);
-          const popularSymbols = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT'];
+        console.log(`🔄 [fetchMyTrades] Fetching trades for market: ${marketLabel}`);
+        
+        // Set market category for Bybit and similar exchanges
+        if (marketCategory && account.exchange === 'bybit') {
+          // Map our market names to Bybit categories
+          const bybitCategoryMap: Record<string, string> = {
+            'spot': 'spot',
+            'futures': 'linear',
+            'swap': 'linear', 
+            'margin': 'spot',
+            'options': 'option'
+          };
           
-          for (const popularSymbol of popularSymbols) {
-            try {
-              const symbolTrades = await exchangeInstance.fetchMyTrades(popularSymbol, since, Math.min(limit || 100, 20));
-              trades.push(...symbolTrades);
-              console.log(`✅ [fetchMyTrades] Fetched ${symbolTrades.length} trades for ${popularSymbol}`);
-            } catch (symbolError) {
-              console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades for ${popularSymbol}:`, symbolError.message);
+          const bybitCategory = bybitCategoryMap[marketCategory];
+          if (bybitCategory) {
+            exchangeInstance.options = exchangeInstance.options || {};
+            exchangeInstance.options.defaultType = bybitCategory;
+            console.log(`🏪 [fetchMyTrades] Set Bybit category to: ${bybitCategory} for market: ${marketCategory}`);
+          }
+        }
+        
+        try {
+          console.log(`🔍 [fetchMyTrades] Calling exchangeInstance.fetchMyTrades for ${marketLabel} with params:`, {
+            symbol,
+            since,
+            limit
+          });
+          // Try to fetch trades for all symbols or specific symbol
+          marketTrades = await exchangeInstance.fetchMyTrades(symbol, since, limit);
+          console.log(`✅ [fetchMyTrades] Fetched ${marketTrades.length} trades for ${marketLabel}`);
+        } catch (error) {
+          console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades for ${marketLabel} with symbol=${symbol}, error:`, error.message);
+          
+          // Some exchanges might require specific symbols, try to get popular trading pairs
+          if (!symbol && account.exchange === 'bybit') {
+            console.log(`🔄 [fetchMyTrades] Trying to fetch trades for popular symbols on ${account.exchange} (${marketLabel})`);
+            const popularSymbols = ['BTC/USDT', 'ETH/USDT', 'BNB/USDT', 'SOL/USDT', 'XRP/USDT'];
+            
+            for (const popularSymbol of popularSymbols) {
+              try {
+                const symbolTrades = await exchangeInstance.fetchMyTrades(popularSymbol, since, Math.min(limit || 100, 20));
+                marketTrades.push(...symbolTrades);
+                console.log(`✅ [fetchMyTrades] Fetched ${symbolTrades.length} trades for ${popularSymbol} in ${marketLabel}`);
+              } catch (symbolError) {
+                console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades for ${popularSymbol} in ${marketLabel}:`, symbolError.message);
+              }
             }
           }
-        } else {
-          throw error; // Re-throw if not a known case
         }
+        
+        return marketTrades;
+      };
+      
+      // Fetch trades for all supported markets
+      if (supportedMarkets.length > 0) {
+        for (const market of supportedMarkets) {
+          try {
+            const marketTrades = await fetchTradesForMarket(market);
+            allTrades.push(...marketTrades);
+            console.log(`📊 [fetchMyTrades] Added ${marketTrades.length} trades from ${market} market`);
+          } catch (error) {
+            console.warn(`⚠️ [fetchMyTrades] Failed to fetch trades for ${market} market:`, error.message);
+            // Continue with other markets
+          }
+        }
+      } else {
+        // Fallback: fetch without specific market category
+        console.log(`🔄 [fetchMyTrades] No specific markets found, using default approach`);
+        const defaultTrades = await fetchTradesForMarket();
+        allTrades.push(...defaultTrades);
       }
       
-      console.log(`✅ [fetchMyTrades] Loaded ${trades.length} trades for account ${accountId}`);
+      // Remove duplicates and sort by timestamp
+      const uniqueTrades = allTrades.filter((trade, index, self) => 
+        index === self.findIndex(t => t.id === trade.id)
+      ).sort((a, b) => b.timestamp - a.timestamp);
       
-      return trades.map((trade: any) => ({
+      console.log(`✅ [fetchMyTrades] Total unique trades loaded: ${uniqueTrades.length} for account ${accountId} across ${supportedMarkets.length} markets`);
+      
+      return uniqueTrades.map((trade: any) => ({
         id: trade.id,
         timestamp: trade.timestamp,
         symbol: trade.symbol,
@@ -1053,30 +1154,99 @@ export const createDataActions: StateCreator<
       console.log(`🔍 [fetchOrders] has.fetchClosedOrders: ${exchangeInstance.has.fetchClosedOrders}`);
       console.log(`🔍 [fetchOrders] has.fetchCanceledOrders: ${exchangeInstance.has.fetchCanceledOrders}`);
       
+      // Get supported markets for this exchange
+      const supportedMarkets = await get().getMarketsForExchange(account.exchange);
+      console.log(`🏪 [fetchOrders] Supported markets for ${account.exchange}:`, supportedMarkets);
+      
       let allOrders: any[] = [];
       
-      // Check if exchange supports fetchOrders
-      if (exchangeInstance.has.fetchOrders) {
-        try {
-          console.log(`🔄 [fetchOrders] Trying fetchOrders for ${account.exchange}`);
-          const orders = await exchangeInstance.fetchOrders(symbol, since, limit);
-          allOrders = orders;
-          console.log(`✅ [fetchOrders] fetchOrders successful: ${orders.length} orders`);
-        } catch (error) {
-          console.warn(`⚠️ [fetchOrders] fetchOrders failed for ${account.exchange}, trying alternative methods:`, error.message);
+      // Function to fetch orders for a specific market category
+      const fetchOrdersForMarket = async (marketCategory?: string) => {
+        let marketOrders: any[] = [];
+        const marketLabel = marketCategory || 'default';
+        
+        console.log(`🔄 [fetchOrders] Fetching orders for market: ${marketLabel}`);
+        
+        // Set market category for Bybit and similar exchanges
+        if (marketCategory && account.exchange === 'bybit') {
+          // Map our market names to Bybit categories
+          const bybitCategoryMap: Record<string, string> = {
+            'spot': 'spot',
+            'futures': 'linear',
+            'swap': 'linear', 
+            'margin': 'spot',
+            'options': 'option'
+          };
           
-          // Fallback to alternative methods for exchanges like Bybit
+          const bybitCategory = bybitCategoryMap[marketCategory];
+          if (bybitCategory) {
+            exchangeInstance.options = exchangeInstance.options || {};
+            exchangeInstance.options.defaultType = bybitCategory;
+            console.log(`🏪 [fetchOrders] Set Bybit category to: ${bybitCategory} for market: ${marketCategory}`);
+          }
+        }
+        
+        // Try fetchOrders first
+        if (exchangeInstance.has.fetchOrders) {
+          try {
+            console.log(`🔄 [fetchOrders] Trying fetchOrders for ${account.exchange} (${marketLabel})`);
+            const orders = await exchangeInstance.fetchOrders(symbol, since, limit);
+            marketOrders = orders;
+            console.log(`✅ [fetchOrders] fetchOrders successful for ${marketLabel}: ${orders.length} orders`);
+          } catch (error) {
+            console.warn(`⚠️ [fetchOrders] fetchOrders failed for ${account.exchange} (${marketLabel}):`, error.message);
+            
+            // Fallback to alternative methods
+            if (exchangeInstance.has.fetchOpenOrders || exchangeInstance.has.fetchClosedOrders) {
+              console.log(`🔄 [fetchOrders] Using fallback methods for ${account.exchange} (${marketLabel})`);
+              
+              // Fetch open orders
+              if (exchangeInstance.has.fetchOpenOrders) {
+                try {
+                  const openOrders = await exchangeInstance.fetchOpenOrders(symbol);
+                  marketOrders.push(...openOrders);
+                  console.log(`✅ [fetchOrders] Fetched ${openOrders.length} open orders for ${marketLabel}`);
+                } catch (openError) {
+                  console.warn(`⚠️ [fetchOrders] Failed to fetch open orders for ${marketLabel}:`, openError.message);
+                }
+              }
+              
+              // Fetch closed orders
+              if (exchangeInstance.has.fetchClosedOrders) {
+                try {
+                  const closedOrders = await exchangeInstance.fetchClosedOrders(symbol, since, limit);
+                  marketOrders.push(...closedOrders);
+                  console.log(`✅ [fetchOrders] Fetched ${closedOrders.length} closed orders for ${marketLabel}`);
+                } catch (closedError) {
+                  console.warn(`⚠️ [fetchOrders] Failed to fetch closed orders for ${marketLabel}:`, closedError.message);
+                }
+              }
+              
+              // Fetch canceled orders
+              if (exchangeInstance.has.fetchCanceledOrders) {
+                try {
+                  const canceledOrders = await exchangeInstance.fetchCanceledOrders(symbol, since, limit);
+                  marketOrders.push(...canceledOrders);
+                  console.log(`✅ [fetchOrders] Fetched ${canceledOrders.length} canceled orders for ${marketLabel}`);
+                } catch (canceledError) {
+                  console.warn(`⚠️ [fetchOrders] Failed to fetch canceled orders for ${marketLabel}:`, canceledError.message);
+                }
+              }
+            }
+          }
+        } else {
+          // Use alternative methods if fetchOrders not supported
           if (exchangeInstance.has.fetchOpenOrders || exchangeInstance.has.fetchClosedOrders) {
-            console.log(`🔄 [fetchOrders] Using fallback methods for ${account.exchange}`);
+            console.log(`🔄 [fetchOrders] Using alternative methods for ${account.exchange} (${marketLabel})`);
             
             // Fetch open orders
             if (exchangeInstance.has.fetchOpenOrders) {
               try {
                 const openOrders = await exchangeInstance.fetchOpenOrders(symbol);
-                allOrders.push(...openOrders);
-                console.log(`✅ [fetchOrders] Fetched ${openOrders.length} open orders`);
+                marketOrders.push(...openOrders);
+                console.log(`✅ [fetchOrders] Fetched ${openOrders.length} open orders for ${marketLabel}`);
               } catch (openError) {
-                console.warn(`⚠️ [fetchOrders] Failed to fetch open orders:`, openError.message);
+                console.warn(`⚠️ [fetchOrders] Failed to fetch open orders for ${marketLabel}:`, openError.message);
               }
             }
             
@@ -1084,58 +1254,35 @@ export const createDataActions: StateCreator<
             if (exchangeInstance.has.fetchClosedOrders) {
               try {
                 const closedOrders = await exchangeInstance.fetchClosedOrders(symbol, since, limit);
-                allOrders.push(...closedOrders);
-                console.log(`✅ [fetchOrders] Fetched ${closedOrders.length} closed orders`);
+                marketOrders.push(...closedOrders);
+                console.log(`✅ [fetchOrders] Fetched ${closedOrders.length} closed orders for ${marketLabel}`);
               } catch (closedError) {
-                console.warn(`⚠️ [fetchOrders] Failed to fetch closed orders:`, closedError.message);
+                console.warn(`⚠️ [fetchOrders] Failed to fetch closed orders for ${marketLabel}:`, closedError.message);
               }
             }
-            
-            // Fetch canceled orders
-            if (exchangeInstance.has.fetchCanceledOrders) {
-              try {
-                const canceledOrders = await exchangeInstance.fetchCanceledOrders(symbol, since, limit);
-                allOrders.push(...canceledOrders);
-                console.log(`✅ [fetchOrders] Fetched ${canceledOrders.length} canceled orders`);
-              } catch (canceledError) {
-                console.warn(`⚠️ [fetchOrders] Failed to fetch canceled orders:`, canceledError.message);
-              }
-            }
-          } else {
-            throw error; // Re-throw if no alternative methods available
+          }
+        }
+        
+        return marketOrders;
+      };
+      
+      // Fetch orders for all supported markets
+      if (supportedMarkets.length > 0) {
+        for (const market of supportedMarkets) {
+          try {
+            const marketOrders = await fetchOrdersForMarket(market);
+            allOrders.push(...marketOrders);
+            console.log(`📊 [fetchOrders] Added ${marketOrders.length} orders from ${market} market`);
+          } catch (error) {
+            console.warn(`⚠️ [fetchOrders] Failed to fetch orders for ${market} market:`, error.message);
+            // Continue with other markets
           }
         }
       } else {
-        console.warn(`⚠️ [fetchOrders] Exchange ${account.exchange} does not support fetchOrders`);
-        
-        // Use alternative methods if available
-        if (exchangeInstance.has.fetchOpenOrders || exchangeInstance.has.fetchClosedOrders) {
-          console.log(`🔄 [fetchOrders] Using alternative methods for ${account.exchange}`);
-          
-          // Fetch open orders
-          if (exchangeInstance.has.fetchOpenOrders) {
-            try {
-              const openOrders = await exchangeInstance.fetchOpenOrders(symbol);
-              allOrders.push(...openOrders);
-              console.log(`✅ [fetchOrders] Fetched ${openOrders.length} open orders`);
-            } catch (openError) {
-              console.warn(`⚠️ [fetchOrders] Failed to fetch open orders:`, openError.message);
-            }
-          }
-          
-          // Fetch closed orders
-          if (exchangeInstance.has.fetchClosedOrders) {
-            try {
-              const closedOrders = await exchangeInstance.fetchClosedOrders(symbol, since, limit);
-              allOrders.push(...closedOrders);
-              console.log(`✅ [fetchOrders] Fetched ${closedOrders.length} closed orders`);
-            } catch (closedError) {
-              console.warn(`⚠️ [fetchOrders] Failed to fetch closed orders:`, closedError.message);
-            }
-          }
-        } else {
-          throw new Error(`Exchange ${account.exchange} does not support any order fetching methods`);
-        }
+        // Fallback: fetch without specific market category
+        console.log(`🔄 [fetchOrders] No specific markets found, using default approach`);
+        const defaultOrders = await fetchOrdersForMarket();
+        allOrders.push(...defaultOrders);
       }
       
       // Sort by timestamp (newest first) and remove duplicates
@@ -1143,7 +1290,26 @@ export const createDataActions: StateCreator<
         index === self.findIndex(o => o.id === order.id)
       ).sort((a, b) => b.timestamp - a.timestamp);
       
-      console.log(`✅ [fetchOrders] Total unique orders loaded: ${uniqueOrders.length} for account ${accountId}`);
+      console.log(`✅ [fetchOrders] Total unique orders loaded: ${uniqueOrders.length} for account ${accountId} across ${supportedMarkets.length} markets`);
+      
+      // Detailed logging for first few orders
+      uniqueOrders.slice(0, 5).forEach((order, index) => {
+        console.log(`📋 [fetchOrders] Order ${index + 1}:`, {
+          id: order.id,
+          symbol: order.symbol,
+          type: order.type,
+          side: order.side,
+          amount: order.amount,
+          price: order.price,
+          status: order.status,
+          timestamp: order.timestamp,
+          datetime: order.datetime,
+          filled: order.filled,
+          remaining: order.remaining,
+          average: order.average,
+          fee: order.fee
+        });
+      });
       
       return uniqueOrders;
       
@@ -1215,6 +1381,35 @@ export const createDataActions: StateCreator<
         enableRateLimit: true,
       });
       
+      // Intercept HTTP requests to log them
+      const originalFetch = exchangeInstance.fetch;
+      exchangeInstance.fetch = function(url: string, method: string = 'GET', headers: any = {}, body: any = undefined) {
+        console.log(`🌐 [fetchOpenOrders] HTTP Request:`, {
+          url,
+          method,
+          headers: Object.keys(headers),
+          bodyLength: body ? body.length : 0,
+          timestamp: new Date().toISOString()
+        });
+        
+        return originalFetch.call(this, url, method, headers, body).then((response: any) => {
+          console.log(`🌐 [fetchOpenOrders] HTTP Response:`, {
+            url,
+            status: response?.status || 'unknown',
+            responseLength: typeof response === 'string' ? response.length : 'unknown',
+            timestamp: new Date().toISOString()
+          });
+          return response;
+        }).catch((error: any) => {
+          console.error(`🌐 [fetchOpenOrders] HTTP Error:`, {
+            url,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          });
+          throw error;
+        });
+      };
+      
       console.log(`🔍 [fetchOpenOrders] Exchange instance created, loading markets...`);
       await exchangeInstance.loadMarkets();
       console.log(`🔍 [fetchOpenOrders] Markets loaded, checking fetchOpenOrders capability...`);
@@ -1226,10 +1421,42 @@ export const createDataActions: StateCreator<
       }
       
       console.log(`🔍 [fetchOpenOrders] Calling exchangeInstance.fetchOpenOrders(${symbol})`);
+      console.log(`🔍 [fetchOpenOrders] Exchange URLs:`, {
+        api: exchangeInstance.urls?.api,
+        test: exchangeInstance.urls?.test,
+        www: exchangeInstance.urls?.www
+      });
+      console.log(`🔍 [fetchOpenOrders] Exchange options:`, {
+        apiKey: account.key ? `${account.key.substring(0, 8)}...` : 'none',
+        secret: account.privateKey ? `${account.privateKey.substring(0, 8)}...` : 'none',
+        sandbox: exchangeInstance.sandbox,
+        enableRateLimit: exchangeInstance.enableRateLimit
+      });
+      
       const orders = await exchangeInstance.fetchOpenOrders(symbol);
       
       console.log(`✅ [fetchOpenOrders] Loaded ${orders.length} open orders for account ${accountId}`);
       console.log(`📊 [fetchOpenOrders] Raw orders:`, orders);
+      
+      // Detailed logging for each order
+      orders.forEach((order, index) => {
+        console.log(`📋 [fetchOpenOrders] Order ${index + 1}:`, {
+          id: order.id,
+          symbol: order.symbol,
+          type: order.type,
+          side: order.side,
+          amount: order.amount,
+          price: order.price,
+          status: order.status,
+          timestamp: order.timestamp,
+          datetime: order.datetime,
+          filled: order.filled,
+          remaining: order.remaining,
+          average: order.average,
+          fee: order.fee,
+          info: order.info
+        });
+      });
       
       return orders;
       
@@ -1294,5 +1521,5 @@ export const createDataActions: StateCreator<
       console.error(`❌ [fetchPositions] Failed to load positions for account ${accountId}:`, error);
       throw error;
     }
-  }
-});
+     }
+ });
