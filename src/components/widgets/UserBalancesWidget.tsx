@@ -71,8 +71,8 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   // Theme integration
   const { theme } = useTheme();
 
-  // Get balances for all user accounts
-  const allBalances = useMemo(() => {
+  // Get balances for all user accounts - CRITICAL: Direct call without useMemo to enable Zustand auto-subscription
+  const getAllBalances = () => {
     if (!activeUser?.accounts) return [];
     
     const balances: Array<{
@@ -88,6 +88,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       if (!account.key || !account.privateKey) return; // Skip accounts without API keys
       
       ['trading', 'funding'].forEach(walletType => {
+        // IMPORTANT: Direct call to getBalance() creates automatic Zustand subscription
         const exchangeBalances = getBalance(account.id, walletType as WalletType);
         
         if (exchangeBalances?.balances && exchangeBalances.balances.length > 0) {
@@ -104,7 +105,29 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     });
     
     return balances;
-  }, [activeUser?.accounts, getBalance]);
+  };
+
+  // Execute the function directly in render to maintain Zustand subscription
+  const allBalances = getAllBalances();
+
+  // Debug logging for balance subscription
+  useEffect(() => {
+    console.log(`💰 [UserBalances-${widgetId}] Balance data updated:`, {
+      widgetId,
+      activeUserId,
+      totalAccounts: activeUser?.accounts?.length || 0,
+      accountsWithKeys: activeUser?.accounts?.filter(acc => acc.key && acc.privateKey).length || 0,
+      balanceGroups: allBalances.length,
+      totalBalances: allBalances.reduce((sum, group) => sum + group.balances.length, 0),
+      lastUpdates: allBalances.map(group => ({
+        accountId: group.accountId,
+        exchange: group.exchange,
+        walletType: group.walletType,
+        balancesCount: group.balances.length,
+        timestamp: group.timestamp
+      }))
+    });
+  }, [allBalances, widgetId, activeUserId, activeUser?.accounts]);
 
   // Get USD value from cached state or return loading indicator
   const calculateUsdValue = useCallback((currency: string, amount: number, exchange: string, accountId: string): { value?: number, rate?: string, loading: boolean } => {
