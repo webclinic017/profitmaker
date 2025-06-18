@@ -4,6 +4,7 @@ import { useSettingsDrawerStore } from '@/store/settingsDrawerStore';
 import ChartSettingsWrapper from './widgets/ChartSettingsWrapper';
 import TradesSettingsWrapper from './widgets/TradesSettingsWrapper';
 import OrderBookSettingsWrapper from './widgets/OrderBookSettingsWrapper';
+import UserBalancesSettingsWrapper from './widgets/UserBalancesSettingsWrapper';
 
 const WidgetSettingsManager: React.FC = () => {
   const { isOpen, widgetId, widgetType, widgetTitle, groupId, closeDrawer } = useSettingsDrawerStore();
@@ -23,6 +24,8 @@ const WidgetSettingsManager: React.FC = () => {
         return <TradesSettingsWrapper widgetId={widgetId} />;
       case 'orderForm':
         return <div className="text-terminal-muted">Order Form settings coming soon...</div>;
+      case 'userBalances':
+        return <UserBalancesSettingsWrapper widgetId={widgetId} />;
       default:
         return <div className="text-terminal-muted">No settings available for this widget</div>;
     }

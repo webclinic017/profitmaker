@@ -4,8 +4,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTheme } from '../../hooks/useTheme';
 import { useDataProviderStore } from '../../store/dataProviderStore';
 import { useUserStore, ExchangeAccount } from '../../store/userStore';
+import { useUserBalancesWidgetStore } from '../../store/userBalancesWidgetStore';
 import { MarketType, WalletType, Balance } from '../../types/dataProviders';
 import { Input } from '../ui/input';
+import UserBalancesPieChart from './UserBalancesPieChart';
 
 interface UserBalancesWidgetProps {
   dashboardId?: string;
@@ -39,6 +41,10 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   // User store integration
   const { users, activeUserId } = useUserStore();
   const activeUser = users.find(u => u.id === activeUserId);
+  
+  // Widget settings integration
+  const { getWidget } = useUserBalancesWidgetStore();
+  const widgetSettings = getWidget(widgetId).settings;
   
   // Debug user state
   useEffect(() => {
@@ -278,6 +284,13 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     // Filter out zero balances
     flatBalances = flatBalances.filter(balance => balance.total > 0);
 
+    // Apply small amount filtering if enabled
+    if (widgetSettings.hideSmallAmounts) {
+      flatBalances = flatBalances.filter(balance => 
+        !balance.usdValue || balance.usdValue >= widgetSettings.smallAmountThreshold
+      );
+    }
+
     // Calculate total USD value for percentage calculation
     const totalUsdValue = flatBalances.reduce((sum, balance) => {
       return sum + (balance.usdValue || 0);
@@ -324,7 +337,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     });
 
     return flatBalances;
-  }, [allBalances, searchQuery, sortBy, sortDirection, calculateUsdValue]);
+  }, [allBalances, searchQuery, sortBy, sortDirection, calculateUsdValue, widgetSettings.hideSmallAmounts, widgetSettings.smallAmountThreshold]);
 
   // Format currency value
   const formatCurrency = useCallback((value: number, currency: string) => {
@@ -407,6 +420,30 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   // Check if we have any accounts with API keys
   const accountsWithKeys = activeUser?.accounts.filter(acc => acc.key && acc.privateKey) || [];
   const hasValidAccounts = accountsWithKeys.length > 0;
+
+  // Calculate total portfolio value for display
+  const totalPortfolioValue = useMemo(() => {
+    return filteredAndSortedBalances.reduce((sum, balance) => sum + (balance.usdValue || 0), 0);
+  }, [filteredAndSortedBalances]);
+
+  // Portfolio Total Component
+  const PortfolioTotal = () => {
+    if (!widgetSettings.showTotal) return null;
+    
+    return (
+      <div className="p-3 border-t border-terminal-border bg-terminal-background/30">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-terminal-text">Total Portfolio Value</span>
+          <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+            ${formatCurrency(totalPortfolioValue, 'USD')}
+          </span>
+        </div>
+        <div className="text-xs text-terminal-muted mt-1">
+          {filteredAndSortedBalances.length} assets • {accountsWithKeys.length} accounts
+        </div>
+      </div>
+    );
+  };
 
   // Virtualization setup
   const parentRef = React.useRef<HTMLDivElement>(null);
@@ -576,8 +613,9 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
         </div>
       </div>
 
-      {/* Table Header */}
-      <div className="flex items-center py-2 px-3 text-xs font-medium text-terminal-muted border-b border-terminal-border bg-terminal-background/50">
+      {/* Table Header - only show for table view */}
+      {widgetSettings.displayType === 'table' && (
+        <div className="flex items-center py-2 px-3 text-xs font-medium text-terminal-muted border-b border-terminal-border bg-terminal-background/50">
         <button 
           onClick={() => handleSort('account')}
           className="flex items-center gap-1 min-w-0 flex-1 hover:text-terminal-text"
@@ -640,9 +678,10 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           )}
         </button>
       </div>
+      )}
 
       {/* Balance List */}
-      <div className="flex-1 overflow-hidden">
+      <div className={`${widgetSettings.showTotal ? 'flex-1' : 'flex-1'} overflow-hidden`}>
         {filteredAndSortedBalances.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-4">
             <Wallet className="h-8 w-8 text-terminal-text/80 mb-2" />
@@ -653,8 +692,16 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
               {activeUser.email}
             </p>
           </div>
+        ) : widgetSettings.displayType === 'pie' ? (
+          // Pie Chart View
+          <div className="h-full p-4">
+            <UserBalancesPieChart 
+              balances={filteredAndSortedBalances}
+              formatCurrency={formatCurrency}
+            />
+          </div>
         ) : filteredAndSortedBalances.length > 50 ? (
-          // Use virtualization for large lists
+          // Use virtualization for large table lists
           <div ref={parentRef} className="h-full overflow-auto">
             <div
               style={{
@@ -677,7 +724,7 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
             </div>
           </div>
         ) : (
-          // Render normally for smaller lists
+          // Render table normally for smaller lists
           <div className="overflow-auto">
             {filteredAndSortedBalances.map((balance, index) => 
               renderBalanceRow(balance, index)
@@ -685,6 +732,9 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
           </div>
         )}
       </div>
+
+      {/* Portfolio Total */}
+      <PortfolioTotal />
     </div>
   );
 };
