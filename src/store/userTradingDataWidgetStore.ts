@@ -5,7 +5,7 @@ export type TradingDataTab = 'trades' | 'positions' | 'orders';
 
 export interface UserTradingDataWidgetSettings {
   activeTab: TradingDataTab;
-  selectedAccountIds: string[]; // Массив ID выбранных аккаунтов, пустой массив = все аккаунты
+  selectedAccountId: string | 'all'; // ID конкретного аккаунта или 'all' для всех
   showZeroPositions: boolean;
   showClosedOrders: boolean;
   tradesLimit: number;
@@ -25,7 +25,7 @@ interface UserTradingDataWidgetStore {
 
 const defaultSettings: UserTradingDataWidgetSettings = {
   activeTab: 'trades',
-  selectedAccountIds: [], // Пустой массив = все аккаунты
+  selectedAccountId: 'all', // 'all' = все аккаунты
   showZeroPositions: false,
   showClosedOrders: false,
   tradesLimit: 100,

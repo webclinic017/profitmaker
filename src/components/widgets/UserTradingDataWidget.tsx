@@ -1,11 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { TrendingUp, BarChart3, ShoppingCart, User, RefreshCw, Check, ChevronsUpDown } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { TrendingUp, BarChart3, ShoppingCart, User, RefreshCw } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { useUserTradingDataWidgetStore, TradingDataTab } from '../../store/userTradingDataWidgetStore';
 import { useDataProviderStore } from '../../store/dataProviderStore';
-import { Button } from '../ui/button';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from '../ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import UserTradesTab from './UserTradesTab';
 import UserPositionsTab from './UserPositionsTab';
@@ -31,28 +29,29 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   // Data provider integration
   const dataProvider = useDataProviderStore();
   
-  // Account selector state
-  const [accountSelectorOpen, setAccountSelectorOpen] = useState(false);
-  
   // Get all user accounts with API keys
-  const accountsWithKeys = activeUser?.accounts.filter(acc => acc.key && acc.privateKey) || [];
+  const accountsWithKeys = useMemo(() => {
+    if (!activeUser?.accounts || !Array.isArray(activeUser.accounts)) {
+      return [];
+    }
+    return activeUser.accounts.filter(acc => acc.key && acc.privateKey);
+  }, [activeUser?.accounts]);
+  
   const hasValidAccounts = accountsWithKeys.length > 0;
   
   // Get selected accounts based on settings
   const selectedAccounts = useMemo(() => {
     if (!hasValidAccounts) return [];
     
-    // Safe check for selectedAccountIds
-    const selectedIds = widgetSettings.selectedAccountIds || [];
-    
-    // If no specific accounts selected, return all accounts
-    if (selectedIds.length === 0) {
+    // If 'all' selected, return all accounts
+    if (widgetSettings.selectedAccountId === 'all') {
       return accountsWithKeys;
     }
     
-    // Return only selected accounts that have API keys
-    return accountsWithKeys.filter(acc => selectedIds.includes(acc.id));
-  }, [widgetSettings.selectedAccountIds, accountsWithKeys, hasValidAccounts]);
+    // Return specific account
+    const account = accountsWithKeys.find(acc => acc.id === widgetSettings.selectedAccountId);
+    return account ? [account] : accountsWithKeys; // Fallback to all if account not found
+  }, [widgetSettings.selectedAccountId, accountsWithKeys, hasValidAccounts]);
 
   // Handle tab change
   const handleTabChange = (tab: TradingDataTab) => {
@@ -60,31 +59,8 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   };
 
   // Handle account selection
-  const handleAccountToggle = (accountId: string) => {
-    const currentSelected = widgetSettings.selectedAccountIds || [];
-    let newSelected: string[];
-    
-    if (currentSelected.includes(accountId)) {
-      // Remove account from selection
-      newSelected = currentSelected.filter(id => id !== accountId);
-    } else {
-      // Add account to selection
-      newSelected = [...currentSelected, accountId];
-    }
-    
-    updateWidget(widgetId, { selectedAccountIds: newSelected });
-  };
-
-  // Handle select all accounts
-  const handleSelectAll = () => {
-    const selectedIds = widgetSettings.selectedAccountIds || [];
-    if (selectedIds.length === accountsWithKeys.length) {
-      // Deselect all
-      updateWidget(widgetId, { selectedAccountIds: [] });
-    } else {
-      // Select all
-      updateWidget(widgetId, { selectedAccountIds: accountsWithKeys.map(acc => acc.id) });
-    }
+  const handleAccountChange = (accountId: string) => {
+    updateWidget(widgetId, { selectedAccountId: accountId });
   };
 
   // Handle refresh for current tab
@@ -97,14 +73,8 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   };
 
   // Get display text for account selector
-  const getAccountSelectorText = () => {
-    if (selectedAccounts.length === 0) {
-      return 'All Accounts';
-    } else if (selectedAccounts.length === 1) {
-      return `${selectedAccounts[0].exchange} • ${selectedAccounts[0].email}`;
-    } else {
-      return `${selectedAccounts.length} accounts selected`;
-    }
+  const getAccountSelectorValue = () => {
+    return widgetSettings.selectedAccountId || 'all';
   };
 
   if (!activeUser) {
@@ -145,61 +115,30 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
           <h3 className="font-medium text-terminal-text">Trading Data</h3>
           
           {/* Account Selector */}
-          <Popover open={accountSelectorOpen} onOpenChange={setAccountSelectorOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={accountSelectorOpen}
-                className="w-48 h-8 justify-between bg-terminal-bg border-terminal-border text-xs"
-              >
-                {getAccountSelectorText()}
-                <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-0 bg-terminal-widget border-terminal-border">
-              <Command>
-                <CommandInput placeholder="Search accounts..." className="h-8" />
-                <CommandEmpty>No accounts found.</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    onSelect={handleSelectAll}
-                    className="cursor-pointer"
-                  >
-                    <Check
-                      className={`mr-2 h-3 w-3 ${
-                        (widgetSettings.selectedAccountIds || []).length === 0 || 
-                        (widgetSettings.selectedAccountIds || []).length === accountsWithKeys.length
-                          ? 'opacity-100' 
-                          : 'opacity-0'
-                      }`}
-                    />
-                    All Accounts ({accountsWithKeys.length})
-                  </CommandItem>
-                  {accountsWithKeys.map((account) => (
-                    <CommandItem
-                      key={account.id}
-                      onSelect={() => handleAccountToggle(account.id)}
-                      className="cursor-pointer"
-                    >
-                      <Check
-                        className={`mr-2 h-3 w-3 ${
-                          (widgetSettings.selectedAccountIds || []).includes(account.id) ||
-                          (widgetSettings.selectedAccountIds || []).length === 0
-                            ? 'opacity-100' 
-                            : 'opacity-0'
-                        }`}
-                      />
-                      <div className="flex flex-col">
-                        <span className="font-medium">{account.exchange}</span>
-                        <span className="text-xs text-terminal-muted">{account.email}</span>
-                      </div>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <Select 
+            value={getAccountSelectorValue()}
+            onValueChange={handleAccountChange}
+          >
+            <SelectTrigger className="w-48 h-8 bg-terminal-bg border-terminal-border text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-terminal-widget border-terminal-border">
+              <SelectItem value="all">
+                <div className="flex items-center gap-2">
+                  <User className="w-3 h-3" />
+                  All Accounts ({accountsWithKeys.length})
+                </div>
+              </SelectItem>
+              {accountsWithKeys.map((account) => (
+                <SelectItem key={account.id} value={account.id}>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{account.exchange}</span>
+                    <span className="text-xs text-terminal-muted">{account.email}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         
         <div className="flex items-center gap-2">
