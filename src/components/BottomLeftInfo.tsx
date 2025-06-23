@@ -2,7 +2,7 @@ import React from 'react';
 
 const BottomLeftInfo: React.FC = () => {
   return (
-    <div className="fixed left-2 bottom-2 z-[5000] bg-terminal-accent/30 text-terminal-muted px-3 py-1 rounded-md flex items-center text-xs">
+    <div className="hide fixed left-2 bottom-2 z-[5000] bg-terminal-accent/30 text-terminal-muted px-3 py-1 rounded-md flex items-center text-xs">
       <span>2 059,62 USD</span>
       <span className="mx-2">|</span>
       <span>

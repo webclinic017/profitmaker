@@ -286,3 +286,8 @@
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Utility class to hide elements */
+.hide {
+  display: none !important;
+}

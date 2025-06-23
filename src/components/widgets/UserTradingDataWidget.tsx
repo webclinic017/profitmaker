@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { TrendingUp, BarChart3, ShoppingCart, User, RefreshCw } from 'lucide-react';
 import { useUserStore } from '../../store/userStore';
 import { useUserTradingDataWidgetStore, TradingDataTab } from '../../store/userTradingDataWidgetStore';
@@ -13,10 +13,18 @@ interface UserTradingDataWidgetProps {
   widgetId?: string;
 }
 
+// Interface for tab refresh methods
+interface TabRefreshMethods {
+  refresh: () => Promise<void>;
+}
+
 // Header actions component for the widget
-export const UserTradingDataHeaderActions: React.FC<{ widgetId: string }> = ({ widgetId }) => {
+export const UserTradingDataHeaderActions: React.FC<{ 
+  widgetId: string;
+}> = ({ widgetId }) => {
   const { getWidget } = useUserTradingDataWidgetStore();
   const { users, activeUserId } = useUserStore();
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   const widgetSettings = getWidget(widgetId).settings;
   const activeUser = users.find(u => u.id === activeUserId);
@@ -42,11 +50,37 @@ export const UserTradingDataHeaderActions: React.FC<{ widgetId: string }> = ({ w
   }, [widgetSettings.selectedAccountId, accountsWithKeys, hasValidAccounts]);
 
   const handleRefresh = async () => {
-    if (!hasValidAccounts) return;
+    if (!hasValidAccounts || isRefreshing) return;
     
+    setIsRefreshing(true);
     console.log(`🔄 Refreshing ${widgetSettings.activeTab} for ${selectedAccounts.length} account(s)`);
     
-    // Refresh logic will be implemented when API methods are available
+    try {
+      // Force reload data for current active tab by triggering a re-fetch
+      // This will work by simulating a change that triggers useEffect in tabs
+      const currentTab = widgetSettings.activeTab;
+      const { updateWidget } = useUserTradingDataWidgetStore.getState();
+      
+      // Temporarily change tab to trigger cleanup, then switch back
+      updateWidget(widgetId, { activeTab: currentTab === 'trades' ? 'positions' : 'trades' });
+      
+      // Wait for tab switch to complete, then switch back and stop loading
+      await new Promise(resolve => {
+        setTimeout(() => {
+          updateWidget(widgetId, { activeTab: currentTab });
+          // Wait a bit more for the new tab to start loading
+          setTimeout(() => {
+            resolve(undefined);
+          }, 200);
+        }, 50);
+      });
+      
+      console.log(`✅ Refresh completed for ${widgetSettings.activeTab}`);
+    } catch (error) {
+      console.error(`❌ Refresh failed:`, error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
 
@@ -56,10 +90,15 @@ export const UserTradingDataHeaderActions: React.FC<{ widgetId: string }> = ({ w
       <button
         onClick={handleRefresh}
         className="p-1 rounded-sm hover:bg-terminal-widget/50 transition-colors"
-        title="Refresh data"
-        disabled={!hasValidAccounts}
+        title={isRefreshing ? "Refreshing..." : "Refresh data"}
+        disabled={!hasValidAccounts || isRefreshing}
       >
-        <RefreshCw size={14} className="text-terminal-muted hover:text-terminal-text transition-colors" />
+        <RefreshCw 
+          size={14} 
+          className={`text-terminal-muted hover:text-terminal-text transition-colors ${
+            isRefreshing ? 'animate-spin' : ''
+          }`} 
+        />
       </button>
     </div>
   );
@@ -79,6 +118,11 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   
   // Data provider integration
   const dataProvider = useDataProviderStore();
+  
+  // Refs for tab components to call their refresh methods
+  const tradesTabRef = useRef<TabRefreshMethods>(null);
+  const positionsTabRef = useRef<TabRefreshMethods>(null);
+  const ordersTabRef = useRef<TabRefreshMethods>(null);
   
   // Get all user accounts with API keys
   const accountsWithKeys = useMemo(() => {
@@ -153,6 +197,31 @@ const UserTradingDataWidget: React.FC<UserTradingDataWidgetProps> = ({
   // Handle tab change
   const handleTabChange = (tab: TradingDataTab) => {
     updateWidget(widgetId, { activeTab: tab });
+  };
+
+  // Handle refresh for current active tab
+  const handleRefreshData = async () => {
+    console.log(`🔄 [UserTradingDataWidget] Refreshing ${widgetSettings.activeTab} tab`);
+    
+    switch (widgetSettings.activeTab) {
+      case 'trades':
+        if (tradesTabRef.current) {
+          await tradesTabRef.current.refresh();
+        }
+        break;
+      case 'positions':
+        if (positionsTabRef.current) {
+          await positionsTabRef.current.refresh();
+        }
+        break;
+      case 'orders':
+        if (ordersTabRef.current) {
+          await ordersTabRef.current.refresh();
+        }
+        break;
+      default:
+        console.warn(`Unknown tab: ${widgetSettings.activeTab}`);
+    }
   };
 
   if (!activeUser) {
