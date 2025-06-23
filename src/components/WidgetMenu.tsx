@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { useGroupStore } from '@/store/groupStore';
 import { BarChart3, PieChart, ListOrdered, FileText, Clock, LineChart, Newspaper, Calendar, BookOpen, ArrowUpDown, Settings, Bug, Bell, Handshake, Users, Database, Globe, Server, TrendingUp, Wallet, ChevronRight } from 'lucide-react';
@@ -10,6 +10,12 @@ interface WidgetMenuProps {
   onClose: () => void;
 }
 
+interface SubmenuPosition {
+  x: number;
+  y: number;
+  placement: 'right' | 'left' | 'bottom' | 'top';
+}
+
 const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   const addWidget = useDashboardStore(s => s.addWidget);
   const activeDashboardId = useDashboardStore(s => s.activeDashboardId);
@@ -17,18 +23,103 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
   const { getTransparentGroup } = useGroupStore();
   const menuRef = useRef<HTMLDivElement>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [submenuPosition, setSubmenuPosition] = useState<SubmenuPosition>({ x: 0, y: 0, placement: 'right' });
+  const [adjustedPosition, setAdjustedPosition] = useState({ x: position.x, y: position.y });
   const diagnosticsMenuRef = useRef<HTMLDivElement>(null);
+  const diagnosticsButtonRef = useRef<HTMLButtonElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Debug logging for widget menu
   React.useEffect(() => {
     console.log('WidgetMenu: Active dashboard changed', { activeDashboardId });
   }, [activeDashboardId]);
   
-  // Adjust position to ensure menu stays within viewport
-  const adjustedPosition = {
-    x: Math.min(position.x, window.innerWidth - 320),
-    y: Math.min(position.y, window.innerHeight - 500)
-  };
+  // Smart positioning calculation
+  const calculateSmartPosition = useCallback(() => {
+    const MENU_WIDTH = 300;
+    const SUBMENU_WIDTH = 280;
+    const PADDING = 20;
+    
+    // Adjust main menu position to ensure it stays within viewport
+    const adjustedMainPosition = {
+      x: Math.min(position.x, window.innerWidth - MENU_WIDTH - PADDING),
+      y: Math.min(position.y, window.innerHeight - 500)
+    };
+    
+    setAdjustedPosition(adjustedMainPosition);
+    
+    // Calculate submenu position only if diagnostics menu is visible
+    if (showDiagnostics && diagnosticsButtonRef.current && menuRef.current) {
+      const buttonRect = diagnosticsButtonRef.current.getBoundingClientRect();
+      const menuRect = menuRef.current.getBoundingClientRect();
+      
+      // Try positioning to the right first (default)
+      let submenuX = adjustedMainPosition.x + MENU_WIDTH;
+      let submenuY = buttonRect.top - menuRect.top + adjustedMainPosition.y;
+      let placement: SubmenuPosition['placement'] = 'right';
+      
+      // Check if submenu would go off-screen to the right
+      if (submenuX + SUBMENU_WIDTH > window.innerWidth - PADDING) {
+        // Try positioning to the left
+        submenuX = adjustedMainPosition.x - SUBMENU_WIDTH;
+        placement = 'left';
+        
+        // If still off-screen to the left, position below
+        if (submenuX < PADDING) {
+          submenuX = adjustedMainPosition.x;
+          submenuY = adjustedMainPosition.y + menuRect.height;
+          placement = 'bottom';
+          
+          // If would go off-screen below, position above
+          if (submenuY + 400 > window.innerHeight - PADDING) {
+            submenuY = adjustedMainPosition.y - 400;
+            placement = 'top';
+            
+            // Final fallback: position at screen edge
+            if (submenuY < PADDING) {
+              submenuY = PADDING;
+              submenuX = Math.min(submenuX, window.innerWidth - SUBMENU_WIDTH - PADDING);
+              placement = 'right';
+            }
+          }
+        }
+      }
+      
+      // Ensure submenu Y position is within viewport
+      if (placement === 'right' || placement === 'left') {
+        submenuY = Math.max(PADDING, Math.min(submenuY, window.innerHeight - 400 - PADDING));
+      }
+      
+      setSubmenuPosition({ x: submenuX, y: submenuY, placement });
+    }
+  }, [position, showDiagnostics]);
+  
+  // Calculate position on mount and when position changes
+  useEffect(() => {
+    calculateSmartPosition();
+  }, [calculateSmartPosition]);
+  
+  // Recalculate positions when window resizes
+  useEffect(() => {
+    const handleResize = () => {
+      calculateSmartPosition();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [calculateSmartPosition]);
+  
+  // Recalculate submenu position when diagnostics menu shows
+  useEffect(() => {
+    if (showDiagnostics) {
+      // Small delay to ensure DOM is updated
+      const timeoutId = setTimeout(() => {
+        calculateSmartPosition();
+      }, 0);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [showDiagnostics, calculateSmartPosition]);
   
   useEffect(() => {
     // Close menu when clicking outside
@@ -136,6 +227,53 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
     onClose();
   };
 
+  // Handle diagnostics menu visibility with hover delay
+  const handleDiagnosticsMouseEnter = useCallback(() => {
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setShowDiagnostics(true);
+  }, []);
+  
+  const handleDiagnosticsMouseLeave = useCallback(() => {
+    // Clear any existing timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+    }
+    
+    // Set new timeout to hide submenu
+    hoverTimeoutRef.current = setTimeout(() => {
+      setShowDiagnostics(false);
+      hoverTimeoutRef.current = null;
+    }, 300); // Increased delay for easier navigation
+  }, []);
+  
+  // Keep submenu open when hovering over it
+  const handleSubmenuMouseEnter = useCallback(() => {
+    // Clear any pending timeout
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setShowDiagnostics(true);
+  }, []);
+  
+  const handleSubmenuMouseLeave = useCallback(() => {
+    // Immediately hide when leaving submenu
+    setShowDiagnostics(false);
+  }, []);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Widget categories
   const publicDataWidgets = [
     { type: 'chart' as WidgetType, label: 'Chart', icon: <LineChart size={16} /> },
@@ -216,9 +354,10 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
           {/* Diagnostics Section with submenu */}
           <div>
             <button
+              ref={diagnosticsButtonRef}
               className="flex items-center justify-between w-full px-3 py-2 rounded-md hover:bg-terminal-accent/50 hover:text-terminal-text transition-colors text-left text-sm"
-              onMouseEnter={() => setShowDiagnostics(true)}
-              onMouseLeave={() => setShowDiagnostics(false)}
+              onMouseEnter={handleDiagnosticsMouseEnter}
+              onMouseLeave={handleDiagnosticsMouseLeave}
             >
               <div className="flex items-center space-x-3">
                 <span className="text-terminal-muted">
@@ -226,7 +365,12 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
                 </span>
                 <span>Diagnostics</span>
               </div>
-              <ChevronRight size={14} className="text-terminal-muted" />
+              <ChevronRight 
+                size={14} 
+                className={`text-terminal-muted transition-transform duration-200 ${
+                  submenuPosition.placement === 'left' ? 'rotate-180' : ''
+                }`} 
+              />
             </button>
           </div>
         </div>
@@ -236,21 +380,30 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
         </div>
       </div>
 
-      {/* Diagnostics Submenu */}
+      {/* Diagnostics Submenu with smart positioning */}
       {showDiagnostics && (
         <div
           ref={diagnosticsMenuRef}
-          className="widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10003] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text"
+          className={`widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10003] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text transition-all duration-200 ${
+            submenuPosition.placement === 'left' ? 'animate-in slide-in-from-right-2' : 
+            submenuPosition.placement === 'right' ? 'animate-in slide-in-from-left-2' :
+            submenuPosition.placement === 'bottom' ? 'animate-in slide-in-from-top-2' :
+            'animate-in slide-in-from-bottom-2'
+          }`}
           style={{ 
-            left: adjustedPosition.x + 300, 
-            top: adjustedPosition.y + 120, // Position relative to Diagnostics button
-            width: '280px' 
+            left: submenuPosition.x,
+            top: submenuPosition.y,
+            width: '280px',
+            maxHeight: '400px',
+            overflowY: 'auto'
           }}
-          onMouseEnter={() => setShowDiagnostics(true)}
-          onMouseLeave={() => setShowDiagnostics(false)}
+          onMouseEnter={handleSubmenuMouseEnter}
+          onMouseLeave={handleSubmenuMouseLeave}
         >
           <div className="px-3 py-2 border-b border-terminal-border/50">
-            <h3 className="text-sm font-medium">Diagnostics</h3>
+            <h3 className="text-sm font-medium">
+              Diagnostics
+            </h3>
           </div>
           
           <div className="p-2 space-y-1">
