@@ -194,6 +194,29 @@ export const truncateString = (str: string, maxLength: number = 20): string => {
   return str.substring(0, maxLength - 3) + '...';
 };
 
+// Currency formatting (unified version from widgets)
+export const formatCurrency = (value: number, currency?: string): string => {
+  if (value === 0) return '0';
+  
+  const absValue = Math.abs(value);
+  let formatted: string;
+  
+  if (absValue < 0.001) {
+    formatted = value.toFixed(8);
+  } else if (absValue < 1) {
+    formatted = value.toFixed(6);
+  } else if (absValue < 1000) {
+    formatted = value.toFixed(4);  
+  } else {
+    formatted = value.toFixed(2);
+  }
+  
+  // Remove trailing zeros
+  formatted = formatted.replace(/\.?0+$/, '');
+  
+  return currency ? `${formatted} ${currency}` : formatted;
+};
+
 // Transaction hash formatting
 export const formatTxHash = (hash: string, startLength: number = 6, endLength: number = 4): string => {
   if (hash.length <= startLength + endLength) return hash;
