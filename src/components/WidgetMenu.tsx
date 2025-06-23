@@ -384,12 +384,7 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       {showDiagnostics && (
         <div
           ref={diagnosticsMenuRef}
-          className={`widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10003] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text transition-all duration-200 ${
-            submenuPosition.placement === 'left' ? 'animate-in slide-in-from-right-2' : 
-            submenuPosition.placement === 'right' ? 'animate-in slide-in-from-left-2' :
-            submenuPosition.placement === 'bottom' ? 'animate-in slide-in-from-top-2' :
-            'animate-in slide-in-from-bottom-2'
-          }`}
+          className="widget-menu absolute rounded-lg shadow-lg overflow-hidden z-[10003] border border-terminal-border bg-terminal-widget/95 backdrop-blur-md text-terminal-text"
           style={{ 
             left: submenuPosition.x,
             top: submenuPosition.y,
