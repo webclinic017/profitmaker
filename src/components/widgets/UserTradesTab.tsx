@@ -40,7 +40,7 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Data provider integration - will use when methods are available
+  // Data provider integration - get methods only
   const dataProvider = useDataProviderStore();
 
   // Load trades for accounts
@@ -96,7 +96,7 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [accounts, settings.tradesLimit, dataProvider]);
+  }, [accounts, settings.tradesLimit]);
 
   // Load trades only when this tab is active
   useEffect(() => {

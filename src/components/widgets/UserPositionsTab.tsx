@@ -100,7 +100,7 @@ const UserPositionsTab: React.FC<UserPositionsTabProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [accounts, settings.showZeroPositions, dataProvider]);
+  }, [accounts, settings.showZeroPositions]);
 
   // Load positions only when this tab is active
   useEffect(() => {

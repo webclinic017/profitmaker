@@ -172,7 +172,7 @@ const UserOrdersTab: React.FC<UserOrdersTabProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [accounts, settings.showClosedOrders, dataProvider]);
+  }, [accounts, settings.showClosedOrders]);
 
   // Load orders only when this tab is active
   useEffect(() => {
