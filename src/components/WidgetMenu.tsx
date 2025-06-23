@@ -306,16 +306,16 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
       key={widget.type}
       className={`group flex items-center w-full space-x-3 px-3 py-2 rounded-md transition-all duration-200 text-left text-sm ${
         widget.disabled 
-          ? 'text-gray-500 cursor-not-allowed opacity-50' 
-          : 'text-gray-300 hover:text-white hover:bg-gray-700/60 active:bg-gray-600/80 hover:shadow-sm'
+          ? 'text-terminal-muted/50 cursor-not-allowed opacity-50' 
+          : 'text-terminal-text hover:text-terminal-text hover:bg-terminal-accent/60 active:bg-terminal-accent/80 hover:shadow-sm'
       }`}
       onClick={() => !widget.disabled && handleAddWidget(widget.type)}
       disabled={widget.disabled}
     >
       <span className={`transition-colors duration-200 ${
         widget.disabled 
-          ? 'text-gray-500' 
-          : 'text-gray-400 group-hover:text-white'
+          ? 'text-terminal-muted/50' 
+          : 'text-terminal-muted group-hover:text-terminal-text'
       }`}>
         {widget.icon}
       </span>
@@ -359,19 +359,19 @@ const WidgetMenu: React.FC<WidgetMenuProps> = ({ position, onClose }) => {
           <div>
             <button
               ref={diagnosticsButtonRef}
-              className="group flex items-center justify-between w-full px-3 py-2 rounded-md text-gray-300 hover:text-white hover:bg-gray-700/60 active:bg-gray-600/80 hover:shadow-sm transition-all duration-200 text-left text-sm"
+              className="group flex items-center justify-between w-full px-3 py-2 rounded-md text-terminal-text hover:text-terminal-text hover:bg-terminal-accent/60 active:bg-terminal-accent/80 hover:shadow-sm transition-all duration-200 text-left text-sm"
               onMouseEnter={handleDiagnosticsMouseEnter}
               onMouseLeave={handleDiagnosticsMouseLeave}
             >
               <div className="flex items-center space-x-3">
-                <span className="text-gray-400 group-hover:text-white transition-colors duration-200">
+                <span className="text-terminal-muted group-hover:text-terminal-text transition-colors duration-200">
                   <Bug size={16} />
                 </span>
                 <span className="transition-colors duration-200">Diagnostics</span>
               </div>
               <ChevronRight 
                 size={14} 
-                className={`text-gray-400 group-hover:text-white transition-all duration-200 ${
+                className={`text-terminal-muted group-hover:text-terminal-text transition-all duration-200 ${
                   submenuPosition.placement === 'left' ? 'rotate-180' : ''
                 }`} 
               />
