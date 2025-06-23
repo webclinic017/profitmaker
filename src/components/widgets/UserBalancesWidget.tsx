@@ -25,36 +25,70 @@ interface AccountBalance {
 // Header actions component for the widget
 export const UserBalancesHeaderActions: React.FC<{ widgetId: string }> = ({ widgetId }) => {
   const { users, activeUserId } = useUserStore();
+  const { fetchBalance, updateBalance } = useDataProviderStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const activeUser = users.find(u => u.id === activeUserId);
   const accountsWithKeys = activeUser?.accounts?.filter(acc => acc.key && acc.privateKey) || [];
   const hasValidAccounts = accountsWithKeys.length > 0;
 
-  const handleRefresh = async () => {
+  // Clear balance data for a specific account
+  const clearBalanceData = useCallback((accountId: string, walletType: WalletType) => {
+    const emptyBalance = {
+      timestamp: Date.now(),
+      balances: [],
+      info: {}
+    };
+    updateBalance(accountId, emptyBalance, walletType);
+  }, [updateBalance]);
+
+  // Use the exact same logic as subscribeToAllAccounts from the main widget but with clear first
+  const handleRefresh = useCallback(async () => {
     if (!hasValidAccounts || isRefreshing) return;
     
     setIsRefreshing(true);
-    console.log(`🔄 Refreshing User Balances for ${accountsWithKeys.length} account(s)`);
+    console.log(`🔄 [USER-BALANCES-WIDGET-REFRESH] Starting balance refresh for ${accountsWithKeys.length} accounts`);
     
     try {
-      // Get the data provider store functions
-      const { initializeBalanceData } = useDataProviderStore.getState();
-      
-      // Re-initialize balance data for all valid accounts
+      // STEP 1: Clear all balance data first
+      console.log(`🗑️ [USER-BALANCES-WIDGET-REFRESH] Clearing existing balance data...`);
       for (const account of accountsWithKeys) {
-        for (const walletType of ['trading', 'funding'] as const) {
-          await initializeBalanceData(account.id, walletType);
+        clearBalanceData(account.id, 'trading');
+        clearBalanceData(account.id, 'funding');
+        console.log(`🗑️ [USER-BALANCES-WIDGET-REFRESH] Cleared balances for account ${account.id} (${account.exchange})`);
+      }
+      
+      // Small delay to ensure UI updates with cleared data
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // STEP 2: Fetch fresh balance data
+      console.log(`📥 [USER-BALANCES-WIDGET-REFRESH] Fetching fresh balance data...`);
+      for (const account of accountsWithKeys) {
+        if (!account.key || !account.privateKey) {
+          console.log(`⚠️ [USER-BALANCES-WIDGET-REFRESH] Skipping account ${account.exchange} (${account.email}) - no API keys`);
+          continue;
+        }
+        
+        try {
+          console.log(`🚀 [USER-BALANCES-WIDGET-REFRESH] Fetching balances for account ${account.id} (${account.exchange}:${account.email})`);
+          
+          // Fetch both trading and funding balances - EXACT SAME as subscribeToAllAccounts
+          await fetchBalance(account.id, 'trading');
+          await fetchBalance(account.id, 'funding');
+          
+          console.log(`✅ [USER-BALANCES-WIDGET-REFRESH] Fetched balances for account ${account.id} (${account.exchange})`);
+        } catch (error) {
+          console.error(`❌ [USER-BALANCES-WIDGET-REFRESH] Failed to fetch balances for account ${account.id} (${account.exchange}):`, error);
         }
       }
       
-      console.log(`✅ Refresh completed for User Balances`);
+      console.log(`✅ [USER-BALANCES-WIDGET-REFRESH] Refresh completed for User Balances`);
     } catch (error) {
-      console.error(`❌ Refresh failed:`, error);
+      console.error(`❌ [USER-BALANCES-WIDGET-REFRESH] Refresh failed:`, error);
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [hasValidAccounts, isRefreshing, accountsWithKeys, fetchBalance, clearBalanceData]);
 
   return (
     <div className="flex items-center gap-1">
