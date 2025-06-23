@@ -47,8 +47,8 @@
     --terminal-bg: 210 28% 98%;        /* #F7F9FB */
     --terminal-widget: 0 0% 100%;      /* #FFFFFF */
     --terminal-accent: 210 28% 96%;    /* #F1F5F9 */
-    --terminal-text: 222 44% 14%;      /* #1A202C */
-    --terminal-muted: 220 15% 35%;     /* #4A5568 */
+    --terminal-text: 222 44% 8%;       /* #0F1419 - более темный для лучшей контрастности */
+    --terminal-muted: 220 25% 25%;     /* #2D3748 - более темный для лучшей читаемости */
     --terminal-positive: 152 77% 43%;  /* #16C784 */
     --terminal-negative: 356 77% 57%;  /* #EA3943 */
     --terminal-border: 210 28% 90%;    /* #E2E8F0 */

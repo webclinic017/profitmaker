@@ -107,7 +107,7 @@ export const DebugCCXTCache: React.FC = () => {
     <Card className="p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Database className="h-5 w-5 text-blue-600" />
+          <Database className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <h3 className="text-lg font-semibold">CCXT Browser Provider Cache</h3>
         </div>
         <div className="flex items-center gap-2">
@@ -125,39 +125,39 @@ export const DebugCCXTCache: React.FC = () => {
       <div className="grid gap-4">
         {/* Overall Stats */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
+          <div className="bg-blue-100 dark:bg-blue-900/20 p-3 rounded-lg border dark:border-blue-800/30">
             <div className="flex items-center gap-2 mb-1">
-              <Database className="h-4 w-4 text-blue-600" />
-              <span className="font-medium text-blue-700">Total Instances</span>
+              <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span className="font-medium text-blue-700 dark:text-blue-300">Total Instances</span>
             </div>
-            <div className="text-2xl font-bold text-blue-600">{stats.totalInstances}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalInstances}</div>
           </div>
-          <div className="bg-green-50 p-3 rounded-lg">
+          <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-lg border dark:border-green-800/30">
             <div className="flex items-center gap-2 mb-1">
-              <Settings className="h-4 w-4 text-green-600" />
-              <span className="font-medium text-green-700">Markets Cache</span>
+              <Settings className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="font-medium text-green-700 dark:text-green-300">Markets Cache</span>
             </div>
-            <div className="text-2xl font-bold text-green-600">{stats.totalMarketsCache}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.totalMarketsCache}</div>
           </div>
         </div>
 
         {/* Instance Type Distribution */}
         {groupedStats && (
-          <div className="border rounded-lg p-3">
+          <div className="border border-border rounded-lg p-3">
             <h4 className="font-medium mb-3 flex items-center gap-2">
-              <Code className="h-4 w-4 text-purple-600" />
-              <span className="text-purple-700">CCXT Type Distribution</span>
+              <Code className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-purple-700 dark:text-purple-300">CCXT Type Distribution</span>
             </h4>
             <div className="grid grid-cols-2 gap-4">
               {Object.entries(groupedStats.byCcxtType).map(([ccxtType, instances]) => (
-                <div key={ccxtType} className={`p-3 rounded-lg ${ccxtType === 'pro' ? 'bg-purple-50' : 'bg-blue-50'}`}>
+                <div key={ccxtType} className={`p-3 rounded-lg border ${ccxtType === 'pro' ? 'bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800/30' : 'bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800/30'}`}>
                   <div className="flex items-center gap-2 mb-1">
-                    {ccxtType === 'pro' ? <Zap className="h-4 w-4 text-purple-600" /> : <Database className="h-4 w-4 text-blue-600" />}
-                    <span className={`font-medium ${ccxtType === 'pro' ? 'text-purple-700' : 'text-blue-700'}`}>
+                    {ccxtType === 'pro' ? <Zap className="h-4 w-4 text-purple-600 dark:text-purple-400" /> : <Database className="h-4 w-4 text-blue-600 dark:text-blue-400" />}
+                    <span className={`font-medium ${ccxtType === 'pro' ? 'text-purple-700 dark:text-purple-300' : 'text-blue-700 dark:text-blue-300'}`}>
                       {ccxtType === 'pro' ? 'CCXT Pro (WebSocket)' : 'CCXT Regular (REST)'}
                     </span>
                   </div>
-                  <div className={`text-xl font-bold ${ccxtType === 'pro' ? 'text-purple-600' : 'text-blue-600'}`}>
+                  <div className={`text-xl font-bold ${ccxtType === 'pro' ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'}`}>
                     {instances.length}
                   </div>
                 </div>
@@ -168,61 +168,61 @@ export const DebugCCXTCache: React.FC = () => {
 
         {/* Detailed Instance List */}
         {stats.instances.length > 0 && (
-          <div className="border rounded-lg p-3">
+          <div className="border border-border rounded-lg p-3">
             <h4 className="font-medium mb-3 flex items-center gap-2">
-              <Users className="h-4 w-4 text-gray-600" />
+              <Users className="h-4 w-4 text-muted-foreground" />
               <span>Instance Details</span>
             </h4>
             <div className="space-y-2">
               {stats.instances.map((instance: any, idx: number) => (
-                <div key={idx} className="bg-gray-50 p-3 rounded-lg border-l-4 border-l-blue-500">
+                <div key={idx} className="bg-muted/50 p-3 rounded-lg border-l-4 border-l-blue-500">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <div className="font-mono text-xs text-gray-500 mb-1">Instance Key:</div>
-                      <div className="font-mono text-xs bg-white p-1 rounded border break-all">
+                      <div className="font-mono text-xs text-muted-foreground mb-1">Instance Key:</div>
+                      <div className="font-mono text-xs bg-background p-1 rounded border border-border break-all">
                         {instance.key}
                       </div>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-600">Provider:</span>
-                        <span className="font-medium text-blue-600">{instance.providerId}</span>
+                        <span className="text-muted-foreground">Provider:</span>
+                        <span className="font-medium text-blue-600 dark:text-blue-400">{instance.providerId}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-600">User:</span>
+                        <span className="text-muted-foreground">User:</span>
                         <span className="font-medium">{instance.userId}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-600">Account:</span>
+                        <span className="text-muted-foreground">Account:</span>
                         <span className="font-medium">{instance.accountId}</span>
                       </div>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-4 gap-4 mt-3 pt-2 border-t text-sm">
+                  <div className="grid grid-cols-4 gap-4 mt-3 pt-2 border-t border-border text-sm">
                     <div>
-                      <span className="text-gray-600">Exchange:</span>
-                      <div className="font-medium text-green-600">{instance.exchangeId}</div>
+                      <span className="text-muted-foreground">Exchange:</span>
+                      <div className="font-medium text-green-600 dark:text-green-400">{instance.exchangeId}</div>
                     </div>
                     <div>
-                      <span className="text-gray-600">Market:</span>
-                      <div className="font-medium text-orange-600">{instance.marketType}</div>
+                      <span className="text-muted-foreground">Market:</span>
+                      <div className="font-medium text-orange-600 dark:text-orange-400">{instance.marketType}</div>
                     </div>
                     <div>
-                      <span className="text-gray-600">Type:</span>
-                      <div className={`font-medium ${instance.ccxtType === 'pro' ? 'text-purple-600' : 'text-blue-600'}`}>
+                      <span className="text-muted-foreground">Type:</span>
+                      <div className={`font-medium ${instance.ccxtType === 'pro' ? 'text-purple-600 dark:text-purple-400' : 'text-blue-600 dark:text-blue-400'}`}>
                         {instance.ccxtType}
                       </div>
                     </div>
                     <div>
-                      <span className="text-gray-600">Markets:</span>
-                      <div className={`font-medium ${instance.marketsLoaded ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className="text-muted-foreground">Markets:</span>
+                      <div className={`font-medium ${instance.marketsLoaded ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                         {instance.marketsLoaded ? '✅ Loaded' : '❌ Not loaded'}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4 mt-2 pt-2 border-t text-xs text-gray-600">
+                  <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       <span>Age: {formatDuration(instance.age)}</span>
@@ -239,7 +239,7 @@ export const DebugCCXTCache: React.FC = () => {
 
         {/* Empty State */}
         {stats.totalInstances === 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <Database className="h-12 w-12 mx-auto mb-2 opacity-50" />
             <h4 className="font-medium mb-1">No CCXT Instances Cached</h4>
             <p className="text-sm">Cache will populate when CCXT instances are created</p>
