@@ -768,27 +768,19 @@ export const createDataActions: StateCreator<
     console.log(`🚀 [Ticker] Loading ticker for ${exchange}:${market}:${symbol}`);
     
     try {
-      // Use CCXTBrowserProvider for proper instance management
+      // Use active provider for this exchange
+      const provider = get().getProviderForExchange(exchange);
+      if (!provider || provider.type !== 'ccxt-browser') {
+        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
+      }
+
       const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
-      
-      // Create a temporary provider for metadata instance
-      const tempProvider = createCCXTBrowserProvider({
-        id: 'ticker-data-provider',
-        name: 'Ticker Data Provider',
-        type: 'ccxt-browser',
-        exchanges: [exchange],
-        status: 'connected',
-        priority: 1,
-        config: {
-          sandbox: false,
-          options: {}
-        }
-      });
+      const ccxtProvider = createCCXTBrowserProvider(provider);
 
       // Get metadata instance (no API keys needed for ticker data)
-      const exchangeInstance = await tempProvider.getMetadataInstance(exchange, market, false);
+      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
       
-      console.log(`🔍 [initializeTickerData] Using cached CCXT instance for ${exchange}:${market}`);
+      console.log(`🔍 [initializeTickerData] Using ${provider.id} provider for ${exchange}:${market}`);
       
       // Load ticker via REST
       const tickerData = await exchangeInstance.fetchTicker(symbol);
