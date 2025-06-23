@@ -1,5 +1,6 @@
 import { getCCXT } from './ccxtUtils';
 import type { CCXTBrowserProvider } from '../../types/dataProviders';
+import { wrapExchangeWithLogger } from '../../utils/requestLogger';
 
 interface CachedExchangeInstance {
   instance: any;
@@ -162,8 +163,11 @@ class CCXTInstanceManager {
       hasSecret: !!exchangeInstance.secret
     });
 
+    // Wrap with request logger
+    const loggedInstance = wrapExchangeWithLogger(exchangeInstance, exchange, accountId);
+
     // Загружаем markets с кэшированием
-    await this.loadMarketsWithCache(exchangeInstance, exchange);
+    await this.loadMarketsWithCache(loggedInstance, exchange);
 
     // Создаем провайдер конфиг для кэша
     const providerConfig: CCXTBrowserProvider = {
@@ -186,7 +190,7 @@ class CCXTInstanceManager {
     };
 
     const cachedInstance: CachedExchangeInstance = {
-      instance: exchangeInstance,
+      instance: loggedInstance,
       provider: providerConfig,
       lastAccess: Date.now(),
       marketsLoaded: true
@@ -195,7 +199,7 @@ class CCXTInstanceManager {
     this.cache.set(cacheKey, cachedInstance);
     console.log(`✅ [CCXTInstanceManager] Cached new instance for ${exchange}:${marketType}, cache size: ${this.cache.size}`);
 
-    return exchangeInstance;
+    return loggedInstance;
   }
 
   /**
@@ -231,11 +235,14 @@ class CCXTInstanceManager {
       // API ключи теперь передаются через provider.config.options
     });
 
+    // Wrap with request logger
+    const loggedInstance = wrapExchangeWithLogger(exchangeInstance, exchange, provider.id);
+
     // Загружаем markets с кэшированием
-    await this.loadMarketsWithCache(exchangeInstance, exchange);
+    await this.loadMarketsWithCache(loggedInstance, exchange);
 
     const cachedInstance: CachedExchangeInstance = {
-      instance: exchangeInstance,
+      instance: loggedInstance,
       provider: { ...provider }, // Клонируем для безопасности
       lastAccess: Date.now(),
       marketsLoaded: true
@@ -244,7 +251,7 @@ class CCXTInstanceManager {
     this.cache.set(cacheKey, cachedInstance);
     console.log(`✅ [CCXTInstanceManager] Cached new instance for ${exchange}, cache size: ${this.cache.size}`);
 
-    return exchangeInstance;
+    return loggedInstance;
   }
 
   /**

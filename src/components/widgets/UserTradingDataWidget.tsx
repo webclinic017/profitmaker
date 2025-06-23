@@ -49,15 +49,93 @@ export const UserTradingDataHeaderActions: React.FC<{ widgetId: string }> = ({ w
     // Refresh logic will be implemented when API methods are available
   };
 
+  const handleDebugTest = async () => {
+    if (!hasValidAccounts || selectedAccounts.length === 0) {
+      console.warn('⚠️ No valid accounts for debug test');
+      return;
+    }
+    
+    const account = selectedAccounts[0];
+    console.log(`🔍 [Debug] Testing ccxtAccountManager with account:`, {
+      id: account.id,
+      exchange: account.exchange,
+      email: account.email,
+      hasKey: !!account.key,
+      hasPrivateKey: !!account.privateKey
+    });
+    
+    try {
+      const { ccxtAccountManager } = await import('../../store/utils/ccxtAccountManager');
+      
+      const accountConfig = {
+        accountId: account.id,
+        exchange: account.exchange,
+        apiKey: account.key,
+        secret: account.privateKey,
+        password: account.password,
+        sandbox: false
+      };
+      
+      console.log(`🔄 [Debug] Getting regular instance for spot market...`);
+      const spotInstance = await ccxtAccountManager.getRegularInstance(accountConfig, 'spot');
+      
+      console.log(`✅ [Debug] Spot instance created:`, {
+        id: spotInstance.id,
+        name: spotInstance.name,
+        defaultType: spotInstance.defaultType,
+        hasApiKey: !!spotInstance.apiKey,
+        hasLoadMarkets: !!spotInstance.loadMarkets,
+        hasFetchMyTrades: spotInstance.has?.fetchMyTrades,
+        hasFetchOpenOrders: spotInstance.has?.fetchOpenOrders,
+        hasFetchPositions: spotInstance.has?.fetchPositions
+      });
+      
+      // Test fetchMyTrades if available
+      if (spotInstance.has?.fetchMyTrades) {
+        console.log(`🔄 [Debug] Testing fetchMyTrades...`);
+        try {
+          const trades = await spotInstance.fetchMyTrades(undefined, undefined, 5);
+          console.log(`✅ [Debug] fetchMyTrades success: ${trades?.length || 0} trades`);
+        } catch (error) {
+          console.warn(`⚠️ [Debug] fetchMyTrades failed:`, error.message);
+        }
+      }
+      
+      // Test fetchOpenOrders if available
+      if (spotInstance.has?.fetchOpenOrders) {
+        console.log(`🔄 [Debug] Testing fetchOpenOrders...`);
+        try {
+          const orders = await spotInstance.fetchOpenOrders();
+          console.log(`✅ [Debug] fetchOpenOrders success: ${orders?.length || 0} orders`);
+        } catch (error) {
+          console.warn(`⚠️ [Debug] fetchOpenOrders failed:`, error.message);
+        }
+      }
+      
+    } catch (error) {
+      console.error(`❌ [Debug] ccxtAccountManager test failed:`, error);
+    }
+  };
+
   return (
-    <button
-      onClick={handleRefresh}
-      className="p-1 rounded-sm hover:bg-terminal-widget/50 transition-colors"
-      title="Refresh data"
-      disabled={!hasValidAccounts}
-    >
-      <RefreshCw size={14} className="text-terminal-muted hover:text-terminal-text transition-colors" />
-    </button>
+    <div className="flex items-center gap-1">
+      <button
+        onClick={handleDebugTest}
+        className="px-2 py-1 text-xs rounded-sm bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 transition-colors"
+        title="Debug test ccxtAccountManager"
+        disabled={!hasValidAccounts}
+      >
+        DEBUG
+      </button>
+      <button
+        onClick={handleRefresh}
+        className="p-1 rounded-sm hover:bg-terminal-widget/50 transition-colors"
+        title="Refresh data"
+        disabled={!hasValidAccounts}
+      >
+        <RefreshCw size={14} className="text-terminal-muted hover:text-terminal-text transition-colors" />
+      </button>
+    </div>
   );
 };
 

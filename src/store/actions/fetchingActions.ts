@@ -116,7 +116,17 @@ export const createFetchingActions: StateCreator<
     }
 
     try {
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxtPro);
+      // Use CCXTBrowserProvider for proper instance management
+      let exchangeInstance: any;
+      if (provider.type === 'ccxt-browser') {
+        const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
+        const ccxtProvider = createCCXTBrowserProvider(provider);
+        exchangeInstance = await ccxtProvider.getWebSocketInstance(exchange, market, false);
+      } else {
+        // Fallback for other provider types
+        exchangeInstance = createExchangeInstance(exchange, provider, ccxtPro);
+      }
+      
       const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
 
       // CCXT Pro supports WebSocket by default for all major exchanges

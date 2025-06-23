@@ -2,7 +2,6 @@ import type { StateCreator } from 'zustand';
 import type { DataProviderStore } from '../types';
 import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, Ticker, ExchangeBalances, ActiveSubscription, Timeframe, MarketType, WalletType } from '../../types/dataProviders';
 import { getCCXT } from '../utils/ccxtUtils';
-import { createExchangeInstance } from '../utils/providerUtils';
 import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
 
 export interface DataActions {
@@ -468,28 +467,22 @@ export const createDataActions: StateCreator<
 
   // REST data initialization for Chart widgets
   initializeChartData: async (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType): Promise<Candle[]> => {
-    // NEW: Get optimal provider for this exchange
-    const provider = get().getProviderForExchange(exchange);
-    
-    if (!provider) {
-      throw new Error(`No suitable provider found for exchange ${exchange}`);
-    }
-    
-    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
-      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
-    }
-    
-    console.log(`🚀 [initializeChartData] Loading initial data for ${exchange}:${market}:${symbol}:${timeframe} using provider ${provider.id}`);
+    console.log(`🚀 [initializeChartData] Loading initial OHLCV data for ${exchange}:${market}:${symbol}:${timeframe}`);
     
     try {
-      // Use CCXT utilities with new helper function
-      const ccxt = getCCXT();
-      
-      if (!ccxt) {
-        throw new Error('CCXT not available');
+      // Use existing universal-browser provider for consistency
+      const provider = get().getProviderForExchange(exchange);
+      if (!provider || provider.type !== 'ccxt-browser') {
+        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
       }
+
+      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
+      const ccxtProvider = createCCXTBrowserProvider(provider);
+
+      // Get metadata instance (no API keys needed for historical data)
+      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
       
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      console.log(`🔍 [initializeChartData] Using ${provider.id} provider for ${exchange}:${market}`);
       
       // Get optimal limit for this exchange
       const optimalLimit = getOHLCVLimit(exchange);
@@ -525,28 +518,22 @@ export const createDataActions: StateCreator<
 
   // REST data initialization for Trades widgets
   initializeTradesData: async (exchange: string, symbol: string, market: MarketType, limit: number = 500, aggregated: boolean = true): Promise<Trade[]> => {
-    // Get optimal provider for this exchange
-    const provider = get().getProviderForExchange(exchange);
-    
-    if (!provider) {
-      throw new Error(`No suitable provider found for exchange ${exchange}`);
-    }
-    
-    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
-      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
-    }
-    
-    console.log(`🚀 [initializeTradesData] Loading initial trades for ${exchange}:${market}:${symbol} (limit: ${limit}, aggregated: ${aggregated}) using provider ${provider.id}`);
+    console.log(`🚀 [initializeTradesData] Loading initial trades for ${exchange}:${market}:${symbol} (limit: ${limit}, aggregated: ${aggregated})`);
     
     try {
-      // Use CCXT utilities
-      const ccxt = getCCXT();
-      
-      if (!ccxt) {
-        throw new Error('CCXT not available');
+      // Use existing universal-browser provider for consistency
+      const provider = get().getProviderForExchange(exchange);
+      if (!provider || provider.type !== 'ccxt-browser') {
+        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
       }
+
+      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
+      const ccxtProvider = createCCXTBrowserProvider(provider);
+
+      // Get metadata instance (no API keys needed for trades data)
+      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
       
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      console.log(`🔍 [initializeTradesData] Using ${provider.id} provider for ${exchange}:${market}`);
       
       // Set fetchTradesMethod based on aggregated parameter
       const fetchTradesMethod = aggregated 
@@ -585,31 +572,49 @@ export const createDataActions: StateCreator<
 
   // REST data initialization for OrderBook widgets
   initializeOrderBookData: async (exchange: string, symbol: string, market: MarketType): Promise<OrderBook> => {
-    // Get optimal provider for this exchange
-    const provider = get().getProviderForExchange(exchange);
-    
-    if (!provider) {
-      throw new Error(`No suitable provider found for exchange ${exchange}`);
-    }
-    
-    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
-      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
-    }
-    
-    console.log(`🚀 [OrderBook] Loading initial orderbook for ${exchange}:${market}:${symbol} using provider ${provider.id}`);
+    console.log(`🚀 [OrderBook] Loading initial orderbook for ${exchange}:${market}:${symbol}`);
     
     try {
-      // Use CCXT utilities
+      // Use CCXT for public market data (no API keys needed)
       const ccxt = getCCXT();
       
       if (!ccxt) {
         throw new Error('CCXT not available');
       }
-      
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+
+      const ExchangeClass = ccxt[exchange];
+      if (!ExchangeClass) {
+        throw new Error(`Exchange ${exchange} not found in CCXT`);
+      }
+
+      // Create public instance without API keys
+      let defaultType: string = market;
+      if (exchange === 'bybit') {
+        const bybitCategoryMap: Record<string, string> = {
+          'spot': 'spot',
+          'futures': 'linear',
+          'swap': 'linear', 
+          'margin': 'spot',
+          'options': 'option'
+        };
+        defaultType = bybitCategoryMap[market] || market;
+        console.log(`🔍 [initializeOrderBookData] Bybit mapping: ${market} -> ${defaultType}`);
+      }
+
+      const exchangeInstance = new ExchangeClass({
+        sandbox: false,
+        enableRateLimit: true,
+        defaultType: defaultType,
+      });
+
+      // Wrap with request logger for debugging
+      const { wrapExchangeWithLogger } = await import('../../utils/requestLogger');
+      const loggedInstance = wrapExchangeWithLogger(exchangeInstance, exchange, 'public-orderbook');
+
+      await loggedInstance.loadMarkets();
       
       // Load orderbook via REST
-      const orderbookData = await exchangeInstance.fetchOrderBook(symbol);
+      const orderbookData = await loggedInstance.fetchOrderBook(symbol);
       
       if (!orderbookData) {
         throw new Error('No orderbook data received from exchange');
@@ -653,28 +658,23 @@ export const createDataActions: StateCreator<
     
     const exchange = account.exchange;
     
-    // Get optimal provider for this exchange
-    const provider = get().getProviderForExchange(exchange);
-    
-    if (!provider) {
-      throw new Error(`No suitable provider found for exchange ${exchange}`);
-    }
-    
-    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
-      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
-    }
-    
-    console.log(`🚀 [Balance] Loading initial balance for account ${accountId} (${exchange}:${walletType}) using provider ${provider.id}`);
+    console.log(`🚀 [Balance] Loading initial balance for account ${accountId} (${exchange}:${walletType})`);
     
     try {
-      // Use CCXT utilities
-      const ccxt = getCCXT();
+      // Use ccxtAccountManager for account-specific data
+      const { ccxtAccountManager } = await import('../utils/ccxtAccountManager');
       
-      if (!ccxt) {
-        throw new Error('CCXT not available');
-      }
+      const config = {
+        accountId: accountId,
+        exchange: exchange,
+        apiKey: account.key,
+        secret: account.privateKey,
+        password: account.passphrase || undefined,
+        sandbox: account.sandbox || false,
+        marketType: walletType // Use walletType as marketType for balance
+      };
       
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      const exchangeInstance = await ccxtAccountManager.getRegularInstance(config);
       
       // Set defaultType based on wallet type (CCXT best practice)
       if (walletType === 'futures') {
@@ -765,28 +765,30 @@ export const createDataActions: StateCreator<
 
   // REST data initialization for Ticker widgets
   initializeTickerData: async (exchange: string, symbol: string, market: MarketType): Promise<Ticker> => {
-    // Get optimal provider for this exchange
-    const provider = get().getProviderForExchange(exchange);
-    
-    if (!provider) {
-      throw new Error(`No suitable provider found for exchange ${exchange}`);
-    }
-    
-    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
-      throw new Error(`REST initialization not supported for provider type: ${provider.type}`);
-    }
-    
-    console.log(`🚀 [Ticker] Loading ticker for ${exchange}:${market}:${symbol} using provider ${provider.id}`);
+    console.log(`🚀 [Ticker] Loading ticker for ${exchange}:${market}:${symbol}`);
     
     try {
-      // Use CCXT utilities
-      const ccxt = getCCXT();
+      // Use CCXTBrowserProvider for proper instance management
+      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
       
-      if (!ccxt) {
-        throw new Error('CCXT not available');
-      }
+      // Create a temporary provider for metadata instance
+      const tempProvider = createCCXTBrowserProvider({
+        id: 'ticker-data-provider',
+        name: 'Ticker Data Provider',
+        type: 'ccxt-browser',
+        exchanges: [exchange],
+        status: 'connected',
+        priority: 1,
+        config: {
+          sandbox: false,
+          options: {}
+        }
+      });
+
+      // Get metadata instance (no API keys needed for ticker data)
+      const exchangeInstance = await tempProvider.getMetadataInstance(exchange, market, false);
       
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      console.log(`🔍 [initializeTickerData] Using cached CCXT instance for ${exchange}:${market}`);
       
       // Load ticker via REST
       const tickerData = await exchangeInstance.fetchTicker(symbol);
@@ -827,28 +829,26 @@ export const createDataActions: StateCreator<
 
   // Infinite scroll: Load historical candles before given timestamp
   loadHistoricalCandles: async (exchange: string, symbol: string, timeframe: Timeframe, market: MarketType, beforeTimestamp: number): Promise<Candle[]> => {
-    // Get optimal provider for this exchange
-    const provider = get().getProviderForExchange(exchange);
-    
-    if (!provider) {
-      throw new Error(`No suitable provider found for exchange ${exchange}`);
-    }
-    
-    if (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server') {
-      throw new Error(`Historical data loading not supported for provider type: ${provider.type}`);
-    }
-    
-    console.log(`📜 [loadHistoricalCandles] Loading historical data before ${new Date(beforeTimestamp).toISOString()} for ${exchange}:${market}:${symbol}:${timeframe} using provider ${provider.id}`);
+    console.log(`📜 [loadHistoricalCandles] Loading historical data before ${new Date(beforeTimestamp).toISOString()} for ${exchange}:${market}:${symbol}:${timeframe}`);
     
     try {
-      // Use CCXT utilities
-      const ccxt = getCCXT();
-      
-      if (!ccxt) {
-        throw new Error('CCXT not available');
+      // Use existing universal-browser provider for consistency
+      const provider = get().getProviderForExchange(exchange);
+      if (!provider || provider.type !== 'ccxt-browser') {
+        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
       }
+
+      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
+      const ccxtProvider = createCCXTBrowserProvider(provider);
+
+      // Get metadata instance (no API keys needed for historical data)
+      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
       
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      console.log(`🔍 [loadHistoricalCandles] Using ${provider.id} provider for ${exchange}:${market}`);
+      
+      if (!exchangeInstance.markets) {
+        console.warn(`⚠️ [loadHistoricalCandles] Markets not loaded for ${exchange}`);
+      }
       
              // Get optimal limit for this exchange (use maximum allowed by exchange)
        const optimalLimit = getOHLCVLimit(exchange);
@@ -929,29 +929,20 @@ export const createDataActions: StateCreator<
     console.log(`🔄 [fetchMyTrades] Loading trades for account ${accountId} (${account.exchange})`);
     
     try {
-      // Use CCXTInstanceManager for better performance and consistency
-      const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
+      // Use CCXTAccountManager for better performance and consistency
+      const { ccxtAccountManager } = await import('../utils/ccxtAccountManager');
       
-      // Create provider config for the account
-      const providerConfig = {
-        id: `temp-provider-${account.id}`,
-        name: `Temp Provider for ${account.exchange}`,
-        type: 'ccxt-browser' as const,
-        exchanges: [account.exchange],
-        status: 'connected' as const,
-        priority: 1,
-        config: {
-          sandbox: false,
-          options: {
-            apiKey: account.key,
-            secret: account.privateKey,
-            password: account.password,
-            enableRateLimit: true,
-          }
-        }
+      // Create account config
+      const accountConfig = {
+        accountId: account.id,
+        exchange: account.exchange,
+        apiKey: account.key,
+        secret: account.privateKey,
+        password: account.password,
+        sandbox: false
       };
       
-      const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(account.exchange, providerConfig);
+      const exchangeInstance = await ccxtAccountManager.getRegularInstance(accountConfig, 'spot');
       
       // Intercept HTTP requests to log them
       const originalFetch = exchangeInstance.fetch;
@@ -1165,48 +1156,19 @@ export const createDataActions: StateCreator<
         
         console.log(`🔄 [fetchOrders] Fetching orders for market: ${marketLabel}`);
         
-        // Create provider config with market-specific settings
-        const providerConfig: any = {
-          id: `${account.id}-${marketCategory || 'default'}`,
-          name: `CCXT Browser Provider for ${account.exchange} (${marketCategory || 'default'})`,
-          type: 'ccxt-browser' as const,
-          status: 'connected' as const,
-          exchanges: [account.exchange],
-          priority: 1,
-          config: {
-            sandbox: false,
-            options: {} as any
-          }
+        // Create account config
+        const accountConfig = {
+          accountId: account.id,
+          exchange: account.exchange,
+          apiKey: account.key,
+          secret: account.privateKey,
+          password: account.password,
+          sandbox: false
         };
         
-        // Set market category for Bybit and similar exchanges
-        if (marketCategory && account.exchange === 'bybit') {
-          // Map our market names to Bybit categories
-          const bybitCategoryMap: Record<string, string> = {
-            'spot': 'spot',
-            'futures': 'linear',
-            'swap': 'linear', 
-            'margin': 'spot',
-            'options': 'option'
-          };
-          
-          const bybitCategory = bybitCategoryMap[marketCategory];
-          if (bybitCategory) {
-            providerConfig.config.options.defaultType = bybitCategory;
-            console.log(`🏪 [fetchOrders] Set Bybit category to: ${bybitCategory} for market: ${marketCategory}`);
-          }
-        }
-        
-        // Get exchange instance through instance manager
-        const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
-        const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(account.exchange, providerConfig);
-        
-        // Set API credentials for authenticated requests
-        exchangeInstance.apiKey = account.key;
-        exchangeInstance.secret = account.privateKey;
-        if (account.password) {
-          exchangeInstance.password = account.password;
-        }
+        // Get exchange instance through account manager
+        const { ccxtAccountManager } = await import('../utils/ccxtAccountManager');
+        const exchangeInstance = await ccxtAccountManager.getRegularInstance(accountConfig, marketCategory || 'spot');
         
         console.log(`🔍 [fetchOrders] Exchange capabilities for ${account.exchange} (${marketLabel}):`);
         console.log(`🔍 [fetchOrders] has.fetchOrders: ${exchangeInstance.has.fetchOrders}`);
@@ -1372,11 +1334,13 @@ export const createDataActions: StateCreator<
     console.log(`🔄 [fetchOpenOrders] Loading open orders for account ${accountId} (${account.exchange})`);
     
     try {
-      // Use CCXTInstanceManager for better performance and consistency
-      const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
+      // Use CCXTAccountManager for better performance and consistency
+      const { ccxtAccountManager } = await import('../utils/ccxtAccountManager');
       
       // Account configuration
       const accountConfig = {
+        accountId: account.id,
+        exchange: account.exchange,
         apiKey: account.key,
         secret: account.privateKey,
         password: account.password,
@@ -1394,9 +1358,7 @@ export const createDataActions: StateCreator<
           try {
             console.log(`🔄 [fetchOpenOrders] Trying Bybit category: ${category}`);
             
-            const exchangeInstance = await ccxtInstanceManager.getExchangeInstanceForMarket(
-              account.exchange, 
-              account.id, 
+            const exchangeInstance = await ccxtAccountManager.getRegularInstance(
               accountConfig, 
               category === 'linear' ? 'futures' : 'spot'
             );
@@ -1453,9 +1415,7 @@ export const createDataActions: StateCreator<
           try {
             console.log(`🔄 [fetchOpenOrders] Trying ${account.exchange} category: ${category}`);
             
-            const exchangeInstance = await ccxtInstanceManager.getExchangeInstanceForMarket(
-              account.exchange, 
-              account.id, 
+            const exchangeInstance = await ccxtAccountManager.getRegularInstance(
               accountConfig, 
               category
             );
@@ -1521,11 +1481,13 @@ export const createDataActions: StateCreator<
       
       let allPositions: any[] = [];
       
-      // Use CCXTInstanceManager for better performance and consistency
-      const { ccxtInstanceManager } = await import('../utils/ccxtInstanceManager');
+      // Use CCXTAccountManager for better performance and consistency
+      const { ccxtAccountManager } = await import('../utils/ccxtAccountManager');
       
       // Account configuration
       const accountConfig = {
+        accountId: account.id,
+        exchange: account.exchange,
         apiKey: account.key,
         secret: account.privateKey,
         password: account.password,
@@ -1538,9 +1500,7 @@ export const createDataActions: StateCreator<
         
         try {
           // Get exchange instance for this market type
-          const exchangeInstance = await ccxtInstanceManager.getExchangeInstanceForMarket(
-            account.exchange, 
-            account.id, 
+          const exchangeInstance = await ccxtAccountManager.getRegularInstance(
             accountConfig, 
             marketCategory
           );

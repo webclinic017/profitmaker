@@ -1,16 +1,288 @@
-import { getCCXT } from '../utils/ccxtUtils';
-import { ccxtInstanceManager } from '../utils/ccxtInstanceManager';
+import { getCCXT, getCCXTPro } from '../utils/ccxtUtils';
+import { wrapExchangeWithLogger } from '../../utils/requestLogger';
 import type { CCXTBrowserProvider } from '../../types/dataProviders';
+
+interface CCXTInstanceConfig {
+  providerId: string;
+  userId: string;
+  accountId: string;
+  exchangeId: string;
+  marketType: string;
+  ccxtType: 'regular' | 'pro';
+  apiKey?: string;
+  secret?: string;
+  password?: string;
+  sandbox?: boolean;
+}
+
+interface CachedCCXTInstance {
+  instance: any;
+  config: CCXTInstanceConfig;
+  lastAccess: number;
+  marketsLoaded: boolean;
+}
+
+interface MarketsCache {
+  [cacheKey: string]: {
+    markets: any;
+    timestamp: number;
+  };
+}
 
 /**
  * CCXT Browser Provider Implementation
- * Отвечает за получение данных через CCXT библиотеку в браузере
+ * Единственное место управления CCXT instances с плоским кэшем
  */
 export class CCXTBrowserProviderImpl {
   private provider: CCXTBrowserProvider;
+  
+  // Плоский кэш всех CCXT instances
+  private static instancesCache = new Map<string, CachedCCXTInstance>();
+  private static marketsCache: MarketsCache = {};
+  
+  private static readonly CACHE_TTL = 24 * 60 * 60 * 1000; // 1 день
+  private static readonly MARKETS_CACHE_TTL = 60 * 60 * 1000; // 1 час для markets
 
   constructor(provider: CCXTBrowserProvider) {
     this.provider = provider;
+  }
+
+  /**
+   * Создает ключ для CCXT instance
+   */
+  private static createInstanceKey(config: CCXTInstanceConfig): string {
+    return `${config.providerId}:${config.userId}:${config.accountId}:${config.exchangeId}:${config.marketType}:${config.ccxtType}`;
+  }
+
+  /**
+   * Создает ключ для кэша markets
+   */
+  private static createMarketsCacheKey(exchangeId: string, sandbox: boolean, marketType: string): string {
+    return `${exchangeId}:${sandbox ? 'sandbox' : 'live'}:${marketType}`;
+  }
+
+  /**
+   * Проверяет валидность кэшированного instance
+   */
+  private static isInstanceValid(cached: CachedCCXTInstance): boolean {
+    const now = Date.now();
+    return (now - cached.lastAccess) < CCXTBrowserProviderImpl.CACHE_TTL;
+  }
+
+  /**
+   * Проверяет валидность кэшированных markets
+   */
+  private static isMarketsValid(cacheKey: string): boolean {
+    const cached = CCXTBrowserProviderImpl.marketsCache[cacheKey];
+    if (!cached) return false;
+    
+    const now = Date.now();
+    return (now - cached.timestamp) < CCXTBrowserProviderImpl.MARKETS_CACHE_TTL;
+  }
+
+  /**
+   * Загружает markets с кэшированием
+   */
+  private static async loadMarketsWithCache(
+    exchangeInstance: any, 
+    exchangeId: string, 
+    sandbox: boolean, 
+    marketType: string
+  ): Promise<void> {
+    const cacheKey = CCXTBrowserProviderImpl.createMarketsCacheKey(exchangeId, sandbox, marketType);
+    
+    // Проверяем кэш markets
+    if (CCXTBrowserProviderImpl.isMarketsValid(cacheKey)) {
+      console.log(`📋 [CCXTBrowser] Using cached markets for ${cacheKey}`);
+      exchangeInstance.markets = CCXTBrowserProviderImpl.marketsCache[cacheKey].markets;
+      return;
+    }
+
+    console.log(`🔄 [CCXTBrowser] Loading fresh markets for ${cacheKey}`);
+    await exchangeInstance.loadMarkets();
+    
+    // Кэшируем markets
+    CCXTBrowserProviderImpl.marketsCache[cacheKey] = {
+      markets: exchangeInstance.markets,
+      timestamp: Date.now()
+    };
+    
+    console.log(`✅ [CCXTBrowser] Cached markets for ${cacheKey}`);
+  }
+
+  /**
+   * Получает или создает CCXT instance
+   */
+  private static async getCCXTInstance(config: CCXTInstanceConfig): Promise<any> {
+    const instanceKey = CCXTBrowserProviderImpl.createInstanceKey(config);
+    const cached = CCXTBrowserProviderImpl.instancesCache.get(instanceKey);
+
+    // Проверяем кэш
+    if (cached && CCXTBrowserProviderImpl.isInstanceValid(cached)) {
+      cached.lastAccess = Date.now();
+      console.log(`📋 [CCXTBrowser] Using cached instance: ${instanceKey}`);
+      return cached.instance;
+    }
+
+    // Создаем новый instance
+    console.log(`🔄 [CCXTBrowser] Creating new instance: ${instanceKey}`);
+    
+    let ccxtLib;
+    let ExchangeClass;
+
+    if (config.ccxtType === 'pro') {
+      ccxtLib = getCCXTPro();
+      if (!ccxtLib) {
+        throw new Error('CCXT Pro not available');
+      }
+      ExchangeClass = ccxtLib[config.exchangeId];
+    } else {
+      ccxtLib = getCCXT();
+      if (!ccxtLib) {
+        throw new Error('CCXT not available');
+      }
+      ExchangeClass = ccxtLib[config.exchangeId];
+    }
+
+    if (!ExchangeClass) {
+      throw new Error(`Exchange ${config.exchangeId} not found in CCXT${config.ccxtType === 'pro' ? ' Pro' : ''}`);
+    }
+
+    // Маппинг типов рынков для разных бирж
+    let defaultType = config.marketType;
+    if (config.exchangeId === 'bybit') {
+      const bybitCategoryMap: Record<string, string> = {
+        'spot': 'spot',
+        'futures': 'linear',
+        'swap': 'linear', 
+        'margin': 'spot',
+        'options': 'option'
+      };
+      defaultType = bybitCategoryMap[config.marketType] || config.marketType;
+      console.log(`🔍 [CCXTBrowser] Bybit mapping: ${config.marketType} -> ${defaultType}`);
+    }
+
+    const instanceConfig = {
+      sandbox: config.sandbox || false,
+      apiKey: config.apiKey,
+      secret: config.secret,
+      password: config.password,
+      enableRateLimit: true,
+      defaultType: defaultType,
+    };
+    
+    console.log(`🔍 [CCXTBrowser] Creating ${config.exchangeId} ${config.ccxtType} instance:`, {
+      providerId: config.providerId,
+      userId: config.userId,
+      accountId: config.accountId,
+      sandbox: instanceConfig.sandbox,
+      apiKey: instanceConfig.apiKey ? 'SET' : 'NOT_SET',
+      secret: instanceConfig.secret ? 'SET' : 'NOT_SET',
+      defaultType: instanceConfig.defaultType,
+      marketType: config.marketType,
+      ccxtType: config.ccxtType
+    });
+    
+    const exchangeInstance = new ExchangeClass(instanceConfig);
+
+    // Wrap with request logger
+    const loggedInstance = wrapExchangeWithLogger(
+      exchangeInstance, 
+      config.exchangeId, 
+      `${config.userId}:${config.accountId}`
+    );
+
+    // Загружаем markets с кэшированием
+    await CCXTBrowserProviderImpl.loadMarketsWithCache(
+      loggedInstance, 
+      config.exchangeId, 
+      config.sandbox || false, 
+      config.marketType
+    );
+
+    // Кэшируем instance
+    const cachedInstance: CachedCCXTInstance = {
+      instance: loggedInstance,
+      config: { ...config },
+      lastAccess: Date.now(),
+      marketsLoaded: true
+    };
+
+    CCXTBrowserProviderImpl.instancesCache.set(instanceKey, cachedInstance);
+    console.log(`✅ [CCXTBrowser] Cached new instance: ${instanceKey}, total cache size: ${CCXTBrowserProviderImpl.instancesCache.size}`);
+
+    return loggedInstance;
+  }
+
+  /**
+   * Получает CCXT instance для торговых операций (с API ключами)
+   */
+  async getTradingInstance(
+    userId: string,
+    accountId: string,
+    exchangeId: string,
+    marketType: string,
+    ccxtType: 'regular' | 'pro',
+    credentials: {
+      apiKey: string;
+      secret: string;
+      password?: string;
+      sandbox?: boolean;
+    }
+  ): Promise<any> {
+    const config: CCXTInstanceConfig = {
+      providerId: this.provider.id,
+      userId,
+      accountId,
+      exchangeId,
+      marketType,
+      ccxtType,
+      ...credentials
+    };
+
+    return CCXTBrowserProviderImpl.getCCXTInstance(config);
+  }
+
+  /**
+   * Получает CCXT instance для получения метаданных (без API ключей)
+   */
+  async getMetadataInstance(
+    exchangeId: string,
+    marketType: string = 'spot',
+    sandbox: boolean = false
+  ): Promise<any> {
+    const config: CCXTInstanceConfig = {
+      providerId: this.provider.id,
+      userId: 'metadata',
+      accountId: 'public',
+      exchangeId,
+      marketType,
+      ccxtType: 'regular', // Для метаданных всегда используем regular
+      sandbox
+    };
+
+    return CCXTBrowserProviderImpl.getCCXTInstance(config);
+  }
+
+  /**
+   * Получает CCXT Pro instance для WebSocket подписок (без API ключей)
+   */
+  async getWebSocketInstance(
+    exchangeId: string,
+    marketType: string = 'spot',
+    sandbox: boolean = false
+  ): Promise<any> {
+    const config: CCXTInstanceConfig = {
+      providerId: this.provider.id,
+      userId: 'websocket',
+      accountId: 'public',
+      exchangeId,
+      marketType,
+      ccxtType: 'pro', // Для WebSocket используем pro
+      sandbox
+    };
+
+    return CCXTBrowserProviderImpl.getCCXTInstance(config);
   }
 
   /**
@@ -18,8 +290,8 @@ export class CCXTBrowserProviderImpl {
    */
   async getSymbolsForExchange(exchange: string, limit?: number, marketType?: string): Promise<string[]> {
     try {
-      // Используем кэшированный instance
-      const exchangeInstance = await ccxtInstanceManager.getExchangeInstance(exchange, this.provider);
+      // Используем метаданные instance (без API ключей)
+      const exchangeInstance = await this.getMetadataInstance(exchange, marketType || 'spot');
 
       if (!exchangeInstance.markets) {
         console.warn(`Markets not loaded for ${exchange}`);
@@ -42,41 +314,24 @@ export class CCXTBrowserProviderImpl {
             const marketTypeToFilter = marketType.toLowerCase();
             const marketTypeValue = market.type?.toLowerCase();
             
-            // Console log for debugging first few symbols
-            if (symbols.indexOf(symbol) < 5) {
-              console.log(`🔍 [CCXTBrowser] Filtering ${symbol}: type='${marketTypeValue}', filter='${marketTypeToFilter}', symbol pattern:`, {
-                hasColon: symbol.includes(':'),
-                hasCall: symbol.includes('-C'),
-                hasPut: symbol.includes('-P'),
-                hasDate: /\d{6}/.test(symbol)
-              });
-            }
-            
             // Handle different market type naming conventions
             if (marketTypeToFilter === 'spot') {
-              // For spot markets: explicitly marked as spot type only
               return marketTypeValue === 'spot';
             } else if (marketTypeToFilter === 'margin') {
-              // Margin trading uses the same pairs as spot but with leverage capability
-              // Show all spot-type pairs for margin trading
               return marketTypeValue === 'spot' || marketTypeValue === 'margin';
             } else if (marketTypeToFilter === 'futures' || marketTypeToFilter === 'future') {
-              // For delivery futures: explicit type OR contains ':' with date pattern AFTER colon (but not options)
               return marketTypeValue === 'future' || marketTypeValue === 'futures' || 
                      (symbol.includes(':') && /:.*\d{6}/.test(symbol) && !symbol.includes('-C') && !symbol.includes('-P'));
             } else if (marketTypeToFilter === 'swap' || marketTypeToFilter === 'perpetual') {
-              // For perpetual swaps: explicit type OR symbols with ':' but WITHOUT date pattern OR basic symbols
               return marketTypeValue === 'swap' || marketTypeValue === 'perpetual' ||
                      (!marketTypeValue && (
-                       (symbol.includes(':') && !/:.*\d{6}/.test(symbol)) || // Has colon but no date = perpetual
-                       (!symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P')) // Basic symbol
+                       (symbol.includes(':') && !/:.*\d{6}/.test(symbol)) || 
+                       (!symbol.includes(':') && !symbol.includes('-C') && !symbol.includes('-P'))
                      ));
             } else if (marketTypeToFilter === 'options' || marketTypeToFilter === 'option') {
-              // For options: explicit type OR contains Call/Put patterns
               return marketTypeValue === 'option' || marketTypeValue === 'options' ||
                      symbol.includes('-C') || symbol.includes('-P');
             } else {
-              // For exact matching of any other types
               return marketTypeValue === marketTypeToFilter;
             }
           }
@@ -84,7 +339,6 @@ export class CCXTBrowserProviderImpl {
           return true;
         })
         .sort((a, b) => {
-          // Sort by popularity (BTC and ETH first)
           if (a.includes('BTC')) return -1;
           if (b.includes('BTC')) return 1;
           if (a.includes('ETH')) return -1;
@@ -92,23 +346,10 @@ export class CCXTBrowserProviderImpl {
           return a.localeCompare(b);
         });
 
-      // Apply limit only if specified, otherwise return all pairs
       const resultSymbols = limit && limit > 0 ? activeSymbols.slice(0, limit) : activeSymbols;
 
-      console.log(`📊 [CCXTBrowser] Retrieved ${resultSymbols.length} symbols for ${exchange}${marketType ? ` (${marketType} market)` : ''} (total available: ${activeSymbols.length})`);
+      console.log(`📊 [CCXTBrowser] Retrieved ${resultSymbols.length} symbols for ${exchange}${marketType ? ` (${marketType} market)` : ''}`);
       
-      // Debug info for market types
-      if (marketType && resultSymbols.length > 0) {
-        const sampleMarket = exchangeInstance.markets[resultSymbols[0]];
-        console.log(`🔍 [CCXTBrowser] Sample market info for ${resultSymbols[0]}:`, {
-          type: sampleMarket?.type,
-          spot: sampleMarket?.spot,
-          swap: sampleMarket?.swap,
-          future: sampleMarket?.future,
-          option: sampleMarket?.option
-        });
-      }
-
       return resultSymbols;
     } catch (error) {
       console.error(`❌ [CCXTBrowser] Error getting symbols for exchange: ${exchange}`, error);
@@ -118,13 +359,9 @@ export class CCXTBrowserProviderImpl {
 
   /**
    * Определяет доступные рынки для биржи
-   * Основывается на статической конфигурации биржи в CCXT (exchange.has)
-   * БЕЗ запросов к API биржи
    */
   async getMarketsForExchange(exchange: string): Promise<string[]> {
     try {
-      // Получаем CCXT класс биржи БЕЗ создания инстанса с API ключами
-      const { getCCXT } = await import('../utils/ccxtUtils');
       const ccxt = getCCXT();
       if (!ccxt) {
         throw new Error('CCXT not available');
@@ -135,18 +372,13 @@ export class CCXTBrowserProviderImpl {
         throw new Error(`Exchange ${exchange} not found in CCXT`);
       }
 
-      // Создаем минимальный инстанс только для получения конфигурации
       const exchangeInstance = new ExchangeClass();
       const hasCapabilities = exchangeInstance.has || {};
 
-      console.log(`🔍 [CCXTBrowser] Analyzing ${exchange} static capabilities:`, {
-        exchange: exchange,
-        hasCapabilities: hasCapabilities
-      });
+      console.log(`🔍 [CCXTBrowser] Analyzing ${exchange} static capabilities`);
 
       const availableMarkets: string[] = [];
 
-      // Проверяем поддержку рынков согласно статической конфигурации биржи
       if (hasCapabilities.spot === true) {
         availableMarkets.push('spot');
         console.log(`✅ [CCXTBrowser] ${exchange} supports spot trading`);
@@ -172,7 +404,7 @@ export class CCXTBrowserProviderImpl {
         console.log(`✅ [CCXTBrowser] ${exchange} supports options trading`);
       }
 
-      // Дополнительные проверки для futures через API capabilities
+      // Дополнительные проверки через API capabilities
       if (!availableMarkets.includes('futures') && (
         hasCapabilities.fetchFuturesBalance ||
         hasCapabilities.fetchDerivativesMarkets ||
@@ -183,7 +415,6 @@ export class CCXTBrowserProviderImpl {
         console.log(`✅ [CCXTBrowser] ${exchange} supports futures (detected via API methods)`);
       }
 
-      // Дополнительные проверки для margin через API capabilities
       if (!availableMarkets.includes('margin') && (
         hasCapabilities.fetchMarginBalance ||
         hasCapabilities.fetchBorrowRate ||
@@ -195,42 +426,103 @@ export class CCXTBrowserProviderImpl {
 
       console.log(`✅ [CCXTBrowser] Final markets for ${exchange}:`, {
         total: availableMarkets.length,
-        markets: availableMarkets,
-        source: 'Static Exchange Configuration (has)',
-        exchangeConfig: {
-          spot: hasCapabilities.spot,
-          margin: hasCapabilities.margin,
-          swap: hasCapabilities.swap,
-          future: hasCapabilities.future,
-          option: hasCapabilities.option
-        }
+        markets: availableMarkets
       });
-      
+
       return availableMarkets;
     } catch (error) {
       console.error(`❌ [CCXTBrowser] Error getting markets for exchange: ${exchange}`, error);
-      return []; // Показываем реальную ошибку, НЕ скрываем
+      return [];
     }
   }
 
   /**
-   * Инвалидирует кэш для биржи (используется при изменении настроек)
+   * Инвалидирует кэш для конкретного пользователя/аккаунта
    */
-  invalidateCache(exchange: string): void {
-    ccxtInstanceManager.invalidate(exchange, this.provider.id);
+  static invalidateCache(providerId?: string, userId?: string, accountId?: string, exchangeId?: string): void {
+    const keysToDelete: string[] = [];
+    
+    CCXTBrowserProviderImpl.instancesCache.forEach((_, key) => {
+      const parts = key.split(':');
+      const [keyProviderId, keyUserId, keyAccountId, keyExchangeId] = parts;
+      
+      if (providerId && keyProviderId !== providerId) return;
+      if (userId && keyUserId !== userId) return;
+      if (accountId && keyAccountId !== accountId) return;
+      if (exchangeId && keyExchangeId !== exchangeId) return;
+      
+      keysToDelete.push(key);
+    });
+
+    keysToDelete.forEach(key => CCXTBrowserProviderImpl.instancesCache.delete(key));
+    
+    if (keysToDelete.length > 0) {
+      console.log(`🗑️ [CCXTBrowser] Invalidated ${keysToDelete.length} instances`);
+    }
+  }
+
+  /**
+   * Очищает весь кэш
+   */
+  static clearCache(): void {
+    CCXTBrowserProviderImpl.instancesCache.clear();
+    CCXTBrowserProviderImpl.marketsCache = {};
+    console.log(`🧹 [CCXTBrowser] Cleared entire cache`);
   }
 
   /**
    * Получает статистику кэша
    */
-  getCacheStats() {
-    return ccxtInstanceManager.getStats();
+  static getCacheStats() {
+    const stats = Array.from(CCXTBrowserProviderImpl.instancesCache.entries()).map(([key, cached]) => {
+      const [providerId, userId, accountId, exchangeId, marketType, ccxtType] = key.split(':');
+      return {
+        key,
+        providerId,
+        userId,
+        accountId,
+        exchangeId,
+        marketType,
+        ccxtType,
+        lastAccess: cached.lastAccess,
+        age: Date.now() - cached.lastAccess,
+        marketsLoaded: cached.marketsLoaded
+      };
+    });
+
+    return {
+      totalInstances: CCXTBrowserProviderImpl.instancesCache.size,
+      totalMarketsCache: Object.keys(CCXTBrowserProviderImpl.marketsCache).length,
+      instances: stats
+    };
+  }
+
+  /**
+   * Автоматическая очистка устаревших записей
+   */
+  static cleanup(): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+
+    CCXTBrowserProviderImpl.instancesCache.forEach((cached, key) => {
+      if (!CCXTBrowserProviderImpl.isInstanceValid(cached)) {
+        keysToDelete.push(key);
+      }
+    });
+
+    keysToDelete.forEach(key => CCXTBrowserProviderImpl.instancesCache.delete(key));
+    
+    if (keysToDelete.length > 0) {
+      console.log(`🧽 [CCXTBrowser] Cleaned up ${keysToDelete.length} expired instances`);
+    }
   }
 }
 
-/**
- * Фабрика для создания CCXT Browser провайдера
- */
 export const createCCXTBrowserProvider = (provider: CCXTBrowserProvider): CCXTBrowserProviderImpl => {
   return new CCXTBrowserProviderImpl(provider);
-}; 
+};
+
+// Автоматическая очистка каждые 10 минут
+setInterval(() => {
+  CCXTBrowserProviderImpl.cleanup();
+}, 10 * 60 * 1000); 
