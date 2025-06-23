@@ -26,7 +26,6 @@ const OrderFormWidget: React.FC<OrderFormWidgetProps> = ({
     getWidget,
     initializeWidget,
     updateFormData,
-    resetForm,
     toggleAdvancedMode,
     updateAdvancedOptions,
     validateOrder,
@@ -186,10 +185,7 @@ const OrderFormWidget: React.FC<OrderFormWidgetProps> = ({
     }, 100);
   }, [isSubmitting, updateFormData, placeOrder, widgetId]);
 
-  const handleReset = useCallback(() => {
-    resetForm(widgetId);
-    clearLastResponse(widgetId);
-  }, [resetForm, clearLastResponse, widgetId]);
+
 
   // Validation helpers
   const getFieldError = useCallback((field: string) => {
@@ -531,15 +527,6 @@ const OrderFormWidget: React.FC<OrderFormWidgetProps> = ({
             {isSubmitting && formData.side === 'sell' ? 'Placing...' : `Sell ${baseCurrency}`}
           </button>
         </div>
-
-        {/* Reset button */}
-        <button
-          type="button"
-          onClick={handleReset}
-          className="w-full py-2 text-sm text-terminal-muted hover:text-terminal-text transition-colors"
-        >
-          Reset Form
-        </button>
       </form>
     </div>
   );
