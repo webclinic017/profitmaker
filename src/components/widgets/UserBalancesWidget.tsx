@@ -22,6 +22,59 @@ interface AccountBalance {
   lastUpdate: number | null;
 }
 
+// Header actions component for the widget
+export const UserBalancesHeaderActions: React.FC<{ widgetId: string }> = ({ widgetId }) => {
+  const { users, activeUserId } = useUserStore();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  const activeUser = users.find(u => u.id === activeUserId);
+  const accountsWithKeys = activeUser?.accounts?.filter(acc => acc.key && acc.privateKey) || [];
+  const hasValidAccounts = accountsWithKeys.length > 0;
+
+  const handleRefresh = async () => {
+    if (!hasValidAccounts || isRefreshing) return;
+    
+    setIsRefreshing(true);
+    console.log(`🔄 Refreshing User Balances for ${accountsWithKeys.length} account(s)`);
+    
+    try {
+      // Get the data provider store functions
+      const { initializeBalanceData } = useDataProviderStore.getState();
+      
+      // Re-initialize balance data for all valid accounts
+      for (const account of accountsWithKeys) {
+        for (const walletType of ['trading', 'funding'] as const) {
+          await initializeBalanceData(account.id, walletType);
+        }
+      }
+      
+      console.log(`✅ Refresh completed for User Balances`);
+    } catch (error) {
+      console.error(`❌ Refresh failed:`, error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={handleRefresh}
+        className="p-1 rounded-sm hover:bg-terminal-widget/50 transition-colors"
+        title={isRefreshing ? "Refreshing..." : "Refresh balances"}
+        disabled={!hasValidAccounts || isRefreshing}
+      >
+        <RefreshCw 
+          size={14} 
+          className={`text-terminal-muted hover:text-terminal-text transition-colors ${
+            isRefreshing ? 'animate-spin' : ''
+          }`} 
+        />
+      </button>
+    </div>
+  );
+};
+
 const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
   dashboardId = 'default',
   widgetId = 'user-balances-widget'
@@ -577,27 +630,6 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-terminal-border">
-        <div className="flex items-center gap-2">
-          <Wallet className="h-4 w-4 text-terminal-text/80" />
-          <h3 className="font-medium text-terminal-text">User Balances</h3>
-          <span className="text-xs text-terminal-muted">
-            ({filteredAndSortedBalances.length} assets)
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Refresh button */}
-          <button
-            onClick={subscribeToAllAccounts}
-            className="p-1.5 hover:bg-terminal-accent/20 rounded transition-colors"
-            title="Refresh balances"
-          >
-            <RefreshCw className="h-3.5 w-3.5 text-terminal-text/80" />
-          </button>
-        </div>
-      </div>
 
       {/* Search */}
       <div className="p-3 border-b border-terminal-border">

@@ -5,7 +5,7 @@ import TabNavigation from '@/components/TabNavigation';
 import { useDashboardStore } from '@/store/dashboardStore';
 import ChartWidget from '@/components/widgets/Chart';
 import PortfolioWidget from '@/components/widgets/Portfolio';
-import UserBalancesWidget from '@/components/widgets/UserBalancesWidget';
+import UserBalancesWidget, { UserBalancesHeaderActions } from '@/components/widgets/UserBalancesWidget';
 import UserTradingDataWidget, { UserTradingDataHeaderActions } from '@/components/widgets/UserTradingDataWidget';
 import OrderFormWidget from '@/components/widgets/OrderForm';
 import TransactionHistoryWidget from '@/components/widgets/TransactionHistory';
@@ -135,6 +135,8 @@ const TradingTerminal: React.FC = () => {
           // Create header actions for specific widget types
           const headerActions = widget.type === 'userTradingData' 
             ? <UserTradingDataHeaderActions widgetId={widget.id} />
+            : widget.type === 'userBalances'
+            ? <UserBalancesHeaderActions widgetId={widget.id} />
             : undefined;
           
           return (
