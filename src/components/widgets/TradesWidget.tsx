@@ -6,7 +6,7 @@ import { useDataProviderStore } from '../../store/dataProviderStore';
 import { useTradesWidgetsStore } from '../../store/tradesWidgetStore';
 import { useGroupStore } from '../../store/groupStore';
 import { Trade, MarketType } from '../../types/dataProviders';
-import { DollarSign, Hash, Clock, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { DollarSign, Hash, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface TradesWidgetV2Props {
   dashboardId?: string;
@@ -379,13 +379,7 @@ const TradesWidgetV2Inner: React.FC<TradesWidgetV2Props> = ({
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* Loading indicator */}
-      {widgetState.isLoading && (
-        <div className="flex items-center justify-center p-4">
-          <Loader2 className="h-6 w-6 animate-spin text-terminal-muted mr-2" />
-          <span className="text-terminal-muted">Loading trades...</span>
-        </div>
-      )}
+
 
       {/* Error display */}
       {widgetState.error && (
