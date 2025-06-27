@@ -25,7 +25,7 @@ interface AccountBalance {
 // Header actions component for the widget
 export const UserBalancesHeaderActions: React.FC<{ widgetId: string }> = ({ widgetId }) => {
   const { users, activeUserId } = useUserStore();
-  const { fetchBalance, updateBalance } = useDataProviderStore();
+  const { initializeBalanceData, updateBalance } = useDataProviderStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const activeUser = users.find(u => u.id === activeUserId);
@@ -72,9 +72,9 @@ export const UserBalancesHeaderActions: React.FC<{ widgetId: string }> = ({ widg
         try {
           console.log(`🚀 [USER-BALANCES-WIDGET-REFRESH] Fetching balances for account ${account.id} (${account.exchange}:${account.email})`);
           
-          // Fetch both trading and funding balances - EXACT SAME as subscribeToAllAccounts
-          await fetchBalance(account.id, 'trading');
-          await fetchBalance(account.id, 'funding');
+          // Fetch both trading and funding balances using new architecture - EXACT SAME as subscribeToAllAccounts
+          await initializeBalanceData(account.id, 'trading');
+          await initializeBalanceData(account.id, 'funding');
           
           console.log(`✅ [USER-BALANCES-WIDGET-REFRESH] Fetched balances for account ${account.id} (${account.exchange})`);
         } catch (error) {
@@ -88,7 +88,7 @@ export const UserBalancesHeaderActions: React.FC<{ widgetId: string }> = ({ widg
     } finally {
       setIsRefreshing(false);
     }
-  }, [hasValidAccounts, isRefreshing, accountsWithKeys, fetchBalance, clearBalanceData]);
+  }, [hasValidAccounts, isRefreshing, accountsWithKeys, initializeBalanceData, clearBalanceData]);
 
   return (
     <div className="flex items-center gap-1">
@@ -120,7 +120,6 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
     initializeBalanceData,
     getBalance,
     getActiveSubscriptionsList,
-    fetchBalance,
     getOrderBook,
     getTickerWithRefresh
   } = useDataProviderStore();
@@ -474,16 +473,16 @@ const UserBalancesWidget: React.FC<UserBalancesWidgetProps> = ({
       try {
         console.log(`🚀 [UserBalances] Fetching balances for account ${account.id} (${account.exchange}:${account.email})`);
         
-        // Fetch both trading and funding balances
-        await fetchBalance(account.id, 'trading');
-        await fetchBalance(account.id, 'funding');
+        // Fetch both trading and funding balances using new architecture
+        await initializeBalanceData(account.id, 'trading');
+        await initializeBalanceData(account.id, 'funding');
         
         console.log(`✅ [UserBalances] Fetched balances for account ${account.id} (${account.exchange})`);
       } catch (error) {
         console.error(`❌ [UserBalances] Failed to fetch balances for account ${account.id} (${account.exchange}):`, error);
       }
     }
-  }, [activeUser?.accounts, fetchBalance]);
+  }, [activeUser?.accounts, initializeBalanceData]);
 
 
 

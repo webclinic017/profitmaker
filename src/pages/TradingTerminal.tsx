@@ -19,6 +19,7 @@ import NotificationTestWidget from '@/components/NotificationTestWidget';
 import DealsWidget from '@/components/widgets/DealsWidget';
 import { DebugUserData } from '@/components/DebugUserData';
 import { DebugCCXTCache } from '@/components/DebugCCXTCache';
+import { DebugBingXWidget } from '@/components/DebugBingXWidget';
 import { ExchangesWidget } from '@/components/ExchangesWidget';
 import { MarketsWidget } from '@/components/MarketsWidget';
 import { PairsWidget } from '@/components/PairsWidget';
@@ -44,6 +45,7 @@ const widgetComponents: Record<string, React.FC<any>> = {
   notificationTest: NotificationTestWidget,
   debugUserData: DebugUserData,
   debugCCXTCache: DebugCCXTCache,
+  debugBingX: DebugBingXWidget,
   exchanges: ExchangesWidget,
   markets: MarketsWidget,
   pairs: PairsWidget,

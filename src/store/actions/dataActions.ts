@@ -669,7 +669,7 @@ export const createDataActions: StateCreator<
         exchange: exchange,
         apiKey: account.key,
         secret: account.privateKey,
-        password: account.passphrase || undefined,
+        password: account.password || undefined,
         sandbox: account.sandbox || false,
         marketType: walletType // Use walletType as marketType for balance
       };

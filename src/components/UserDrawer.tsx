@@ -14,6 +14,7 @@ import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { SearchableSelect } from './ui/SearchableSelect';
 import { Plus, Trash2, Check, Loader2 } from 'lucide-react';
 
 interface UserDrawerProps {
@@ -278,6 +279,7 @@ const EditAccountSheet: React.FC<{
   const [email, setEmail] = useState(account?.email || '');
   const [key, setKey] = useState(account?.key || '');
   const [secret, setSecret] = useState(account?.privateKey || '');
+  const [password, setPassword] = useState(account?.password || '');
   const [avatar, setAvatar] = useState(account?.avatarUrl || '');
   const [notes, setNotes] = useState(account?.notes || '');
   const [error, setError] = useState('');
@@ -303,6 +305,7 @@ const EditAccountSheet: React.FC<{
         email, 
         key: key.trim() || undefined, 
         privateKey: secret.trim() || undefined, 
+        password: password.trim() || undefined,
         avatarUrl: avatar || undefined, 
         notes 
       });
@@ -312,6 +315,7 @@ const EditAccountSheet: React.FC<{
         email, 
         key: key.trim() || undefined, 
         privateKey: secret.trim() || undefined, 
+        password: password.trim() || undefined,
         avatarUrl: avatar || undefined, 
         notes 
       });
@@ -338,22 +342,20 @@ const EditAccountSheet: React.FC<{
         <form className="flex flex-col gap-3 mt-3 flex-1" onSubmit={e => { e.preventDefault(); handleSave(); }}>
           <div className="space-y-2">
             <label className="text-xs font-medium">Exchange *</label>
-            <Select 
-              value={exchange} 
+            <SearchableSelect
+              value={exchange}
               onValueChange={setExchange}
+              options={exchanges.map(ex => ex.id)}
+              optionLabels={exchanges.reduce((labels, ex) => ({
+                ...labels,
+                [ex.id]: ex.name
+              }), {})}
+              placeholder={loadingExchanges ? 'Loading exchanges...' : 'Select exchange'}
+              searchPlaceholder="Search exchanges (e.g., binance, bybit, okx)..."
+              loading={loadingExchanges}
               disabled={loadingExchanges}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={loadingExchanges ? 'Loading exchanges...' : 'Select exchange'} />
-              </SelectTrigger>
-              <SelectContent>
-                {exchanges.map(ex => (
-                  <SelectItem key={ex.id} value={ex.id}>
-                    {ex.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              className="w-full"
+            />
             {loadingExchanges && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -364,6 +366,7 @@ const EditAccountSheet: React.FC<{
           <Input type="email" placeholder="Email *" value={email} onChange={e => setEmail(e.target.value)} className="w-full" />
           <Input placeholder="API Key (optional)" value={key} onChange={e => setKey(e.target.value)} className="w-full" />
           <Input placeholder="Secret (optional)" value={secret} onChange={e => setSecret(e.target.value)} className="w-full" />
+          <Input placeholder="Password/Passphrase (optional, required for some exchanges like BitGet)" value={password} onChange={e => setPassword(e.target.value)} className="w-full" />
           <Input placeholder="Avatar URL (optional)" value={avatar} onChange={e => setAvatar(e.target.value)} className="w-full" />
           <textarea placeholder="Notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} className="w-full min-h-[60px] border rounded px-2 py-1" />
           {error && <div className="text-red-500 text-xs">{error}</div>}

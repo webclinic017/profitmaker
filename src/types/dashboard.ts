@@ -17,7 +17,7 @@ export type WidgetConfig = z.infer<typeof WidgetConfigSchema>;
 // Widget schema
 export const WidgetSchema = z.object({
   id: z.string(), // uuid
-  type: z.enum(['chart', 'portfolio', 'orderForm', 'transactionHistory', 'custom', 'orderbook', 'trades', 'deals', 'tradesV2', 'dataProviderSettings', 'dataProviderDemo', 'dataProviderSetup', 'dataProviderDebug', 'notificationTest', 'debugUserData', 'debugCCXTCache', 'exchanges', 'markets', 'pairs', 'userBalances', 'userTradingData']),
+  type: z.enum(['chart', 'portfolio', 'orderForm', 'transactionHistory', 'custom', 'orderbook', 'trades', 'deals', 'tradesV2', 'dataProviderSettings', 'dataProviderDemo', 'dataProviderSetup', 'dataProviderDebug', 'notificationTest', 'debugUserData', 'debugCCXTCache', 'debugBingX', 'exchanges', 'markets', 'pairs', 'userBalances', 'userTradingData']),
   title: z.string(), // deprecated - keep for compatibility
   defaultTitle: z.string(),
   userTitle: z.string().optional(),
