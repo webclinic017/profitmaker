@@ -10,6 +10,7 @@ import {
 } from '../utils/providerUtils';
 import { useUserStore } from '../userStore';
 import { createCCXTBrowserProvider } from '../providers/ccxtBrowserProvider';
+import { createCCXTServerProvider } from '../providers/ccxtServerProvider';
 import { getCCXT } from '../utils/ccxtUtils';
 
 export interface ProviderActions {
@@ -161,6 +162,7 @@ export const createProviderActions: StateCreator<
         type: 'ccxt-server',
         config: {
           serverUrl: config.serverUrl || '',
+          token: config.token || '',
           timeout: config.timeout || 30000,
           sandbox: config.sandbox || false
         }

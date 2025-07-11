@@ -1,8 +1,28 @@
 import type { StateCreator } from 'zustand';
 import type { DataProviderStore } from '../types';
-import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, Ticker, ExchangeBalances, ActiveSubscription, Timeframe, MarketType, WalletType } from '../../types/dataProviders';
+import type { DataType, DataFetchMethod, Candle, Trade, OrderBook, Ticker, ExchangeBalances, ActiveSubscription, Timeframe, MarketType, WalletType, DataProvider } from '../../types/dataProviders';
 import { getCCXT } from '../utils/ccxtUtils';
 import { getOHLCVLimit, getTradesLimit, logExchangeLimits } from '../../utils/exchangeLimits';
+
+// Helper function to create exchange instance based on provider type
+const createExchangeInstanceForProvider = async (
+  provider: DataProvider,
+  exchange: string,
+  market: MarketType = 'spot',
+  sandbox: boolean = false
+): Promise<any> => {
+  if (provider.type === 'ccxt-browser') {
+    const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
+    const ccxtProvider = createCCXTBrowserProvider(provider);
+    return await ccxtProvider.getMetadataInstance(exchange, market, sandbox);
+  } else if (provider.type === 'ccxt-server') {
+    const { createCCXTServerProvider } = await import('../providers/ccxtServerProvider');
+    const ccxtProvider = createCCXTServerProvider(provider);
+    return await ccxtProvider.getMetadataInstance(exchange, market, sandbox);
+  } else {
+    throw new Error(`Unsupported provider type: ${provider.type}`);
+  }
+};
 
 export interface DataActions {
   // Data fetch settings management
@@ -472,15 +492,12 @@ export const createDataActions: StateCreator<
     try {
       // Use existing universal-browser provider for consistency
       const provider = get().getProviderForExchange(exchange);
-      if (!provider || provider.type !== 'ccxt-browser') {
-        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
+      if (!provider || (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server')) {
+        throw new Error(`No suitable CCXT provider found for exchange: ${exchange}`);
       }
 
-      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
-      const ccxtProvider = createCCXTBrowserProvider(provider);
-
       // Get metadata instance (no API keys needed for historical data)
-      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
+      const exchangeInstance = await createExchangeInstanceForProvider(provider, exchange, market, false);
       
       console.log(`🔍 [initializeChartData] Using ${provider.id} provider for ${exchange}:${market}`);
       
@@ -523,15 +540,12 @@ export const createDataActions: StateCreator<
     try {
       // Use existing universal-browser provider for consistency
       const provider = get().getProviderForExchange(exchange);
-      if (!provider || provider.type !== 'ccxt-browser') {
-        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
+      if (!provider || (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server')) {
+        throw new Error(`No suitable CCXT provider found for exchange: ${exchange}`);
       }
 
-      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
-      const ccxtProvider = createCCXTBrowserProvider(provider);
-
       // Get metadata instance (no API keys needed for trades data)
-      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
+      const exchangeInstance = await createExchangeInstanceForProvider(provider, exchange, market, false);
       
       console.log(`🔍 [initializeTradesData] Using ${provider.id} provider for ${exchange}:${market}`);
       
@@ -770,15 +784,12 @@ export const createDataActions: StateCreator<
     try {
       // Use active provider for this exchange
       const provider = get().getProviderForExchange(exchange);
-      if (!provider || provider.type !== 'ccxt-browser') {
-        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
+      if (!provider || (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server')) {
+        throw new Error(`No suitable CCXT provider found for exchange: ${exchange}`);
       }
 
-      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
-      const ccxtProvider = createCCXTBrowserProvider(provider);
-
       // Get metadata instance (no API keys needed for ticker data)
-      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
+      const exchangeInstance = await createExchangeInstanceForProvider(provider, exchange, market, false);
       
       console.log(`🔍 [initializeTickerData] Using ${provider.id} provider for ${exchange}:${market}`);
       
@@ -826,15 +837,12 @@ export const createDataActions: StateCreator<
     try {
       // Use existing universal-browser provider for consistency
       const provider = get().getProviderForExchange(exchange);
-      if (!provider || provider.type !== 'ccxt-browser') {
-        throw new Error(`No suitable CCXT browser provider found for exchange: ${exchange}`);
+      if (!provider || (provider.type !== 'ccxt-browser' && provider.type !== 'ccxt-server')) {
+        throw new Error(`No suitable CCXT provider found for exchange: ${exchange}`);
       }
 
-      const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
-      const ccxtProvider = createCCXTBrowserProvider(provider);
-
       // Get metadata instance (no API keys needed for historical data)
-      const exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
+      const exchangeInstance = await createExchangeInstanceForProvider(provider, exchange, market, false);
       
       console.log(`🔍 [loadHistoricalCandles] Using ${provider.id} provider for ${exchange}:${market}`);
       

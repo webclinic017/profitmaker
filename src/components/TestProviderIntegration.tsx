@@ -29,6 +29,15 @@ const TestProviderIntegration = () => {
     });
   };
 
+  const handleCreateServerProvider = () => {
+    createProvider('ccxt-server', 'CCXT Express Server', ['*'], {
+      serverUrl: 'http://localhost:3001',
+      token: 'your-secret-token',
+      timeout: 30000,
+      sandbox: true
+    });
+  };
+
   const handleCreateTestUser = () => {
     addUser({
       email: 'test@example.com',
@@ -76,12 +85,15 @@ const TestProviderIntegration = () => {
         {/* Provider Section */}
         <div>
           <h3 className="text-lg font-semibold mb-2">🔌 Data Providers</h3>
-          <div className="flex gap-2 mb-2">
+          <div className="flex gap-2 mb-2 flex-wrap">
             <Button onClick={handleCreateProvider} size="sm">
-              Create Specialized Provider
+              Create Browser Provider
             </Button>
             <Button onClick={handleCreateUniversalProvider} size="sm">
-              Create Universal Provider
+              Create Universal Browser
+            </Button>
+            <Button onClick={handleCreateServerProvider} size="sm">
+              Create Server Provider
             </Button>
           </div>
           <div className="text-sm">

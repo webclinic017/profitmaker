@@ -116,11 +116,15 @@ export const createFetchingActions: StateCreator<
     }
 
     try {
-      // Use CCXTBrowserProvider for proper instance management
+      // Use appropriate provider for proper instance management
       let exchangeInstance: any;
       if (provider.type === 'ccxt-browser') {
         const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
         const ccxtProvider = createCCXTBrowserProvider(provider);
+        exchangeInstance = await ccxtProvider.getWebSocketInstance(exchange, market, false);
+      } else if (provider.type === 'ccxt-server') {
+        const { createCCXTServerProvider } = await import('../providers/ccxtServerProvider');
+        const ccxtProvider = createCCXTServerProvider(provider);
         exchangeInstance = await ccxtProvider.getWebSocketInstance(exchange, market, false);
       } else {
         // Fallback for other provider types
@@ -385,7 +389,21 @@ export const createFetchingActions: StateCreator<
     if (!ccxt) return;
 
     try {
-      const exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      // Use appropriate provider for proper instance management
+      let exchangeInstance: any;
+      if (provider.type === 'ccxt-browser') {
+        const { createCCXTBrowserProvider } = await import('../providers/ccxtBrowserProvider');
+        const ccxtProvider = createCCXTBrowserProvider(provider);
+        exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
+      } else if (provider.type === 'ccxt-server') {
+        const { createCCXTServerProvider } = await import('../providers/ccxtServerProvider');
+        const ccxtProvider = createCCXTServerProvider(provider);
+        exchangeInstance = await ccxtProvider.getMetadataInstance(exchange, market, false);
+      } else {
+        // Fallback for other provider types
+        exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
+      }
+
       const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
       const interval = get().dataFetchSettings.restIntervals[dataType];
 

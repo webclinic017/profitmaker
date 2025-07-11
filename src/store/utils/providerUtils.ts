@@ -200,6 +200,11 @@ export const validateProviderConfig = (provider: DataProvider): { isValid: boole
     if (!config.serverUrl) {
       errors.push('Server URL is required for CCXT Server provider');
     }
+    try {
+      new URL(config.serverUrl);
+    } catch {
+      errors.push('Server URL must be a valid URL');
+    }
   }
   
   return {
