@@ -120,9 +120,10 @@ export interface CCXTBrowserConfig {
   options?: Record<string, any>;
 }
 
-// Configuration for CCXT Server - УПРОЩЕННАЯ ВЕРСИЯ  
+// Configuration for CCXT Server - УПРОЩЕННАЯ ВЕРСИЯ
 export interface CCXTServerConfig {
   serverUrl: string;
+  token?: string; // Authentication token for server
   timeout?: number;
   sandbox?: boolean;
 }
