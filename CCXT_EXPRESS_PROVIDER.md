@@ -291,25 +291,6 @@ Server automatically caches:
 
 Cache is automatically cleaned every 10 minutes.
 
-## Поддерживаемые операции
-
-**REST API:**
-- ✅ `fetchTicker` - получение тикера
-- ✅ `fetchOrderBook` - получение стакана
-- ✅ `fetchTrades` - получение сделок
-- ✅ `fetchOHLCV` - получение свечей
-- ✅ `fetchBalance` - получение баланса (с API ключами)
-
-**WebSocket (CCXT Pro):**
-- ✅ `watchTicker` - подписка на тикер
-- ✅ `watchOrderBook` - подписка на стакан
-- ✅ `watchTrades` - подписка на сделки
-- ✅ `watchOHLCV` - подписка на свечи
-- ✅ `watchBalance` - подписка на баланс (с API ключами)
-
-**CORS Proxy:**
-- ✅ Универсальный HTTP прокси для любых запросов к биржам
-
 ## Limitations
 
 1. **Simple Authentication**: Uses simple token (JWT needed for production)
