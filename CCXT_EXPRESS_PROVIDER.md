@@ -174,49 +174,58 @@ POST /api/exchange/fetchOHLCV
 }
 ```
 
-#### WebSocket (CCXT Pro)
-```
-POST /api/exchange/watchTicker
-{
-  "config": {
-    "exchangeId": "kraken",
-    "ccxtType": "pro",
-    "marketType": "spot",
-    "sandbox": false
-  },
-  "symbol": "BTC/USD"
-}
+#### WebSocket (Real-time Streaming)
 
-POST /api/exchange/watchTrades
-{
-  "config": { ... },
-  "symbol": "BTC/USD"
-}
+**Server WebSocket Connection:**
+```javascript
+// Frontend connects to server WebSocket
+import { io } from 'socket.io-client';
 
-POST /api/exchange/watchOrderBook
-{
-  "config": { ... },
-  "symbol": "BTC/USD",
-  "limit": 100
-}
+const socket = io('http://localhost:3001');
 
-POST /api/exchange/watchOHLCV
-{
-  "config": { ... },
-  "symbol": "BTC/USD",
-  "timeframe": "1m"
-}
+// Authenticate
+socket.emit('authenticate', { token: 'your-secret-token' });
 
-POST /api/exchange/watchBalance
-{
-  "config": {
-    "exchangeId": "kraken",
-    "ccxtType": "pro",
-    "apiKey": "your-api-key",
-    "secret": "your-secret",
-    "sandbox": false
+// Subscribe to real-time ticker
+socket.emit('subscribe', {
+  exchangeId: 'kraken',
+  symbol: 'BTC/USD',
+  dataType: 'ticker',
+  config: {
+    exchangeId: 'kraken',
+    ccxtType: 'pro',
+    marketType: 'spot',
+    sandbox: false
   }
-}
+});
+
+// Receive real-time data
+socket.on('data', (data) => {
+  console.log('Real-time ticker:', data);
+  // data.data contains the ticker information
+  // data.subscriptionId, data.exchange, data.symbol, etc.
+});
+
+// Handle errors
+socket.on('error', (error) => {
+  console.error('WebSocket error:', error);
+});
+```
+
+**Available WebSocket Data Types:**
+- `ticker` - Real-time price updates
+- `trades` - Live trade stream
+- `orderbook` - Order book updates
+- `ohlcv` - Candlestick data (requires timeframe)
+- `balance` - Account balance updates (requires API keys)
+
+**Legacy HTTP Endpoints (single request):**
+```
+POST /api/exchange/watchTicker    # Returns single ticker
+POST /api/exchange/watchTrades    # Returns single trades array
+POST /api/exchange/watchOrderBook # Returns single orderbook
+POST /api/exchange/watchOHLCV     # Returns single OHLCV array
+POST /api/exchange/watchBalance   # Returns single balance
 ```
 
 #### CORS Proxy (main function)
@@ -254,12 +263,12 @@ POST /api/exchange/fetchBalance
 - ✅ `fetchOHLCV` - get candlestick data
 - ✅ `fetchBalance` - get balance (with API keys)
 
-**WebSocket (CCXT Pro):**
-- ✅ `watchTicker` - subscribe to ticker
-- ✅ `watchOrderBook` - subscribe to order book
-- ✅ `watchTrades` - subscribe to trades
-- ✅ `watchOHLCV` - subscribe to candlesticks
-- ✅ `watchBalance` - subscribe to balance (with API keys)
+**WebSocket (CCXT Pro) - Real-time Streaming:**
+- ✅ `watchTicker` - real-time ticker updates via WebSocket
+- ✅ `watchOrderBook` - live order book updates via WebSocket
+- ✅ `watchTrades` - live trade stream via WebSocket
+- ✅ `watchOHLCV` - real-time candlestick updates via WebSocket
+- ✅ `watchBalance` - live balance updates via WebSocket (with API keys)
 
 **CORS Proxy:**
 - ✅ Universal HTTP proxy for any exchange requests

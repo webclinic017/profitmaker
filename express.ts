@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import ccxt from 'ccxt';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 
 // Try to import CCXT Pro, fallback if not available
 let ccxtPro: any = null;
@@ -11,6 +13,13 @@ try {
 }
 
 const app = express();
+const server = createServer(app);
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 const PORT = process.env.PORT || 3001;
 
 // Middleware
@@ -57,6 +66,245 @@ app.get('/health', (req, res) => {
 // CCXT instance cache
 const instanceCache = new Map<string, any>();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+
+// WebSocket subscriptions management
+interface WebSocketSubscription {
+  id: string;
+  socketId: string;
+  exchangeId: string;
+  symbol: string;
+  dataType: 'ticker' | 'trades' | 'orderbook' | 'ohlcv' | 'balance';
+  timeframe?: string;
+  config: CCXTInstanceConfig;
+  isActive: boolean;
+  ccxtInstance?: any;
+}
+
+const activeSubscriptions = new Map<string, WebSocketSubscription>();
+const socketSubscriptions = new Map<string, Set<string>>(); // socketId -> subscriptionIds
+
+// Create subscription key
+const createSubscriptionKey = (exchangeId: string, symbol: string, dataType: string, timeframe?: string): string => {
+  const parts = [exchangeId, symbol, dataType];
+  if (timeframe) parts.push(timeframe);
+  return parts.join(':');
+};
+
+// Start WebSocket subscription
+const startWebSocketSubscription = async (subscription: WebSocketSubscription): Promise<void> => {
+  try {
+    const instance = await getCCXTInstance(subscription.config);
+    subscription.ccxtInstance = instance;
+
+    console.log(`🔄 Starting WebSocket subscription: ${subscription.id}`);
+
+    const watchData = async () => {
+      try {
+        let data: any;
+
+        switch (subscription.dataType) {
+          case 'ticker':
+            if (!instance.has['watchTicker']) {
+              throw new Error(`${subscription.exchangeId} does not support watchTicker`);
+            }
+            data = await instance.watchTicker(subscription.symbol);
+            break;
+
+          case 'trades':
+            if (!instance.has['watchTrades']) {
+              throw new Error(`${subscription.exchangeId} does not support watchTrades`);
+            }
+            data = await instance.watchTrades(subscription.symbol);
+            break;
+
+          case 'orderbook':
+            if (!instance.has['watchOrderBook']) {
+              throw new Error(`${subscription.exchangeId} does not support watchOrderBook`);
+            }
+            data = await instance.watchOrderBook(subscription.symbol);
+            break;
+
+          case 'ohlcv':
+            if (!instance.has['watchOHLCV']) {
+              throw new Error(`${subscription.exchangeId} does not support watchOHLCV`);
+            }
+            if (!subscription.timeframe) {
+              throw new Error('Timeframe is required for OHLCV subscription');
+            }
+            data = await instance.watchOHLCV(subscription.symbol, subscription.timeframe);
+            break;
+
+          case 'balance':
+            if (!instance.has['watchBalance']) {
+              throw new Error(`${subscription.exchangeId} does not support watchBalance`);
+            }
+            data = await instance.watchBalance();
+            break;
+
+          default:
+            throw new Error(`Unsupported data type: ${subscription.dataType}`);
+        }
+
+        // Emit data to specific socket
+        io.to(subscription.socketId).emit('data', {
+          subscriptionId: subscription.id,
+          dataType: subscription.dataType,
+          exchange: subscription.exchangeId,
+          symbol: subscription.symbol,
+          timeframe: subscription.timeframe,
+          data: data,
+          timestamp: Date.now()
+        });
+
+        // Continue watching if subscription is still active
+        if (subscription.isActive) {
+          setImmediate(watchData);
+        }
+
+      } catch (error) {
+        console.error(`❌ WebSocket error for ${subscription.id}:`, error);
+
+        // Emit error to client
+        io.to(subscription.socketId).emit('error', {
+          subscriptionId: subscription.id,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+
+        // Retry after delay if subscription is still active
+        if (subscription.isActive) {
+          setTimeout(watchData, 5000); // Retry after 5 seconds
+        }
+      }
+    };
+
+    // Start watching
+    watchData();
+
+  } catch (error) {
+    console.error(`❌ Failed to start WebSocket subscription ${subscription.id}:`, error);
+    throw error;
+  }
+};
+
+// Stop WebSocket subscription
+const stopWebSocketSubscription = (subscriptionId: string): void => {
+  const subscription = activeSubscriptions.get(subscriptionId);
+  if (subscription) {
+    subscription.isActive = false;
+    activeSubscriptions.delete(subscriptionId);
+    console.log(`🛑 Stopped WebSocket subscription: ${subscriptionId}`);
+  }
+};
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log(`🔌 Client connected: ${socket.id}`);
+
+  // Initialize socket subscriptions
+  socketSubscriptions.set(socket.id, new Set());
+
+  // Handle authentication
+  socket.on('authenticate', (data) => {
+    const { token } = data;
+    const validToken = process.env.API_TOKEN || 'your-secret-token';
+
+    if (token !== validToken) {
+      socket.emit('auth_error', { error: 'Invalid token' });
+      socket.disconnect();
+      return;
+    }
+
+    socket.emit('authenticated', { success: true });
+    console.log(`✅ Client authenticated: ${socket.id}`);
+  });
+
+  // Handle WebSocket subscription
+  socket.on('subscribe', async (data) => {
+    try {
+      const { exchangeId, symbol, dataType, timeframe, config } = data;
+
+      if (!exchangeId || !symbol || !dataType) {
+        socket.emit('subscription_error', { error: 'Missing required parameters' });
+        return;
+      }
+
+      const subscriptionKey = createSubscriptionKey(exchangeId, symbol, dataType, timeframe);
+      const subscriptionId = `${socket.id}:${subscriptionKey}`;
+
+      // Check if subscription already exists
+      if (activeSubscriptions.has(subscriptionId)) {
+        socket.emit('subscription_error', { error: 'Subscription already exists' });
+        return;
+      }
+
+      const subscription: WebSocketSubscription = {
+        id: subscriptionId,
+        socketId: socket.id,
+        exchangeId,
+        symbol,
+        dataType,
+        timeframe,
+        config: {
+          ...config,
+          ccxtType: 'pro' // Force pro for WebSocket
+        },
+        isActive: true
+      };
+
+      // Add to active subscriptions
+      activeSubscriptions.set(subscriptionId, subscription);
+      socketSubscriptions.get(socket.id)?.add(subscriptionId);
+
+      // Start WebSocket subscription
+      await startWebSocketSubscription(subscription);
+
+      socket.emit('subscribed', {
+        subscriptionId,
+        exchangeId,
+        symbol,
+        dataType,
+        timeframe
+      });
+
+      console.log(`📡 New subscription: ${subscriptionId}`);
+
+    } catch (error) {
+      socket.emit('subscription_error', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // Handle unsubscribe
+  socket.on('unsubscribe', (data) => {
+    const { subscriptionId } = data;
+
+    if (!subscriptionId) {
+      socket.emit('unsubscribe_error', { error: 'Missing subscriptionId' });
+      return;
+    }
+
+    stopWebSocketSubscription(subscriptionId);
+    socketSubscriptions.get(socket.id)?.delete(subscriptionId);
+
+    socket.emit('unsubscribed', { subscriptionId });
+    console.log(`📡 Unsubscribed: ${subscriptionId}`);
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`🔌 Client disconnected: ${socket.id}`);
+
+    // Stop all subscriptions for this socket
+    const subscriptions = socketSubscriptions.get(socket.id);
+    if (subscriptions) {
+      for (const subscriptionId of subscriptions) {
+        stopWebSocketSubscription(subscriptionId);
+      }
+      socketSubscriptions.delete(socket.id);
+    }
+  });
+});
 
 interface CCXTInstanceConfig {
   exchangeId: string;
@@ -494,8 +742,9 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000); // Every 10 minutes
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 CCXT Express Server running on port ${PORT}`);
   console.log(`🔑 API Token: ${process.env.API_TOKEN || 'your-secret-token'}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
+  console.log(`🔌 WebSocket server ready for connections`);
 });
