@@ -173,6 +173,54 @@ Low: $${parseFloat(ticker.l[1]).toLocaleString()}
     }
   };
 
+  const handleTestWebSocket = async () => {
+    setIsLoading(true);
+    setTestResult(null);
+
+    try {
+      const response = await fetch(`${serverUrl}/api/exchange/watchTicker`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          config: {
+            exchangeId: 'kraken',
+            marketType: 'spot',
+            ccxtType: 'pro',
+            sandbox: false
+          },
+          symbol: 'BTC/USD'
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const ticker = data.data;
+          setTestResult(`✅ WebSocket ticker received via server:
+Symbol: ${ticker.symbol}
+Price: $${ticker.last?.toLocaleString()}
+24h Change: ${ticker.percentage?.toFixed(2)}%
+Volume: ${ticker.baseVolume?.toFixed(2)} BTC
+Timestamp: ${new Date(ticker.timestamp).toLocaleString()}
+
+🚀 WebSocket data successfully proxied through server!`);
+        } else {
+          setTestResult(`❌ WebSocket request failed: ${data.error}`);
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        setTestResult(`❌ WebSocket request failed: ${response.status} - ${errorData.error || response.statusText}`);
+      }
+    } catch (error) {
+      setTestResult(`❌ Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const serverProviders = Object.values(providers).filter(p => p.type === 'ccxt-server');
 
   return (
@@ -240,6 +288,14 @@ Low: $${parseFloat(ticker.l[1]).toLocaleString()}
             >
               {isLoading ? 'Testing...' : 'Test CORS Bypass'}
             </Button>
+            <Button
+              onClick={handleTestWebSocket}
+              disabled={isLoading}
+              variant="outline"
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+            >
+              {isLoading ? 'Testing...' : 'Test WebSocket'}
+            </Button>
             <Button 
               onClick={handleCreateServerProvider}
               disabled={isLoading}
@@ -289,8 +345,10 @@ Low: $${parseFloat(ticker.l[1]).toLocaleString()}
             <p>3. Test exchange instance creation to verify CCXT integration</p>
             <p>4. Test ticker data to verify market data retrieval</p>
             <p>5. <strong>Test CORS Bypass</strong> - the main purpose of server provider!</p>
-            <p>6. Create server provider to integrate with the application</p>
+            <p>6. <strong>Test WebSocket</strong> - verify CCXT Pro WebSocket functionality</p>
+            <p>7. Create server provider to integrate with the application</p>
             <p className="text-green-600 font-medium">💡 Server provider bypasses browser CORS restrictions</p>
+            <p className="text-blue-600 font-medium">🚀 WebSocket support via CCXT Pro on server</p>
           </div>
         </div>
       </CardContent>
