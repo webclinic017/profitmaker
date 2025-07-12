@@ -9,6 +9,9 @@
 - ✅ CCXT Server Provider для браузерного приложения
 - ✅ Интеграция с существующей архитектурой провайдеров
 - ✅ Поддержка всех основных методов (fetchTicker, fetchOrderBook, fetchTrades, fetchOHLCV)
+- ✅ **Полная поддержка WebSocket** (watchTicker, watchTrades, watchOrderBook, watchOHLCV, watchBalance)
+- ✅ **Унифицированная логика** между browser и server провайдерами
+- ✅ **CORS Bypass** - основная функция для обхода браузерных ограничений
 - ✅ Кэширование CCXT instances на сервере
 - ✅ Аутентификация через токены
 - ✅ Обработка ошибок и таймаутов
@@ -171,6 +174,51 @@ POST /api/exchange/fetchOHLCV
 }
 ```
 
+#### WebSocket (CCXT Pro)
+```
+POST /api/exchange/watchTicker
+{
+  "config": {
+    "exchangeId": "kraken",
+    "ccxtType": "pro",
+    "marketType": "spot",
+    "sandbox": false
+  },
+  "symbol": "BTC/USD"
+}
+
+POST /api/exchange/watchTrades
+{
+  "config": { ... },
+  "symbol": "BTC/USD"
+}
+
+POST /api/exchange/watchOrderBook
+{
+  "config": { ... },
+  "symbol": "BTC/USD",
+  "limit": 100
+}
+
+POST /api/exchange/watchOHLCV
+{
+  "config": { ... },
+  "symbol": "BTC/USD",
+  "timeframe": "1m"
+}
+
+POST /api/exchange/watchBalance
+{
+  "config": {
+    "exchangeId": "kraken",
+    "ccxtType": "pro",
+    "apiKey": "your-api-key",
+    "secret": "your-secret",
+    "sandbox": false
+  }
+}
+```
+
 #### CORS Proxy (основная функция)
 ```
 POST /api/proxy/request
@@ -215,11 +263,29 @@ POST /api/exchange/fetchBalance
 
 Кэш автоматически очищается каждые 10 минут.
 
+## Поддерживаемые операции
+
+**REST API:**
+- ✅ `fetchTicker` - получение тикера
+- ✅ `fetchOrderBook` - получение стакана
+- ✅ `fetchTrades` - получение сделок
+- ✅ `fetchOHLCV` - получение свечей
+- ✅ `fetchBalance` - получение баланса (с API ключами)
+
+**WebSocket (CCXT Pro):**
+- ✅ `watchTicker` - подписка на тикер
+- ✅ `watchOrderBook` - подписка на стакан
+- ✅ `watchTrades` - подписка на сделки
+- ✅ `watchOHLCV` - подписка на свечи
+- ✅ `watchBalance` - подписка на баланс (с API ключами)
+
+**CORS Proxy:**
+- ✅ Универсальный HTTP прокси для любых запросов к биржам
+
 ## Ограничения
 
-1. **WebSocket**: Пока не полностью реализованы WebSocket методы
-2. **Простая аутентификация**: Используется простой токен (в продакшене нужен JWT)
-3. **Обработка ошибок**: Базовая обработка ошибок
+1. **Простая аутентификация**: Используется простой токен (в продакшене нужен JWT)
+2. **Обработка ошибок**: Базовая обработка ошибок
 
 ## Интеграция с существующим кодом
 

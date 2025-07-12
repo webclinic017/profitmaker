@@ -271,36 +271,126 @@ app.post('/api/exchange/fetchBalance', async (req, res) => {
   }
 });
 
-// WebSocket proxy endpoints for CCXT Pro
+// WebSocket endpoints for CCXT Pro
 app.post('/api/exchange/watchTicker', async (req, res) => {
   try {
     const { config, symbol } = req.body;
-    
+
     if (config.ccxtType !== 'pro') {
       return res.status(400).json({ error: 'WebSocket requires CCXT Pro' });
     }
-    
+
     const instance = await getCCXTInstance(config);
-    
+
     if (!instance.has['watchTicker']) {
       return res.status(400).json({ error: 'Exchange does not support watchTicker' });
     }
-    
-    // Note: This is a simplified example. In production, you'd want to implement
-    // proper WebSocket handling with connection management
-    res.json({ 
-      success: true, 
-      message: 'WebSocket endpoint available',
-      capabilities: {
-        watchTicker: instance.has['watchTicker'],
-        watchOrderBook: instance.has['watchOrderBook'],
-        watchTrades: instance.has['watchTrades'],
-        watchOHLCV: instance.has['watchOHLCV']
-      }
-    });
+
+    const ticker = await instance.watchTicker(symbol);
+    res.json({ success: true, data: ticker });
   } catch (error) {
-    res.status(500).json({ 
-      error: 'Failed to setup WebSocket',
+    res.status(500).json({
+      error: 'Failed to watch ticker',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.post('/api/exchange/watchOrderBook', async (req, res) => {
+  try {
+    const { config, symbol, limit } = req.body;
+
+    if (config.ccxtType !== 'pro') {
+      return res.status(400).json({ error: 'WebSocket requires CCXT Pro' });
+    }
+
+    const instance = await getCCXTInstance(config);
+
+    if (!instance.has['watchOrderBook']) {
+      return res.status(400).json({ error: 'Exchange does not support watchOrderBook' });
+    }
+
+    const orderbook = await instance.watchOrderBook(symbol, limit);
+    res.json({ success: true, data: orderbook });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to watch orderbook',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.post('/api/exchange/watchTrades', async (req, res) => {
+  try {
+    const { config, symbol } = req.body;
+
+    if (config.ccxtType !== 'pro') {
+      return res.status(400).json({ error: 'WebSocket requires CCXT Pro' });
+    }
+
+    const instance = await getCCXTInstance(config);
+
+    if (!instance.has['watchTrades']) {
+      return res.status(400).json({ error: 'Exchange does not support watchTrades' });
+    }
+
+    const trades = await instance.watchTrades(symbol);
+    res.json({ success: true, data: trades });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to watch trades',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.post('/api/exchange/watchOHLCV', async (req, res) => {
+  try {
+    const { config, symbol, timeframe } = req.body;
+
+    if (config.ccxtType !== 'pro') {
+      return res.status(400).json({ error: 'WebSocket requires CCXT Pro' });
+    }
+
+    const instance = await getCCXTInstance(config);
+
+    if (!instance.has['watchOHLCV']) {
+      return res.status(400).json({ error: 'Exchange does not support watchOHLCV' });
+    }
+
+    const ohlcv = await instance.watchOHLCV(symbol, timeframe);
+    res.json({ success: true, data: ohlcv });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to watch OHLCV',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+app.post('/api/exchange/watchBalance', async (req, res) => {
+  try {
+    const { config } = req.body;
+
+    if (config.ccxtType !== 'pro') {
+      return res.status(400).json({ error: 'WebSocket requires CCXT Pro' });
+    }
+
+    if (!config.apiKey || !config.secret) {
+      return res.status(400).json({ error: 'API credentials required for balance watching' });
+    }
+
+    const instance = await getCCXTInstance(config);
+
+    if (!instance.has['watchBalance']) {
+      return res.status(400).json({ error: 'Exchange does not support watchBalance' });
+    }
+
+    const balance = await instance.watchBalance();
+    res.json({ success: true, data: balance });
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to watch balance',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

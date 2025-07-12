@@ -1,19 +1,16 @@
 import { getCCXT, getCCXTPro } from '../utils/ccxtUtils';
 import { wrapExchangeWithLogger } from '../../utils/requestLogger';
 import type { CCXTBrowserProvider } from '../../types/dataProviders';
+import {
+  createCCXTInstanceConfig,
+  createInstanceCacheKey,
+  createExchangeInstanceConfig,
+  logInstanceCreation,
+  getAvailableMarkets,
+  type CCXTInstanceConfig
+} from '../utils/ccxtProviderUtils';
 
-interface CCXTInstanceConfig {
-  providerId: string;
-  userId: string;
-  accountId: string;
-  exchangeId: string;
-  marketType: string;
-  ccxtType: 'regular' | 'pro';
-  apiKey?: string;
-  secret?: string;
-  password?: string;
-  sandbox?: boolean;
-}
+// CCXTInstanceConfig теперь импортируется из общих утилит
 
 interface CachedCCXTInstance {
   instance: any;
@@ -230,15 +227,15 @@ export class CCXTBrowserProviderImpl {
       sandbox?: boolean;
     }
   ): Promise<any> {
-    const config: CCXTInstanceConfig = {
-      providerId: this.provider.id,
+    const config = createCCXTInstanceConfig(
+      this.provider.id,
       userId,
       accountId,
       exchangeId,
       marketType,
       ccxtType,
-      ...credentials
-    };
+      credentials
+    );
 
     return CCXTBrowserProviderImpl.getCCXTInstance(config);
   }
@@ -251,15 +248,15 @@ export class CCXTBrowserProviderImpl {
     marketType: string = 'spot',
     sandbox: boolean = false
   ): Promise<any> {
-    const config: CCXTInstanceConfig = {
-      providerId: this.provider.id,
-      userId: 'metadata',
-      accountId: 'public',
+    const config = createCCXTInstanceConfig(
+      this.provider.id,
+      'metadata',
+      'public',
       exchangeId,
       marketType,
-      ccxtType: 'regular', // Для метаданных всегда используем regular
-      sandbox
-    };
+      'regular', // Для метаданных всегда используем regular
+      { sandbox }
+    );
 
     return CCXTBrowserProviderImpl.getCCXTInstance(config);
   }
@@ -272,15 +269,15 @@ export class CCXTBrowserProviderImpl {
     marketType: string = 'spot',
     sandbox: boolean = false
   ): Promise<any> {
-    const config: CCXTInstanceConfig = {
-      providerId: this.provider.id,
-      userId: 'websocket',
-      accountId: 'public',
+    const config = createCCXTInstanceConfig(
+      this.provider.id,
+      'websocket',
+      'public',
       exchangeId,
       marketType,
-      ccxtType: 'pro', // Для WebSocket используем pro
-      sandbox
-    };
+      'pro', // Для WebSocket используем pro
+      { sandbox }
+    );
 
     return CCXTBrowserProviderImpl.getCCXTInstance(config);
   }

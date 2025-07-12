@@ -1,17 +1,9 @@
 import type { CCXTServerProvider } from '../../types/dataProviders';
-
-interface CCXTInstanceConfig {
-  providerId: string;
-  userId: string;
-  accountId: string;
-  exchangeId: string;
-  marketType: string;
-  ccxtType: 'regular' | 'pro';
-  apiKey?: string;
-  secret?: string;
-  password?: string;
-  sandbox?: boolean;
-}
+import {
+  createCCXTInstanceConfig,
+  createStandardExchangeProxy,
+  type CCXTInstanceConfig
+} from '../utils/ccxtProviderUtils';
 
 interface ServerResponse<T = any> {
   success: boolean;
@@ -125,15 +117,15 @@ export class CCXTServerProviderImpl {
       sandbox?: boolean;
     }
   ): CCXTInstanceConfig {
-    return {
-      providerId: this.provider.id,
+    return createCCXTInstanceConfig(
+      this.provider.id,
       userId,
       accountId,
       exchangeId,
       marketType,
       ccxtType,
-      ...credentials
-    };
+      credentials
+    );
   }
 
   /**
@@ -227,59 +219,15 @@ export class CCXTServerProviderImpl {
    */
   private createExchangeProxy(config: CCXTInstanceConfig): any {
     const self = this;
-    
+
+    // Используем стандартный proxy с дополнительными методами для CORS bypass
+    const standardProxy = createStandardExchangeProxy(config, (endpoint, data) =>
+      self.makeRequest(endpoint, data)
+    );
+
+    // Добавляем дополнительные методы специфичные для server provider
     return {
-      // Основные методы для получения данных
-      async fetchTicker(symbol: string) {
-        return self.makeRequest('/api/exchange/fetchTicker', { config, symbol });
-      },
-
-      async fetchOrderBook(symbol: string, limit?: number) {
-        return self.makeRequest('/api/exchange/fetchOrderBook', { config, symbol, limit });
-      },
-
-      async fetchTrades(symbol: string, since?: number, limit?: number) {
-        return self.makeRequest('/api/exchange/fetchTrades', { config, symbol, since, limit });
-      },
-
-      async fetchOHLCV(symbol: string, timeframe: string, since?: number, limit?: number) {
-        return self.makeRequest('/api/exchange/fetchOHLCV', { 
-          config, 
-          symbol, 
-          timeframe, 
-          since, 
-          limit 
-        });
-      },
-
-      async fetchBalance() {
-        return self.makeRequest('/api/exchange/fetchBalance', { config });
-      },
-
-      // WebSocket методы (для CCXT Pro)
-      async watchTicker(symbol: string) {
-        const capabilities = await self.makeRequest('/api/exchange/watchTicker', { config, symbol });
-        return capabilities;
-      },
-
-      async watchOrderBook(symbol: string) {
-        // Заглушка для WebSocket - в реальной реализации нужно будет 
-        // реализовать WebSocket соединение с сервером
-        throw new Error('WebSocket methods not fully implemented yet');
-      },
-
-      async watchTrades(symbol: string) {
-        throw new Error('WebSocket methods not fully implemented yet');
-      },
-
-      async watchOHLCV(symbol: string, timeframe: string) {
-        throw new Error('WebSocket methods not fully implemented yet');
-      },
-
-      // Получение capabilities
-      async getCapabilities() {
-        return self.makeRequest('/api/exchange/capabilities', { config });
-      },
+      ...standardProxy,
 
       // Прямые HTTP запросы для обхода CORS (основная функция server provider)
       async httpRequest(url: string, method: string = 'GET', headers: Record<string, string> = {}, body?: any) {
@@ -291,28 +239,6 @@ export class CCXTServerProviderImpl {
         const { method = 'GET', headers = {}, body } = options;
         return self.makeProxyRequest(url, method, headers, body);
       },
-
-      // Свойства для совместимости с CCXT
-      get has() {
-        // Возвращаем базовые capabilities - в реальной реализации 
-        // это должно кэшироваться при создании instance
-        return {
-          fetchTicker: true,
-          fetchOrderBook: true,
-          fetchTrades: true,
-          fetchOHLCV: true,
-          fetchBalance: config.apiKey ? true : false,
-          watchTicker: config.ccxtType === 'pro',
-          watchOrderBook: config.ccxtType === 'pro',
-          watchTrades: config.ccxtType === 'pro',
-          watchOHLCV: config.ccxtType === 'pro',
-        };
-      },
-
-      // Метаданные
-      id: config.exchangeId,
-      name: config.exchangeId,
-      sandbox: config.sandbox || false,
     };
   }
 
