@@ -1,82 +1,82 @@
 # CCXT Express Provider
 
-Этот документ описывает новый CCXT Express Provider, который позволяет выносить CCXT операции на отдельный Express сервер.
+This document describes the new CCXT Express Provider, which allows moving CCXT operations to a separate Express server.
 
-## ✅ Статус реализации
+## ✅ Implementation Status
 
-**ПОЛНОСТЬЮ РЕАЛИЗОВАНО:**
-- ✅ Express сервер с CCXT интеграцией
-- ✅ CCXT Server Provider для браузерного приложения
-- ✅ Интеграция с существующей архитектурой провайдеров
-- ✅ Поддержка всех основных методов (fetchTicker, fetchOrderBook, fetchTrades, fetchOHLCV)
-- ✅ **Полная поддержка WebSocket** (watchTicker, watchTrades, watchOrderBook, watchOHLCV, watchBalance)
-- ✅ **Унифицированная логика** между browser и server провайдерами
-- ✅ **CORS Bypass** - основная функция для обхода браузерных ограничений
-- ✅ Кэширование CCXT instances на сервере
-- ✅ Аутентификация через токены
-- ✅ Обработка ошибок и таймаутов
-- ✅ Тестовые компоненты для проверки функциональности
-- ✅ Полная документация
+**FULLY IMPLEMENTED:**
+- ✅ Express server with CCXT integration
+- ✅ CCXT Server Provider for browser application
+- ✅ Integration with existing provider architecture
+- ✅ Support for all main methods (fetchTicker, fetchOrderBook, fetchTrades, fetchOHLCV)
+- ✅ **Full WebSocket support** (watchTicker, watchTrades, watchOrderBook, watchOHLCV, watchBalance)
+- ✅ **Unified logic** between browser and server providers
+- ✅ **CORS Bypass** - main function for bypassing browser restrictions
+- ✅ CCXT instances caching on server
+- ✅ Token-based authentication
+- ✅ Error handling and timeouts
+- ✅ Test components for functionality verification
+- ✅ Complete documentation
 
-## Архитектура
+## Architecture
 
 ### Browser Provider vs Server Provider
 
-**Browser Provider** (существующий):
-- CCXT выполняется напрямую в браузере
-- Использует CDN версию CCXT
-- Все операции происходят на клиенте
+**Browser Provider** (existing):
+- CCXT executes directly in the browser
+- Uses CDN version of CCXT
+- All operations happen on the client
 
-**Server Provider** (новый):
-- CCXT выполняется на Express сервере
-- Браузер отправляет HTTP запросы к серверу
-- Сервер может быть запущен где угодно (локально, на другом сервере)
-- **Основная цель: обход CORS ограничений браузера**
-- Сервер проксирует запросы к биржам с правильными заголовками
+**Server Provider** (new):
+- CCXT executes on Express server
+- Browser sends HTTP requests to server
+- Server can be run anywhere (locally, on another server)
+- **Main goal: bypass browser CORS restrictions**
+- Server proxies requests to exchanges with proper headers
 
-## Установка и запуск
+## Installation and Setup
 
-### 1. Установка зависимостей
+### 1. Install Dependencies
 
-Зависимости уже добавлены в проект:
+Dependencies are already added to the project:
 ```bash
 npm install express cors ccxt @types/express @types/cors tsx
 ```
 
-### 2. Запуск Express сервера
+### 2. Start Express Server
 
 ```bash
-# Обычный запуск
+# Regular start
 npm run server
 
-# Запуск с автоперезагрузкой при изменениях
+# Start with auto-reload on changes
 npm run server:dev
 ```
 
-Сервер запустится на порту 3001 (или PORT из переменных окружения).
+Server will start on port 3001 (or PORT from environment variables).
 
-### 3. Настройка аутентификации
+### 3. Authentication Setup
 
-По умолчанию сервер использует простой токен аутентификации:
+By default, server uses simple token authentication:
 
 ```bash
-# Установить свой токен
+# Set your own token
 export API_TOKEN=your-secret-token
 
-# Или использовать по умолчанию
-# Токен: your-secret-token
+# Or use default
+# Token: your-secret-token
 ```
 
-## Использование в приложении
+## Usage in Application
 
-### 1. Создание Server Provider
+### 1. Create Server Provider
 
 ```typescript
 import { useDataProviderStore } from './store/dataProviderStore';
 
 const { createProvider } = useDataProviderStore();
 
-// Создать server provider
+// Create server provider
 createProvider('ccxt-server', 'My CCXT Server', ['*'], {
   serverUrl: 'http://localhost:3001',
   token: 'your-secret-token',
@@ -85,54 +85,54 @@ createProvider('ccxt-server', 'My CCXT Server', ['*'], {
 });
 ```
 
-### 2. Параметры конфигурации
+### 2. Configuration Parameters
 
 ```typescript
 interface CCXTServerConfig {
-  serverUrl: string;    // URL сервера (обязательно)
-  token?: string;       // Токен аутентификации
-  timeout?: number;     // Таймаут запросов (по умолчанию 30000ms)
-  sandbox?: boolean;    // Режим sandbox
+  serverUrl: string;    // Server URL (required)
+  token?: string;       // Authentication token
+  timeout?: number;     // Request timeout (default 30000ms)
+  sandbox?: boolean;    // Sandbox mode
 }
 ```
 
-### 3. Тестирование
+### 3. Testing
 
-#### Компонент TestProviderIntegration
-В приложении есть компонент `TestProviderIntegration` с кнопкой "Create Server Provider" для быстрого тестирования.
+#### TestProviderIntegration Component
+The application has a `TestProviderIntegration` component with "Create Server Provider" button for quick testing.
 
-#### Компонент TestServerProvider
-Создан специальный компонент `TestServerProvider` для полного тестирования server provider:
-- Тест подключения к серверу
-- Тест создания exchange instance
-- Тест получения ticker данных
-- Создание server provider в приложении
+#### TestServerProvider Component
+A special `TestServerProvider` component was created for complete server provider testing:
+- Server connection test
+- Exchange instance creation test
+- Ticker data retrieval test
+- Server provider creation in application
 
-Импортируйте и используйте компонент:
+Import and use the component:
 ```tsx
 import TestServerProvider from './components/TestServerProvider';
 
-// В вашем компоненте
+// In your component
 <TestServerProvider />
 ```
 
-## API сервера
+## Server API
 
-### Аутентификация
+### Authentication
 
-Все запросы (кроме `/health`) требуют заголовок:
+All requests (except `/health`) require header:
 ```
 Authorization: Bearer your-secret-token
 ```
 
-### Основные эндпоинты
+### Main Endpoints
 
 #### Health Check
 ```
 GET /health
 ```
 
-#### Создание Exchange Instance
+#### Create Exchange Instance
 ```
 POST /api/exchange/instance
 {
@@ -143,7 +143,7 @@ POST /api/exchange/instance
 }
 ```
 
-#### Получение данных
+#### Data Retrieval
 ```
 POST /api/exchange/fetchTicker
 {
@@ -219,7 +219,7 @@ POST /api/exchange/watchBalance
 }
 ```
 
-#### CORS Proxy (основная функция)
+#### CORS Proxy (main function)
 ```
 POST /api/proxy/request
 {
@@ -232,7 +232,7 @@ POST /api/proxy/request
 }
 ```
 
-#### Торговые операции (требуют API ключи)
+#### Trading Operations (require API keys)
 ```
 POST /api/exchange/fetchBalance
 {
@@ -245,23 +245,42 @@ POST /api/exchange/fetchBalance
 }
 ```
 
-## Преимущества Server Provider
+## Supported Operations
 
-1. **🎯 Обход CORS**: Главное преимущество - решение проблем с CORS в браузере
-2. **Производительность**: CCXT выполняется на сервере с Node.js, что быстрее браузера
-3. **Безопасность**: API ключи не передаются в браузер
-4. **Масштабируемость**: Один сервер может обслуживать множество клиентов
-5. **Кэширование**: Сервер кэширует CCXT instances и markets
-6. **Гибкость**: Сервер может быть запущен где угодно
-7. **Универсальный прокси**: Может проксировать любые HTTP запросы к биржам
+**REST API:**
+- ✅ `fetchTicker` - get ticker data
+- ✅ `fetchOrderBook` - get order book
+- ✅ `fetchTrades` - get trades
+- ✅ `fetchOHLCV` - get candlestick data
+- ✅ `fetchBalance` - get balance (with API keys)
 
-## Кэширование
+**WebSocket (CCXT Pro):**
+- ✅ `watchTicker` - subscribe to ticker
+- ✅ `watchOrderBook` - subscribe to order book
+- ✅ `watchTrades` - subscribe to trades
+- ✅ `watchOHLCV` - subscribe to candlesticks
+- ✅ `watchBalance` - subscribe to balance (with API keys)
 
-Сервер автоматически кэширует:
-- CCXT instances (TTL: 24 часа)
-- Markets данные (TTL: 1 час)
+**CORS Proxy:**
+- ✅ Universal HTTP proxy for any exchange requests
 
-Кэш автоматически очищается каждые 10 минут.
+## Server Provider Benefits
+
+1. **🎯 CORS Bypass**: Main advantage - solving browser CORS issues
+2. **Performance**: CCXT executes on server with Node.js, which is faster than browser
+3. **Security**: API keys don't get transmitted to browser
+4. **Scalability**: One server can serve multiple clients
+5. **Caching**: Server caches CCXT instances and markets
+6. **Flexibility**: Server can be run anywhere
+7. **Universal Proxy**: Can proxy any HTTP requests to exchanges
+
+## Caching
+
+Server automatically caches:
+- CCXT instances (TTL: 24 hours)
+- Markets data (TTL: 1 hour)
+
+Cache is automatically cleaned every 10 minutes.
 
 ## Поддерживаемые операции
 
@@ -282,28 +301,28 @@ POST /api/exchange/fetchBalance
 **CORS Proxy:**
 - ✅ Универсальный HTTP прокси для любых запросов к биржам
 
-## Ограничения
+## Limitations
 
-1. **Простая аутентификация**: Используется простой токен (в продакшене нужен JWT)
-2. **Обработка ошибок**: Базовая обработка ошибок
+1. **Simple Authentication**: Uses simple token (JWT needed for production)
+2. **Error Handling**: Basic error handling
 
-## Интеграция с существующим кодом
+## Integration with Existing Code
 
-Server Provider полностью совместим с существующей архитектурой:
+Server Provider is fully compatible with existing architecture:
 
-- Использует те же интерфейсы и типы
-- Работает с той же системой провайдеров
-- Поддерживает автоматический выбор провайдера
-- Интегрируется с fetchingActions и dataActions
+- Uses the same interfaces and types
+- Works with the same provider system
+- Supports automatic provider selection
+- Integrates with fetchingActions and dataActions
 
-## Развертывание
+## Deployment
 
-### Локальное развертывание
+### Local Deployment
 ```bash
 npm run server
 ```
 
-### Docker (пример)
+### Docker (example)
 ```dockerfile
 FROM node:18
 WORKDIR /app
@@ -314,31 +333,31 @@ EXPOSE 3001
 CMD ["npm", "run", "server"]
 ```
 
-### Переменные окружения
+### Environment Variables
 ```bash
 PORT=3001
 API_TOKEN=your-secret-token
 NODE_ENV=production
 ```
 
-## Безопасность
+## Security
 
-⚠️ **Важно**: В продакшене обязательно:
+⚠️ **Important**: For production, make sure to:
 
-1. Используйте HTTPS
-2. Реализуйте JWT аутентификацию
-3. Добавьте rate limiting
-4. Настройте CORS правильно
-5. Используйте переменные окружения для секретов
+1. Use HTTPS
+2. Implement JWT authentication
+3. Add rate limiting
+4. Configure CORS properly
+5. Use environment variables for secrets
 
-## Мониторинг
+## Monitoring
 
-Сервер логирует:
-- Создание/использование кэшированных instances
-- HTTP запросы и ошибки
-- Очистку кэша
+Server logs:
+- Creation/usage of cached instances
+- HTTP requests and errors
+- Cache cleanup
 
-Для продакшена рекомендуется добавить:
+For production, it's recommended to add:
 - Structured logging (Winston, Pino)
 - Metrics (Prometheus)
 - Health checks
