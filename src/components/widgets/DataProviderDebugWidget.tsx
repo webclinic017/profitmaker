@@ -112,6 +112,12 @@ export const DataProviderDebugWidget: React.FC = () => {
     name: string;
     exchanges: string[];
     priority: number;
+    type?: string;
+    serverUrl?: string;
+    token?: string;
+    timeout?: number;
+    apiUrl?: string;
+    jsonSchema?: Record<string, any>;
   }>({ name: '', exchanges: [], priority: 1 });
 
   // Состояние для фильтров REST логов
@@ -164,19 +170,49 @@ export const DataProviderDebugWidget: React.FC = () => {
     setEditFormData({
       name: provider.name,
       exchanges: provider.exchanges,
-      priority: provider.priority
+      priority: provider.priority,
+      type: provider.type,
+      serverUrl: (provider.type === 'ccxt-server' || provider.type === 'custom-server-with-adapter') ? (provider.config as any).serverUrl : undefined,
+      token: provider.type === 'ccxt-server' ? (provider.config as any).token : undefined,
+      timeout: (provider.type === 'ccxt-server' || provider.type === 'marketmaker.cc' || provider.type === 'custom-server-with-adapter') ? (provider.config as any).timeout : undefined,
+      apiUrl: provider.type === 'marketmaker.cc' ? (provider.config as any).apiUrl : undefined,
+      jsonSchema: provider.type === 'custom-server-with-adapter' ? (provider.config as any).jsonSchema : undefined
     });
   };
 
   const saveEdit = () => {
     if (!editingProviderId) return;
-    
-    updateProvider(editingProviderId, {
+
+    const updates: any = {
       name: editFormData.name,
       exchanges: editFormData.exchanges,
       priority: editFormData.priority
-    });
-    
+    };
+
+    // Add config updates based on provider type
+    if (editFormData.type === 'ccxt-server') {
+      updates.config = {
+        serverUrl: editFormData.serverUrl,
+        token: editFormData.token,
+        timeout: editFormData.timeout || 30000
+      };
+    } else if (editFormData.type === 'marketmaker.cc') {
+      updates.config = {
+        apiUrl: editFormData.apiUrl,
+        timeout: editFormData.timeout || 30000,
+        authentication: {}
+      };
+    } else if (editFormData.type === 'custom-server-with-adapter') {
+      updates.config = {
+        serverUrl: editFormData.serverUrl,
+        timeout: editFormData.timeout || 30000,
+        jsonSchema: editFormData.jsonSchema || {},
+        authentication: {}
+      };
+    }
+
+    updateProvider(editingProviderId, updates);
+
     setEditingProviderId(null);
   };
 
@@ -392,7 +428,45 @@ export const DataProviderDebugWidget: React.FC = () => {
                           />
                         </div>
                       </div>
-                      
+
+                      {/* CCXT Server specific fields */}
+                      {editFormData.type === 'ccxt-server' && (
+                        <div className="space-y-3 border-t pt-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs">Server URL</Label>
+                              <Input
+                                value={editFormData.serverUrl || ''}
+                                onChange={(e) => setEditFormData(prev => ({ ...prev, serverUrl: e.target.value }))}
+                                placeholder="http://localhost:3001"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-xs">Timeout (ms)</Label>
+                              <Input
+                                type="number"
+                                value={editFormData.timeout || 30000}
+                                onChange={(e) => setEditFormData(prev => ({ ...prev, timeout: parseInt(e.target.value) || 30000 }))}
+                                className="h-8 text-sm"
+                                min={1000}
+                                max={60000}
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Authentication Token</Label>
+                            <Input
+                              type="password"
+                              value={editFormData.token || ''}
+                              onChange={(e) => setEditFormData(prev => ({ ...prev, token: e.target.value }))}
+                              placeholder="your-secret-token"
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       {renderExchangeSelection()}
                       
                       <div className="flex items-center gap-2 pt-2">
