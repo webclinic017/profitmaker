@@ -178,45 +178,77 @@ Low: $${parseFloat(ticker.l[1]).toLocaleString()}
     setTestResult(null);
 
     try {
-      const response = await fetch(`${serverUrl}/api/exchange/watchTicker`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          config: {
-            exchangeId: 'kraken',
-            marketType: 'spot',
-            ccxtType: 'pro',
-            sandbox: false
-          },
-          symbol: 'BTC/USD'
-        })
+      // Test real WebSocket connection
+      const { createCCXTServerProvider } = await import('../store/providers/ccxtServerProvider');
+
+      const serverProvider = createCCXTServerProvider({
+        id: 'test-server',
+        name: 'Test Server',
+        type: 'ccxt-server',
+        exchanges: ['kraken'],
+        status: 'active',
+        priority: 1,
+        config: {
+          serverUrl,
+          token,
+          timeout: 30000,
+          sandbox: false
+        }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          const ticker = data.data;
-          setTestResult(`✅ WebSocket ticker received via server:
+      const instance = await serverProvider.getWebSocketInstance('kraken', 'spot', false);
+
+      let dataCount = 0;
+      const maxData = 3; // Collect 3 data points
+      const receivedData: any[] = [];
+
+      const subscriptionId = await instance.watchTicker('BTC/USD',
+        (data: any) => {
+          dataCount++;
+          receivedData.push(data);
+
+          console.log(`📡 WebSocket data ${dataCount}:`, data);
+
+          if (dataCount >= maxData) {
+            // Stop after collecting enough data
+            instance.unsubscribe(subscriptionId);
+
+            const lastData = receivedData[receivedData.length - 1];
+            const ticker = lastData.data;
+
+            setTestResult(`✅ Real-time WebSocket ticker stream working!
+
+Received ${dataCount} updates:
 Symbol: ${ticker.symbol}
 Price: $${ticker.last?.toLocaleString()}
 24h Change: ${ticker.percentage?.toFixed(2)}%
 Volume: ${ticker.baseVolume?.toFixed(2)} BTC
 Timestamp: ${new Date(ticker.timestamp).toLocaleString()}
 
-🚀 WebSocket data successfully proxied through server!`);
-        } else {
-          setTestResult(`❌ WebSocket request failed: ${data.error}`);
+🚀 Live WebSocket streaming through Express server!
+📊 Data updates: ${receivedData.map((d, i) => `#${i+1}: $${d.data.last?.toFixed(2)}`).join(', ')}`);
+
+            setIsLoading(false);
+          }
+        },
+        (error: any) => {
+          console.error('WebSocket error:', error);
+          setTestResult(`❌ WebSocket error: ${error.error || error.message}`);
+          setIsLoading(false);
         }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        setTestResult(`❌ WebSocket request failed: ${response.status} - ${errorData.error || response.statusText}`);
-      }
+      );
+
+      // Set timeout to stop test
+      setTimeout(() => {
+        if (dataCount === 0) {
+          instance.unsubscribe(subscriptionId);
+          setTestResult(`⏰ WebSocket test timeout - no data received in 30 seconds`);
+          setIsLoading(false);
+        }
+      }, 30000);
+
     } catch (error) {
-      setTestResult(`❌ Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
+      setTestResult(`❌ WebSocket test failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsLoading(false);
     }
   };
