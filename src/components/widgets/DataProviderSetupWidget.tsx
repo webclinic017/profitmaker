@@ -20,6 +20,7 @@ interface NewProviderFormData {
   priority?: number;
   serverUrl?: string;
   timeout?: number;
+  token?: string;
   apiUrl?: string;
   jsonSchema?: Record<string, any>;
 }
@@ -107,6 +108,7 @@ const DataProviderSetupWidgetInner: React.FC = () => {
       priority: provider.priority,
       serverUrl: (provider.type === 'ccxt-server' || provider.type === 'custom-server-with-adapter') ? (provider.config as any).serverUrl : undefined,
       timeout: (provider.type === 'ccxt-server' || provider.type === 'marketmaker.cc' || provider.type === 'custom-server-with-adapter') ? (provider.config as any).timeout : 30000,
+      token: provider.type === 'ccxt-server' ? (provider.config as any).token : undefined,
       apiUrl: provider.type === 'marketmaker.cc' ? (provider.config as any).apiUrl : undefined,
       jsonSchema: provider.type === 'custom-server-with-adapter' ? (provider.config as any).jsonSchema : undefined
     });
@@ -132,7 +134,8 @@ const DataProviderSetupWidgetInner: React.FC = () => {
       if (editFormData.type === 'ccxt-server') {
         updates.config = {
           serverUrl: editFormData.serverUrl,
-          timeout: editFormData.timeout || 30000
+          timeout: editFormData.timeout || 30000,
+          token: editFormData.token
         };
       }
 
@@ -182,6 +185,7 @@ const DataProviderSetupWidgetInner: React.FC = () => {
       } else if (formData.type === 'ccxt-server') {
         config.serverUrl = formData.serverUrl;
         config.timeout = formData.timeout || 30000;
+        config.token = formData.token;
       } else if (formData.type === 'marketmaker.cc') {
         config.apiUrl = formData.apiUrl;
         config.timeout = formData.timeout || 30000;
@@ -328,10 +332,10 @@ const DataProviderSetupWidgetInner: React.FC = () => {
                     <span className="text-xs text-green-600 dark:text-green-400">Implemented</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="ccxt-server" disabled>
+                <SelectItem value="ccxt-server">
                   <div className="flex flex-col gap-0.5">
-                    <span className="font-medium text-muted-foreground">CCXT Server</span>
-                    <span className="text-xs text-red-500 dark:text-red-400">Not Implemented</span>
+                    <span className="font-medium">CCXT Server</span>
+                    <span className="text-xs text-green-600 dark:text-green-400">Implemented</span>
                   </div>
                 </SelectItem>
 
@@ -389,8 +393,20 @@ const DataProviderSetupWidgetInner: React.FC = () => {
                   id="server-url"
                   value={formData.serverUrl || ''}
                   onChange={(e) => handleFormChange('serverUrl', e.target.value)}
-                  placeholder="https://your-ccxt-server.com/api"
+                  placeholder="http://localhost:3001"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="token">Authentication Token</Label>
+                <Input
+                  id="token"
+                  type="password"
+                  value={formData.token || ''}
+                  onChange={(e) => handleFormChange('token', e.target.value)}
+                  placeholder="your-secret-token"
+                />
+                <p className="text-xs text-muted-foreground">Token for server authentication</p>
               </div>
 
               <div className="space-y-2">
@@ -464,7 +480,16 @@ const DataProviderSetupWidgetInner: React.FC = () => {
                             <Input
                               value={editFormData.serverUrl || ''}
                               onChange={(e) => handleEditFormChange('serverUrl', e.target.value)}
-                              placeholder="https://your-ccxt-server.com/api"
+                              placeholder="http://localhost:3001"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Authentication Token</Label>
+                            <Input
+                              type="password"
+                              value={editFormData.token || ''}
+                              onChange={(e) => handleEditFormChange('token', e.target.value)}
+                              placeholder="your-secret-token"
                             />
                           </div>
                           <div className="space-y-2">
