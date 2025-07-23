@@ -3,17 +3,17 @@
 
 [![License](https://img.shields.io/badge/licence-GPL--2.0-blue.svg)](https://raw.githubusercontent.com/kupi-network/kupi-terminal/master/LICENSE) [![Discord](https://img.shields.io/discord/430374279343898624.svg?color=4D64BA&label=chat%20on%20discord)](https://discord.gg/2PtuMAg) ![Version](https://img.shields.io/badge/express_server-0.6.0-blue.svg) ![Version](https://img.shields.io/badge/react_client-0.6.0-blue.svg) ![Version](https://img.shields.io/badge/vue_client-0.3.0-blue.svg) [![codecov](https://codecov.io/gh/kupi-network/kupi-terminal/branch/master/graph/badge.svg)](https://codecov.io/gh/kupi-network/kupi-terminal) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/a0b7b6b595fd4b3db3818fed7665b1bf)](https://www.codacy.com/app/suenot/kupi-terminal?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=kupi-network/kupi-terminal&amp;utm_campaign=Badge_Grade) [![Build Status](https://travis-ci.org/kupi-network/kupi-terminal.svg?branch=master)](https://travis-ci.org/kupi-network/kupi-terminal) [![Open in CodeSandbox](https://img.shields.io/badge/Open%20in-CodeSandbox-blue?style=flat-square&logo=codesandbox)](https://githubbox.com/suenot/kupi-terminal) [![Run on Repl.it](https://repl.it/badge/github/suenot/kupi-terminal)](https://repl.it/github/suenot/kupi-terminal) [![Mutable.ai documentation](https://img.shields.io/badge/mutable%20ai%20documentation-blue.svg)](https://wiki.mutable.ai/suenot/profitmaker)
 
-Open source, customized, extendable trading terminal that supports 130+
+Open source, customized, extendable trading terminal that supports 100+
 crypto exchanges.
 
 # Important announcement
 I started the new full rewrite of the project. It will be more stable, more secure and more flexible. You can check it [v3](https://github.com/suenot/profitmaker/tree/v3) github branch. I am going to finish stable version in July of 2025. I will be happy to see you there. Welcome to discuss details in [discord](https://discord.com/invite/2PtuMAg).
 
-I announced two version:
-- Open source crypto terminal, and server part for custom metrcs/analytics: [https://profitmaker.cc/](https://profitmaker.cc/)
-- Commercial project with crypto tokens as utility and buyback token: [https://marketmaker.cc/](https://marketmaker.cc/)
+I announced two projects:
+- Open source crypto terminal and modular server for custom metrics/analytics with free realtime API for 100+ exchanges: [https://profitmaker.cc/](https://profitmaker.cc/)
+- Closed commercial project with profitmaker integration: [https://marketmaker.cc/](https://marketmaker.cc/)
 
-# Description for v.1.0.0
+# Description for v.1
 
 
 [![Demo](https://github.com/kupi-network/kupi-terminal/blob/master/demo.png?raw=true)](https://profitmaker-react-git-master-suenot.vercel.app/)
@@ -34,7 +34,7 @@ Vue version: [https://vue.profitmaker.app/](https://vue.profitmaker.app/)
 
 - [Express server](https://github.com/suenot/profitmaker-express)
 
-- [Kupi-network API](https://github.com/suenot/kupi-terminal-api) (deprecated)
+- [Kupi-network API](https://github.com/suenot/kupi-terminal-api) (deprecated, will be new api server for realtime/history)
 
 
 ## How it works
