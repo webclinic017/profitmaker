@@ -18,17 +18,23 @@ export async function executeOrder(
   try {
     console.log(`🚀 [OrderExecution] Executing order:`, orderRequest);
 
-    // Get user account credentials
+    // Get user account credentials (decrypted)
     const userStore = useUserStore.getState();
-    const user = userStore.users.find(u => 
+    const user = userStore.users.find(u =>
       u.accounts.some(acc => acc.id === orderRequest.accountId)
     );
-    
+
     if (!user) {
       throw new Error(`User not found for account ${orderRequest.accountId}`);
     }
-    
-    const account = user.accounts.find(acc => acc.id === orderRequest.accountId);
+
+    // Check if store is locked
+    if (userStore.isLocked) {
+      throw new Error('Store is locked. Please unlock with master password first.');
+    }
+
+    // Get decrypted account
+    const account = await userStore.getDecryptedAccount(user.id, orderRequest.accountId);
     if (!account || !account.key || !account.privateKey) {
       throw new Error(`Account ${orderRequest.accountId} not found or missing API keys`);
     }
@@ -300,17 +306,23 @@ export async function cancelOrder(
   try {
     console.log(`🗑️ [OrderExecution] Cancelling order ${orderId} on ${exchange}`);
 
-    // Get user account credentials
+    // Get user account credentials (decrypted)
     const userStore = useUserStore.getState();
-    const user = userStore.users.find(u => 
+    const user = userStore.users.find(u =>
       u.accounts.some(acc => acc.id === accountId)
     );
-    
+
     if (!user) {
       throw new Error(`User not found for account ${accountId}`);
     }
-    
-    const account = user.accounts.find(acc => acc.id === accountId);
+
+    // Check if store is locked
+    if (userStore.isLocked) {
+      throw new Error('Store is locked. Please unlock with master password first.');
+    }
+
+    // Get decrypted account
+    const account = await userStore.getDecryptedAccount(user.id, accountId);
     if (!account || !account.key || !account.privateKey) {
       throw new Error(`Account ${accountId} not found or missing API keys`);
     }

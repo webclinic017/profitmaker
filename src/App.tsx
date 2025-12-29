@@ -15,6 +15,7 @@ import { TestChartWidget } from './components/TestChartWidget';
 import TestCCXTServerProvider from './components/TestCCXTServerProvider';
 import TestDebugWidgetCCXTServer from './components/TestDebugWidgetCCXTServer';
 import WidgetSettingsManager from './components/WidgetSettingsManager';
+import { MasterPasswordDialog } from './components/MasterPasswordDialog';
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
         <RightClickInfo />
         <CookieNotification />
         <WidgetSettingsManager />
+        <MasterPasswordDialog />
       </TooltipProvider>
     </ThemeProvider>
   </QueryClientProvider>
