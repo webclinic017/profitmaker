@@ -8,7 +8,7 @@
 -   Trading instruments for realizing crypto signals
 -   Accounting
 -   Balances by stocks in %
--   Encrypt keys
+-   ~~Encrypt keys~~ (Done - AES-256-GCM encryption with master password)
 -   Add/Remove keys from interface
 -   Electron version
 
