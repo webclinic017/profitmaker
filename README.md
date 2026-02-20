@@ -31,7 +31,8 @@ I announced two projects:
 
 ## Demo
 
-- [https://profitmaker.vercel.app/](https://profitmaker.vercel.app/)
+- [NextJs version (new)](https://profitmaker.vercel.app/)
+- [React version (deprecated)](https://profitmaker-react-git-master-suenot.vercel.app/)
 
 ## How it works
 
