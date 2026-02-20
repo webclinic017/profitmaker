@@ -31,8 +31,8 @@ I announced two projects:
 
 ## Demo
 
-- [React version (new)](https://profitmaker.vercel.app/)
-- [React version (deprecated)](https://profitmaker-react-git-master-suenot.vercel.app/)
+- [React version v3 (new)]([https://profitmaker.vercel.app/](http://v3-demo.profitmaker.cc/))
+- [React version v1 (deprecated)](https://profitmaker-react-git-master-suenot.vercel.app/)
 
 ## How it works
 
