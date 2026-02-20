@@ -31,20 +31,7 @@ I announced two projects:
 
 ## Demo
 
-React version: [https://react.profitmaker.app/](https://react.profitmaker.app/)
-
-Vue version: [https://vue.profitmaker.app/](https://vue.profitmaker.app/)
-
-## Project repositories:
-
-- [React version](https://github.com/suenot/profitmaker-react)
-
-- [Vue version](https://github.com/suenot/profitmaker-vue)
-
-- [Express server](https://github.com/suenot/profitmaker-express)
-
-- [Kupi-network API](https://github.com/suenot/kupi-terminal-api) (deprecated, will be new api server for realtime/history)
-
+- [https://profitmaker.vercel.app/](https://profitmaker.vercel.app/)
 
 ## How it works
 
