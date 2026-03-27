@@ -1,10 +1,4 @@
-```
- ____            __ _ _                   _
-|  _ \ _ __ ___ / _(_) |_ _ __ ___   __ _| | _____ _ __ ___ ___
-| |_) | '__/ _ \ |_| | __| '_ ` _ \ / _` | |/ / _ \ '__/ __/ __|
-|  __/| | | (_) |  _| | |_| | | | | | (_| |   <  __/ | | (_| (__
-|_|   |_|  \___/|_| |_|\__|_| |_| |_|\__,_|_|\_\___|_|(_)___\___|
-```
+![Profitmaker Story](public/images/generated/comic-strip-profitmaker.png)
 
 # Profitmaker v3 -- Open Source Crypto Trading Terminal
 
@@ -14,12 +8,6 @@
 Modular, widget-based trading terminal with support for **100+ crypto exchanges** via [CCXT](https://github.com/ccxt/ccxt). API keys never leave your machine -- everything is encrypted locally with AES-256-GCM.
 
 **[Live Demo](http://v3-demo.profitmaker.cc/)** | **[Discord](https://discord.gg/2PtuMAg)** | **[Telegram](https://t.me/suenot)**
-
----
-
-## The Story
-
-![Profitmaker Story](public/images/generated/comic-strip-profitmaker.png)
 
 ---
 

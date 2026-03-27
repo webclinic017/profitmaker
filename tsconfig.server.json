@@ -13,6 +13,6 @@
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "node"
   },
-  "include": ["express.ts"],
+  "include": ["server.ts"],
   "exclude": ["node_modules", "dist", "src"]
 }

@@ -158,7 +158,7 @@ const startWebSocketSubscription = async (subscription: WebSocketSubscription): 
 
         // Continue watching if subscription is still active
         if (subscription.isActive) {
-          setImmediate(watchData);
+          setTimeout(watchData, 0);
         }
 
       } catch (error) {
