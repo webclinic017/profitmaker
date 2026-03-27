@@ -1,65 +1,100 @@
-# CRUSH Configuration for ProfitMaker
+# CRUSH -- Development Guidelines for Profitmaker v3
 
-## Build Commands
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run build:dev` - Build for development
-- `npm run preview` - Preview production build
+## Workspace Structure
 
-## Server Commands
-- `npm run server` - Start the CCXT server
-- `npm run server:dev` - Start the CCXT server in watch mode
+Bun workspace monorepo with 4 packages:
 
-## Linting and Type Checking
-- `npm run lint` - Run ESLint on the codebase
-- Type checking is handled by TypeScript (configured in tsconfig files)
+```
+packages/
+├── types/    # @profitmaker/types -- shared TypeScript types
+├── core/     # @profitmaker/core -- CCXT wrappers, providers, encryption, formatters
+├── server/   # @profitmaker/server -- Express + Socket.IO backend
+└── client/   # @profitmaker/client -- React + Vite frontend
+```
 
-## Testing
-- No test framework configured yet
-- To add tests, consider using Jest or Vitest
-- Run individual test files with: `npm test -- <test-file-path>`
+## Commands
 
-## Code Style Guidelines
+All commands run from project root via Bun:
+
+### Development
+- `bun dev` -- start Vite dev server (client, port 8080)
+- `bun server:dev` -- start Express server with watch mode (port 3001)
+
+### Build & Production
+- `bun run build` -- production build (client)
+- `bun server` -- start Express server
+
+### Testing
+- `bun test` -- run Vitest (client)
+- `bun test packages/core/src/__tests__/ccxt-bun.test.ts` -- run CCXT integration tests
+
+### Linting
+- `bun lint` -- ESLint check (client)
+
+### Package-specific
+- `bun --filter '@profitmaker/client' <script>` -- run script in client package
+- `bun --filter '@profitmaker/server' <script>` -- run script in server package
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Bun 1.0+ |
+| Frontend | React 18, TypeScript, Vite 5 + SWC |
+| Components | shadcn/ui (Radix UI + Tailwind CSS) |
+| State | Zustand 5 + Immer (persisted to localStorage) |
+| Data | TanStack React Query, CCXT 4.4 (REST + WebSocket) |
+| Charts | Night Vision (OHLCV), Recharts (pie/bar) |
+| Backend | Express 5, Socket.IO |
+| Encryption | Web Crypto API, AES-256-GCM |
+| Testing | Vitest (client), bun:test (core) |
+
+## Code Style
 
 ### Imports
-- Use absolute imports with `@/*` alias for src directory
-- Group imports in order: built-in, external, internal, type imports
-- Use named imports when possible
+- Use `@/*` alias for src directory in client
+- Use `@profitmaker/types` and `@profitmaker/core` for cross-package imports
+- Group: built-in, external, workspace packages, internal, type imports
 
-### Formatting
-- Follow ESLint rules defined in eslint.config.js
-- Use Prettier for code formatting (implied by project setup)
-- 2-space indentation
-- No trailing commas in function parameters
-- Semicolons are optional (follow existing code style)
+### Naming
+- PascalCase: components, types, interfaces (`WidgetSimple`, `OrderBook`)
+- camelCase: variables, functions, hooks (`useDashboardStore`, `formatPrice`)
+- UPPER_SNAKE_CASE: constants (`CACHE_TTL`, `SNAP_DISTANCE`)
+- Files match exports: `UserBalancesWidget.tsx`, `dashboardStore.ts`
 
-### Types
-- Use TypeScript for all files
-- Prefer interfaces over types for object shapes
-- Use explicit typing when it improves clarity
-- Leverage type inference when possible
+### TypeScript
+- Prefer interfaces for object shapes, types for unions/intersections
+- Use Zod schemas for validated types (stores, API responses)
+- Use explicit typing when it improves clarity, inference elsewhere
+- Avoid `any` -- use `unknown` and narrow
 
-### Naming Conventions
-- Use PascalCase for components and types
-- Use camelCase for variables and functions
-- Use UPPER_SNAKE_CASE for constants
-- File names should match the component/function they export
+### Components
+- shadcn/ui as base -- don't reinvent buttons, dialogs, inputs
+- `cn()` utility for conditional Tailwind classes (clsx + tailwind-merge)
+- Push state down: local state in component, shared state in Zustand store
+- Use Zustand selectors to avoid unnecessary re-renders: `useStore(s => s.field)` not `useStore()`
+
+### State Management (Zustand)
+- Each store in its own file: `dashboardStore.ts`, `userStore.ts`, etc.
+- Use Immer middleware for complex nested updates
+- Use `persist` middleware for data that survives page reload
+- Use `subscribeWithSelector` for reactive subscriptions
+- Actions split into separate modules in `store/actions/`
+
+### Performance
+- Virtual scroll for lists with >50 items (`@tanstack/react-virtual`)
+- Pre-calculate element heights for virtualizer
+- `React.memo`, `useMemo`, `useCallback` for expensive computations
+- Avoid object creation in render functions
+- Subscription deduplication for market data streams
 
 ### Error Handling
-- Use try/catch blocks for async operations
-- Handle errors gracefully with user-friendly messages
-- Log errors appropriately for debugging
+- try/catch for all async operations
+- Graceful fallbacks (WebSocket -> REST)
+- User-friendly error states in widgets (retry button)
+- Console logging with emoji prefixes for categories
 
-### Virtualization (from .cursorrules)
-- Use virtual scroll for lists with >100 items
-- Use virtualization for tables with >50 rows
-- Use @tanstack/react-virtual for implementation
-- Always pre-calculate element heights for better performance
-- Use memoization (React.memo, useMemo, useCallback) for list items
-- Optimize rendering by avoiding object creation in render functions
-
-## Additional Rules from .cursorrules
-- No fantasy - don't invent data, events, sources or opinions without request
-- Be honest - specify what your answer is based on
+### General Rules
+- No fantasy -- don't invent data or sources
+- Be honest -- specify what your answer is based on
 - Prioritize accuracy and logic over presentation
-- Avoid humor, metaphors, storytelling, or emotions unless specifically requested
