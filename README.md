@@ -208,3 +208,9 @@ MIT License with Commons Clause.
 **Not allowed**: sell Profitmaker itself, offer it as a hosted service, create competing products based on it.
 
 See [LICENSE](./LICENSE) for full text. For commercial licensing -- [Telegram](https://t.me/suenot) or [email](mailto:suenot@gmail.com).
+
+---
+
+[![MarketMaker.cc](public/images/generated/banner-marketmaker.png)](https://marketmaker.cc/)
+
+**[MarketMaker.cc](https://marketmaker.cc/)** -- commercial trading platform with AI-powered analytics, automated bots, and Profitmaker integration. Take your trading to the next level.
