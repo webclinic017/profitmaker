@@ -6,141 +6,212 @@
 |_|   |_|  \___/|_| |_|\__|_| |_| |_|\__,_|_|\_\___|_|(_)___\___|
 ```
 
-# Profitmaker – crypto currency trading terminal
-(previously named "Kupi-terminal")
+# Profitmaker v3 -- Open Source Crypto Trading Terminal
 
-[![License](https://img.shields.io/badge/licence-GPL--2.0-blue.svg)](https://raw.githubusercontent.com/kupi-network/kupi-terminal/master/LICENSE) [![Discord](https://img.shields.io/discord/430374279343898624.svg?color=4D64BA&label=chat%20on%20discord)](https://discord.gg/2PtuMAg) ![Version](https://img.shields.io/badge/express_server-0.6.0-blue.svg) ![Version](https://img.shields.io/badge/react_client-0.6.0-blue.svg) ![Version](https://img.shields.io/badge/vue_client-0.3.0-blue.svg) [![codecov](https://codecov.io/gh/kupi-network/kupi-terminal/branch/master/graph/badge.svg)](https://codecov.io/gh/kupi-network/kupi-terminal) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/a0b7b6b595fd4b3db3818fed7665b1bf)](https://www.codacy.com/app/suenot/kupi-terminal?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=kupi-network/kupi-terminal&amp;utm_campaign=Badge_Grade) [![Build Status](https://travis-ci.org/kupi-network/kupi-terminal.svg?branch=master)](https://travis-ci.org/kupi-network/kupi-terminal) [![Open in CodeSandbox](https://img.shields.io/badge/Open%20in-CodeSandbox-blue?style=flat-square&logo=codesandbox)](https://githubbox.com/suenot/kupi-terminal) [![Run on Repl.it](https://repl.it/badge/github/suenot/kupi-terminal)](https://repl.it/github/suenot/kupi-terminal) [![Mutable.ai documentation](https://img.shields.io/badge/mutable%20ai%20documentation-blue.svg)](https://wiki.mutable.ai/suenot/profitmaker)
-[![Wiki](https://img.shields.io/badge/wiki-documentation-blue)](.qoder/repowiki/en/content/)
+[![License](https://img.shields.io/badge/license-MIT%20with%20Commons%20Clause-blue.svg)](./LICENSE)
+[![Discord](https://img.shields.io/discord/430374279343898624.svg?color=4D64BA&label=discord)](https://discord.gg/2PtuMAg)
 
-Open source, customized, extendable trading terminal that supports 100+
-crypto exchanges.
+Modular, widget-based trading terminal with support for **100+ crypto exchanges** via [CCXT](https://github.com/ccxt/ccxt). API keys never leave your machine -- everything is encrypted locally with AES-256-GCM.
 
-# Important announcement
-I started the new full rewrite of the project. It will be more stable, more secure and more flexible. You can check it [v3](https://github.com/suenot/profitmaker/tree/v3) github branch. I am going to finish stable version in July of 2025. I will be happy to see you there. Welcome to discuss details in [discord](https://discord.com/invite/2PtuMAg).
+**[Live Demo](http://v3-demo.profitmaker.cc/)** | **[Discord](https://discord.gg/2PtuMAg)** | **[Telegram](https://t.me/suenot)**
 
-I announced two projects:
-- Open source crypto terminal and modular server for custom metrics/analytics with free realtime API for 100+ exchanges: [https://profitmaker.cc/](https://profitmaker.cc/)
-- Closed commercial project with profitmaker integration: [https://marketmaker.cc/](https://marketmaker.cc/)
+---
 
-# Description for v.1
+## Overview
 
+Profitmaker is a browser-based trading workspace where you compose your own dashboards from draggable, resizable widgets -- charts, order books, trade feeds, order forms, portfolio views, and more. Data flows in real-time via WebSocket (CCXT Pro) with REST fallback.
 
-[![Demo](https://github.com/kupi-network/kupi-terminal/blob/master/demo.png?raw=true)](https://profitmaker-react-git-master-suenot.vercel.app/)
+The app runs entirely in your browser. An optional Express server proxies exchange APIs to bypass CORS and enables server-side WebSocket subscriptions via Socket.IO.
 
-## [Demo](#demo) ·[How it works](#how-it-works) · [Features](#features) · [Technologies](#technologies) · [Warning](#warning) · [Quick start](#quick-start) · [Supported exchange markets](https://github.com/kupi-network/kupi-terminal/blob/master/MARKETS.md) · [React vs Vue](https://github.com/kupi-network/kupi-terminal/blob/master/REACT_VS_VUE.md) · [API](#api) · [Vocabulary](https://github.com/kupi-network/kupi-terminal/blob/master/VOCABULARY.md) · [Privacy policy](https://github.com/kupi-network/kupi-terminal/blob/master/PRIVACY_POLICY.md) · [Terms of use](https://github.com/kupi-network/kupi-terminal/blob/master/TERMS_OF_USE.md) · [Changelog](https://github.com/kupi-network/kupi-terminal/blob/master/CHANGELOG.md) · [Roadmap](https://github.com/kupi-network/kupi-terminal/blob/master/ROADMAP.md) · [Support us](#support-us) · [Team](#team) · [Contact us](#contact-us)
+## Tech Stack
 
-## Demo
-
-- [React version v3 (new)](http://v3-demo.profitmaker.cc/)
-- [React version v1 (deprecated)](https://profitmaker-react-git-master-suenot.vercel.app/)
-
-## How it works
-
-![Demo](https://github.com/kupi-network/kupi-terminal/blob/master/structure.png?raw=true)
-
+| Layer | Technology |
+|-------|-----------|
+| UI Framework | React 18, TypeScript |
+| Build | Vite 5 + SWC |
+| Components | shadcn/ui (Radix UI + Tailwind CSS) |
+| State | Zustand 5 + Immer (12 stores, persisted to localStorage) |
+| Data Fetching | TanStack React Query |
+| Charts | Night Vision (OHLCV candlestick) + Recharts (pie, bar) |
+| Exchange API | CCXT 4.4 (100+ exchanges, REST + WebSocket) |
+| Backend | Express 5 + Socket.IO (optional CORS proxy) |
+| Encryption | Web Crypto API -- AES-256-GCM with master password |
+| Testing | Vitest + JSDOM |
 
 ## Features
 
--   Open source
--   Your api keys stay on your machine, no need to send them anywhere
--   Customized with dashboards and widgets
--   Extendable with users modules
--   Free realtime API (Timeseries will be in immediate future)
--   Framework for creating trading bots
+### Widget System
+- **Drag & drop** positioning with snap-to-grid and snap-to-widget alignment
+- **Resize** from all 8 directions (edges + corners)
+- **Maximize, minimize, collapse** -- collapsed widgets dock to bottom bar
+- **Multiple dashboards** with tab navigation, create/duplicate/rename/delete
+- **Right-click context menu** to add new widgets
+- **Widget settings drawer** with per-widget configuration
+- **Editable titles** -- double-click any widget header
 
-## Technologies
+### Trading Widgets
 
--   [React](https://github.com/facebook/react),
--   [react-grid-layout](https://github.com/STRML/react-grid-layout),
--   [material-ui](https://github.com/mui-org/material-ui)
--   [Vue](https://github.com/vuejs/vue),
--   [vue-grid-layout](https://github.com/jbaysolutions/vue-grid-layout),
--   [element](https://github.com/ElemeFE/element),
--   [movue](https://github.com/nighca/movue),
--   [v-charts](https://github.com/ElemeFE/v-charts)
--   [Mobx](https://github.com/mobxjs/mobx)
--   [Express](https://github.com/expressjs/express)
--   [Mongo](https://github.com/mongodb/mongo)
--   [CCXT](https://github.com/ccxt/ccxt)
--   [Flaticon](https://www.flaticon.com/)
--   [Echarts](https://github.com/apache/incubator-echarts)
+| Widget | Description |
+|--------|-------------|
+| **Chart** | OHLCV candlestick chart (Night Vision), 13 timeframes (1m--1M), theme-aware colors, infinite scroll for history |
+| **Order Book** | Real-time bid/ask depth with cumulative volume, spread display, price level highlighting |
+| **Trades** | Live trade feed with filtering and sorting, aggregated mode |
+| **Order Form** | Market, limit, stop-loss, take-profit, trailing stop, iceberg orders. Validation against exchange constraints |
+| **Portfolio** | Balance overview across all connected accounts |
+| **User Balances** | Detailed balance view with pie chart breakdown by currency |
+| **User Trading Data** | My trades, open orders, positions (futures) per account |
+| **Deals** | Deal tracking with entry/exit analysis and statistics |
+| **Transaction History** | Full transaction log |
 
-## WARNING
+### Data Provider System
+- **CCXT Browser** -- direct exchange API calls from the browser (limited by CORS)
+- **CCXT Server** -- proxied through Express backend, bypasses CORS, supports WebSocket via CCXT Pro
+- **Pluggable architecture** -- provider priority system, automatic fallback from WebSocket to REST
+- **Subscription deduplication** -- multiple widgets sharing the same data stream get a single connection
+- **Market data types**: candles, trades, order book, ticker, balance
+- **13 timeframes**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M
 
-THE SOFTWARE UNDER HEAVY DEVELOPMENT. PROVIDED "AS IS", WITHOUT WARRANTY
-OF ANY KIND.
+### Groups (Instrument Linking)
+Color-coded groups link widgets to the same instrument (exchange + market + pair + account). Change the pair in one widget -- all widgets in that group follow. The transparent group acts as the global default.
 
-## Quick start
+### Security
+- **API keys encrypted** with AES-256-GCM using a user-set master password (Web Crypto API)
+- **Keys never leave your machine** -- stored in browser localStorage, encrypted at rest
+- **Master password lock/unlock** -- lock the terminal when stepping away
+- **Credential tiers** -- safe (read-only), notSafe (trading), danger (withdrawal)
+- **Bearer token auth** on the Express server
 
-### [TL;DR](https://github.com/kupi-network/kupi-terminal/blob/master/INSTALL_TL_DR.md)
+### Other
+- Dark / light theme with Tailwind CSS variables
+- Cookie consent notification
+- Notification system with history (success, error, warning, info)
+- Exchange capabilities detection (spot, futures, margin, options, swap)
+- Request logging for debugging
 
-### [Install with docker](https://github.com/kupi-network/kupi-terminal/blob/master/INSTALL_WITH_DOCKER.md)
+## Quick Start
 
-### [Install manually](https://github.com/kupi-network/kupi-terminal/blob/master/INSTALL_MANUALLY.md)
+### Prerequisites
+- Node.js 20+ (or Bun)
+- npm / bun
 
-If you had any problems with installing we can help in [voice/text
-Discord chat](https://discord.gg/2PtuMAg)
-
-## API
-
-### Server api
-
-Server: [https://kupi.network/api](https://kupi.network/api) (secure) or
-[http://kupi.network/api](http://kupi.network/api) (faster)
-
-Swagger: [try api
-online](https://app.swaggerhub.com/apis-docs/soloviofff/kupi.network/1.0.0)
-
-```bash
-/stocks
-/binance/pairs
-/binance/orders/ETH_BTC
-/binance/trades/ETH_BTC
-/binance/candles/ETH_BTC/1m # timeframes: ['1m', '3m', '5m', '15m', '30m', '1H', '2H', '4H', '6H', '12H', 'D', 'W', 'M']
-/coinmarketcap
-```
-
-#### terminal server api:
-
-```http://localhost:8051/```
+### Install & Run
 
 ```bash
-/balance
-/openOrders/:stock/:pair
-/myTrades/:stock/:pair
-/cancelOrder
-/createOrder
+# Clone
+git clone https://github.com/suenot/profitmaker.git
+cd profitmaker
+
+# Install dependencies
+npm install
+
+# Start the frontend (port 8080)
+npm run dev
+
+# (Optional) Start the Express server for CORS proxy + WebSocket (port 3001)
+npm run server:dev
 ```
+
+Open http://localhost:8080
+
+### Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start Vite dev server (port 8080) |
+| `npm run build` | Production build |
+| `npm run preview` | Preview production build |
+| `npm run server` | Start Express server (port 3001) |
+| `npm run server:dev` | Start Express server with auto-reload |
+| `npm run test` | Run tests (Vitest) |
+| `npm run test:ui` | Run tests with UI |
+| `npm run lint` | ESLint check |
+
+## Architecture
+
+```
+src/
+├── pages/                  # Route pages (Index -> TradingTerminal, NotFound)
+├── components/
+│   ├── widgets/            # 20+ trading widgets (Chart, OrderBook, Trades, OrderForm, ...)
+│   ├── ui/                 # shadcn/ui components + InstrumentSelector, TimeframeSelect, GroupSelector
+│   ├── WidgetSimple.tsx    # Base widget container (drag, resize, snap, collapse, maximize)
+│   ├── WidgetMenu.tsx      # Right-click context menu for adding widgets
+│   └── TabNavigation.tsx   # Dashboard tabs + user/theme/notification controls
+├── store/
+│   ├── dashboardStore.ts   # Dashboards & widgets layout (Zustand + Immer + persist)
+│   ├── dataProviderStore.ts # Market data subscriptions & centralized data cache
+│   ├── userStore.ts        # Users & encrypted exchange accounts
+│   ├── groupStore.ts       # Color-coded instrument linking groups
+│   ├── placeOrderStore.ts  # Order form state & validation
+│   ├── notificationStore.ts # Notification system with history
+│   ├── actions/            # Store action modules (ccxt, data, subscriptions, fetching, events)
+│   ├── providers/          # CCXT Browser & Server provider implementations
+│   └── utils/              # CCXT instance manager, account manager, WebSocket utils
+├── types/                  # TypeScript types (orders, candles, dashboard, deals, groups)
+├── services/               # Order execution & validation service
+├── hooks/                  # Custom hooks (useTheme, useWidgetDrag, useDataProvider, ...)
+├── utils/                  # Encryption (AES-256-GCM), formatters, exchange limits
+└── context/                # Widget context for inter-widget communication
+```
+
+### Data Flow
+
+```
+Exchange API
+    │
+    ├─── CCXT Browser Provider ──┐
+    │    (direct, limited CORS)  │
+    │                            ├──> dataProviderStore ──> Widget Components
+    └─── CCXT Server Provider ───┘         │
+         (Express proxy + Socket.IO)       │
+                                     ┌─────┘
+                                     │
+                                  Zustand stores
+                                  (candles, trades,
+                                   orderbook, ticker,
+                                   balance)
+```
+
+### Express Server API (port 3001)
+
+REST endpoints (POST, Bearer token auth):
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check (no auth) |
+| `/api/exchange/instance` | Create/get cached CCXT instance |
+| `/api/exchange/fetchTicker` | Fetch ticker data |
+| `/api/exchange/fetchOrderBook` | Fetch order book |
+| `/api/exchange/fetchTrades` | Fetch recent trades |
+| `/api/exchange/fetchOHLCV` | Fetch candlestick data |
+| `/api/exchange/fetchBalance` | Fetch account balance (requires API keys) |
+| `/api/exchange/capabilities` | Get exchange capabilities |
+| `/api/exchange/watch*` | WebSocket watch endpoints (CCXT Pro) |
+| `/api/proxy/request` | Generic HTTP proxy for CORS bypass |
+
+Socket.IO events: `subscribe`, `unsubscribe`, `data`, `error`
+
+## Supported Exchanges
+
+100+ exchanges via CCXT including: Binance, Bybit, OKX, Coinbase, Kraken, Bitfinex, Gate.io, KuCoin, MEXC, Huobi, Bitget, and many more.
+
+Full list: [CCXT Supported Exchanges](https://github.com/ccxt/ccxt#supported-cryptocurrency-exchange-markets)
+
+## Related Projects
+
+- **[profitmaker.cc](https://profitmaker.cc/)** -- open source crypto terminal + modular server for custom metrics
+- **[marketmaker.cc](https://marketmaker.cc/)** -- commercial trading platform with profitmaker integration
 
 ## Team
 
--   Eugen Soloviov [github](https://github.com/suenot) [telegram](https://t.me/suenot) [facebook](https://www.facebook.com/soloviov.evgeniy) - maintainer
--   Sergey Soloviov [github](https://github.com/soloviofff) - contributor
--   Igor Korotin [github](https://github.com/markolofsen) - contributor
+- **Eugen Soloviov** -- maintainer -- [GitHub](https://github.com/suenot) | [Telegram](https://t.me/suenot)
 
-## Contact Us
+## License
 
-For business inquiries contact with [Eugen Soloviov](https://t.me/suenot)
+MIT License with Commons Clause.
 
-## Sponsored Promotion
+**Allowed**: use for any purpose, modify, distribute, create products built with Profitmaker.
 
-Want this place? Contact with [Eugen Soloviov](https://t.me/suenot)
+**Not allowed**: sell Profitmaker itself, offer it as a hosted service, create competing products based on it.
 
-![Placehodler](https://user-images.githubusercontent.com/1707/48204972-43569e00-e37c-11e8-9cf3-b86e3dc19ee9.png)
-
-## Licensing
-Profitmaker is licensed under the MIT License with Commons Clause. This means you can:
-
-✅ Allowed:
-- Use Profitmaker for any purpose (personal, commercial, academic)
-- Modify the code
-- Distribute copies
-- Create and sell products built using Profitmaker
-
-❌ Not Allowed:
-- Sell Profitmaker itself
-- Offer Profitmaker as a hosted service
-- Create competing products based on Profitmaker
-
-See the [LICENSE](./LICENSE) file for the complete license text. For commercial licensing or questions about permitted use, you can always contact Eugen Soloviov via [Telegram](https://t.me/suenot) or by [email](mailto:suenot@gmail.com).
-
+See [LICENSE](./LICENSE) for full text. For commercial licensing -- [Telegram](https://t.me/suenot) or [email](mailto:suenot@gmail.com).
