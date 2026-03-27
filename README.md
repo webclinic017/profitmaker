@@ -17,6 +17,12 @@ Modular, widget-based trading terminal with support for **100+ crypto exchanges*
 
 ---
 
+## The Story
+
+![Profitmaker Story](public/images/generated/comic-strip-profitmaker.png)
+
+---
+
 ## Overview
 
 Profitmaker is a browser-based trading workspace where you compose your own dashboards from draggable, resizable widgets -- charts, order books, trade feeds, order forms, portfolio views, and more. Data flows in real-time via WebSocket (CCXT Pro) with REST fallback.
@@ -91,8 +97,7 @@ Color-coded groups link widgets to the same instrument (exchange + market + pair
 ## Quick Start
 
 ### Prerequisites
-- Node.js 20+ (or Bun)
-- npm / bun
+- [Bun](https://bun.sh/) 1.0+ (recommended) or Node.js 20+
 
 ### Install & Run
 
@@ -102,13 +107,13 @@ git clone https://github.com/suenot/profitmaker.git
 cd profitmaker
 
 # Install dependencies
-npm install
+bun install
 
 # Start the frontend (port 8080)
-npm run dev
+bun dev
 
 # (Optional) Start the Express server for CORS proxy + WebSocket (port 3001)
-npm run server:dev
+bun server:dev
 ```
 
 Open http://localhost:8080
@@ -117,14 +122,14 @@ Open http://localhost:8080
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Vite dev server (port 8080) |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
-| `npm run server` | Start Express server (port 3001) |
-| `npm run server:dev` | Start Express server with auto-reload |
-| `npm run test` | Run tests (Vitest) |
-| `npm run test:ui` | Run tests with UI |
-| `npm run lint` | ESLint check |
+| `bun dev` | Start Vite dev server (port 8080) |
+| `bun run build` | Production build |
+| `bun preview` | Preview production build |
+| `bun server` | Start Express server (port 3001) |
+| `bun server:dev` | Start Express server with auto-reload |
+| `bun test` | Run tests (Vitest) |
+| `bun test:ui` | Run tests with UI |
+| `bun lint` | ESLint check |
 
 ## Architecture
 
