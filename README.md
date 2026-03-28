@@ -7,15 +7,32 @@
 
 Modular, widget-based trading terminal with support for **100+ crypto exchanges** via [CCXT](https://github.com/ccxt/ccxt). API keys never leave your machine -- everything is encrypted locally with AES-256-GCM.
 
-**[Live Demo](http://v3-demo.profitmaker.cc/)** | **[Discord](https://discord.gg/2PtuMAg)** | **[Telegram](https://t.me/suenot)**
+**[Live Demo](https://v3-demo.profitmaker.cc/)** | **[Docs](https://www.profitmaker.cc/docs/)** | **[Discord](https://discord.gg/2PtuMAg)** | **[Telegram](https://t.me/suenot)**
 
 ---
 
-## Overview
+## API-First Architecture
 
-Profitmaker is a browser-based trading workspace where you compose your own dashboards from draggable, resizable widgets -- charts, order books, trade feeds, order forms, portfolio views, and more. Data flows in real-time via WebSocket (CCXT Pro) with REST fallback.
+Profitmaker is an **API-managed project**. All functionality is exposed through a REST/WebSocket API on the backend. This design enables:
 
-The app runs entirely in your browser. An optional Express server proxies exchange APIs to bypass CORS and enables server-side WebSocket subscriptions via Socket.IO.
+- **LLM Integration** -- AI agents (Claude Code, etc.) can manage the entire platform via API: create dashboards, place orders, manage providers, subscribe to market data
+- **Headless Mode** -- run the backend without the browser UI for automated trading, data collection, or bot integration
+- **Multi-Client** -- the same API serves the React frontend, CLI tools, mobile apps, or third-party integrations
+- **Testability** -- every feature is testable via API without rendering a browser
+
+The backend is built with **Bun + Elysia** (the fastest Bun-native HTTP framework) and **Socket.IO** for real-time WebSocket streaming.
+
+```bash
+# Get BTC price from Binance in one line
+curl -s -X POST http://localhost:3001/api/exchange/fetchTicker \
+  -H "Authorization: Bearer your-secret-token" \
+  -H "Content-Type: application/json" \
+  -d '{"config":{"exchangeId":"binance","marketType":"spot","ccxtType":"regular"},"symbol":"BTC/USDT"}'
+```
+
+See [docs/server-api.md](docs/server-api.md) for the full API reference.
+
+---
 
 ## Tech Stack
 
@@ -28,9 +45,10 @@ The app runs entirely in your browser. An optional Express server proxies exchan
 | Data Fetching | TanStack React Query |
 | Charts | Night Vision (OHLCV candlestick) + Recharts (pie, bar) |
 | Exchange API | CCXT 4.4 (100+ exchanges, REST + WebSocket) |
-| Backend | Express 5 + Socket.IO (optional CORS proxy) |
+| Backend | **Bun + Elysia** (HTTP API) + Socket.IO (WebSocket streaming) |
 | Encryption | Web Crypto API -- AES-256-GCM with master password |
 | Testing | Vitest + JSDOM |
+| Monorepo | Bun workspaces (4 packages) |
 
 ## Features
 
@@ -55,37 +73,40 @@ The app runs entirely in your browser. An optional Express server proxies exchan
 | **User Balances** | Detailed balance view with pie chart breakdown by currency |
 | **User Trading Data** | My trades, open orders, positions (futures) per account |
 | **Deals** | Deal tracking with entry/exit analysis and statistics |
-| **Transaction History** | Full transaction log |
+| **Transaction History** | Full transaction log with filtering |
 
 ### Data Provider System
 - **CCXT Browser** -- direct exchange API calls from the browser (limited by CORS)
-- **CCXT Server** -- proxied through Express backend, bypasses CORS, supports WebSocket via CCXT Pro
+- **CCXT Server** -- proxied through Elysia backend, bypasses CORS, supports WebSocket via CCXT Pro
 - **Pluggable architecture** -- provider priority system, automatic fallback from WebSocket to REST
 - **Subscription deduplication** -- multiple widgets sharing the same data stream get a single connection
 - **Market data types**: candles, trades, order book, ticker, balance
 - **13 timeframes**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M
 
 ### Groups (Instrument Linking)
-Color-coded groups link widgets to the same instrument (exchange + market + pair + account). Change the pair in one widget -- all widgets in that group follow. The transparent group acts as the global default.
+Color-coded groups link widgets to the same instrument (exchange + market + pair + account). Change the pair in one widget -- all widgets in that group follow.
 
 ### Security
 - **API keys encrypted** with AES-256-GCM using a user-set master password (Web Crypto API)
 - **Keys never leave your machine** -- stored in browser localStorage, encrypted at rest
-- **Master password lock/unlock** -- lock the terminal when stepping away
-- **Credential tiers** -- safe (read-only), notSafe (trading), danger (withdrawal)
-- **Bearer token auth** on the Express server
+- **Bearer token auth** on the API server
 
 ### Other
 - Dark / light theme with Tailwind CSS variables
-- Cookie consent notification
 - Notification system with history (success, error, warning, info)
 - Exchange capabilities detection (spot, futures, margin, options, swap)
-- Request logging for debugging
 
 ## Quick Start
 
 ### Prerequisites
-- [Bun](https://bun.sh/) 1.0+ (recommended) or Node.js 20+
+- [Bun](https://bun.sh/) 1.0+
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3001` | API server port |
+| `API_TOKEN` | `your-secret-token` | Bearer token for API authentication |
 
 ### Install & Run
 
@@ -100,7 +121,7 @@ bun install
 # Start the frontend (port 8080)
 bun dev
 
-# (Optional) Start the Express server for CORS proxy + WebSocket (port 3001)
+# Start the API server (port 3001)
 bun server:dev
 ```
 
@@ -112,39 +133,47 @@ Open http://localhost:8080
 |---------|-------------|
 | `bun dev` | Start Vite dev server (port 8080) |
 | `bun run build` | Production build |
-| `bun preview` | Preview production build |
-| `bun server` | Start Express server (port 3001) |
-| `bun server:dev` | Start Express server with auto-reload |
+| `bun server` | Start Elysia API server (port 3001) |
+| `bun server:dev` | Start API server with auto-reload |
 | `bun test` | Run tests (Vitest) |
-| `bun test:ui` | Run tests with UI |
 | `bun lint` | ESLint check |
 
 ## Architecture
 
+### Monorepo Structure
+
 ```
-src/
-├── pages/                  # Route pages (Index -> TradingTerminal, NotFound)
-├── components/
-│   ├── widgets/            # 20+ trading widgets (Chart, OrderBook, Trades, OrderForm, ...)
-│   ├── ui/                 # shadcn/ui components + InstrumentSelector, TimeframeSelect, GroupSelector
-│   ├── WidgetSimple.tsx    # Base widget container (drag, resize, snap, collapse, maximize)
-│   ├── WidgetMenu.tsx      # Right-click context menu for adding widgets
-│   └── TabNavigation.tsx   # Dashboard tabs + user/theme/notification controls
-├── store/
-│   ├── dashboardStore.ts   # Dashboards & widgets layout (Zustand + Immer + persist)
-│   ├── dataProviderStore.ts # Market data subscriptions & centralized data cache
-│   ├── userStore.ts        # Users & encrypted exchange accounts
-│   ├── groupStore.ts       # Color-coded instrument linking groups
-│   ├── placeOrderStore.ts  # Order form state & validation
-│   ├── notificationStore.ts # Notification system with history
-│   ├── actions/            # Store action modules (ccxt, data, subscriptions, fetching, events)
-│   ├── providers/          # CCXT Browser & Server provider implementations
-│   └── utils/              # CCXT instance manager, account manager, WebSocket utils
-├── types/                  # TypeScript types (orders, candles, dashboard, deals, groups)
-├── services/               # Order execution & validation service
-├── hooks/                  # Custom hooks (useTheme, useWidgetDrag, useDataProvider, ...)
-├── utils/                  # Encryption (AES-256-GCM), formatters, exchange limits
-└── context/                # Widget context for inter-widget communication
+profitmaker/
+├── packages/
+│   ├── client/             # @profitmaker/client -- React frontend (Vite + SWC)
+│   │   └── src/
+│   │       ├── components/widgets/  # 20+ trading widgets
+│   │       ├── store/
+│   │       │   ├── actions/
+│   │       │   │   ├── data/        # Settings, getters, updaters, initializers, user trading
+│   │       │   │   ├── fetching/    # WebSocket + REST data fetching
+│   │       │   │   └── provider/    # CRUD + query provider management
+│   │       │   ├── providers/       # CCXT Browser & Server implementations
+│   │       │   └── utils/           # Instance manager, account manager
+│   │       ├── types/               # TypeScript interfaces
+│   │       └── hooks/               # Custom React hooks
+│   ├── server/             # @profitmaker/server -- Elysia API server
+│   │   └── src/
+│   │       ├── routes/
+│   │       │   ├── health.ts        # Health check
+│   │       │   ├── exchange.ts      # Market data REST endpoints
+│   │       │   ├── websocket.ts     # CCXT Pro watch endpoints
+│   │       │   └── proxy.ts         # CORS proxy
+│   │       ├── services/
+│   │       │   ├── ccxtCache.ts     # CCXT instance cache (24h TTL)
+│   │       │   └── wsSubscriptions.ts # WebSocket subscription manager
+│   │       ├── middleware/
+│   │       │   └── auth.ts          # Bearer token authentication
+│   │       └── index.ts             # Server entry point
+│   ├── types/              # @profitmaker/types -- shared TypeScript types + Zod schemas
+│   └── core/               # @profitmaker/core -- shared utilities (encryption, formatters, CCXT)
+├── package.json            # Bun workspace root
+└── vite.config.ts          # Frontend build config
 ```
 
 ### Data Flow
@@ -156,16 +185,14 @@ Exchange API
     │    (direct, limited CORS)  │
     │                            ├──> dataProviderStore ──> Widget Components
     └─── CCXT Server Provider ───┘         │
-         (Express proxy + Socket.IO)       │
-                                     ┌─────┘
-                                     │
-                                  Zustand stores
-                                  (candles, trades,
-                                   orderbook, ticker,
-                                   balance)
+         (Elysia API + Socket.IO)          │
+                                     Zustand stores
+                                     (candles, trades,
+                                      orderbook, ticker,
+                                      balance)
 ```
 
-### Express Server API (port 3001)
+### API Server (port 3001)
 
 REST endpoints (POST, Bearer token auth):
 
@@ -187,8 +214,6 @@ Socket.IO events: `subscribe`, `unsubscribe`, `data`, `error`
 ## Supported Exchanges
 
 100+ exchanges via CCXT including: Binance, Bybit, OKX, Coinbase, Kraken, Bitfinex, Gate.io, KuCoin, MEXC, Huobi, Bitget, and many more.
-
-Full list: [CCXT Supported Exchanges](https://github.com/ccxt/ccxt#supported-cryptocurrency-exchange-markets)
 
 ## Related Projects
 
@@ -213,4 +238,4 @@ See [LICENSE](./LICENSE) for full text. For commercial licensing -- [Telegram](h
 
 [![MarketMaker.cc](public/images/generated/banner-marketmaker.png)](https://marketmaker.cc/)
 
-**[MarketMaker.cc](https://marketmaker.cc/)** -- commercial trading platform with AI-powered analytics, automated bots, and Profitmaker integration. Take your trading to the next level.
+**[MarketMaker.cc](https://marketmaker.cc/)** -- commercial trading platform with AI-powered analytics, automated bots, and Profitmaker integration.

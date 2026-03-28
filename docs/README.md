@@ -14,6 +14,7 @@ Crypto trading terminal supporting 100+ exchanges via CCXT. Built with React, Ex
 | [Server API](server-api.md) | Express endpoints, Socket.IO events |
 | [Security](security.md) | API key encryption, master password, credential tiers |
 | [Theming](theming.md) | Dark/light mode, CSS variables, terminal palette |
+| [Roadmap](roadmap.md) | Production plans, feature roadmap 2026, known issues |
 
 ## Quick Links
 
