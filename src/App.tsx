@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/useTheme";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import AuthGate from "./components/AuthGate";
 import BottomLeftInfo from './components/BottomLeftInfo';
 import RightClickInfo from './components/RightClickInfo';
 import TestProviderIntegration from './components/TestProviderIntegration';
@@ -26,16 +27,17 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/test-providers" element={<TestProviderIntegration />} />
-            <Route path="/test-timeframes" element={<TestTimeframes />} />
-            <Route path="/test-chart" element={<TestChartWidget />} />
-            <Route path="/test-ccxt-server" element={<TestCCXTServerProvider />} />
-            <Route path="/test-debug-ccxt-server" element={<TestDebugWidgetCCXTServer />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AuthGate>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test-providers" element={<TestProviderIntegration />} />
+              <Route path="/test-timeframes" element={<TestTimeframes />} />
+              <Route path="/test-chart" element={<TestChartWidget />} />
+              <Route path="/test-ccxt-server" element={<TestCCXTServerProvider />} />
+              <Route path="/test-debug-ccxt-server" element={<TestDebugWidgetCCXTServer />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthGate>
         </BrowserRouter>
         <BottomLeftInfo />
         <RightClickInfo />

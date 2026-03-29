@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Bell, Sun, Moon, User, X } from 'lucide-react';
+import { Plus, Bell, Sun, Moon, User, X, LogOut } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/store/authStore';
 import { useUserStore } from '@/store/userStore';
 import { useDashboardStore } from '@/store/dashboardStore';
 import { useNotificationStore } from '@/store/notificationStore';
@@ -244,6 +245,13 @@ const TabNavigation: React.FC = () => {
             ) : (
               <User size={18} className="text-terminal-muted" />
             )}
+          </button>
+          <button
+            className="p-2 rounded-full hover:bg-terminal-accent/50 transition-colors"
+            onClick={() => useAuthStore.getState().logout()}
+            title="Sign out"
+          >
+            <LogOut size={18} className="text-terminal-muted" />
           </button>
         </div>
       </div>
