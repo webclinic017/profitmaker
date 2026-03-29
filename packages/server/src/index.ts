@@ -3,10 +3,19 @@ import { cors } from '@elysiajs/cors';
 import { Server as SocketIOServer } from 'socket.io';
 
 import { healthRoutes } from './routes/health';
+import { authRoutes } from './routes/auth';
+import { dashboardRoutes } from './routes/dashboards';
+import { widgetRoutes } from './routes/widgets';
+import { groupRoutes } from './routes/groups';
+import { accountRoutes } from './routes/accounts';
+import { settingsRoutes } from './routes/settings';
+import { providerRoutes } from './routes/providers';
 import { exchangeRoutes } from './routes/exchange';
 import { websocketRoutes } from './routes/websocket';
 import { proxyRoutes } from './routes/proxy';
 import { cleanupCache } from './services/ccxtCache';
+import { validateSession, deleteExpiredSessions } from './services/auth';
+import { db } from './db';
 import {
   createSubscriptionKey,
   startWebSocketSubscription,
@@ -23,21 +32,38 @@ const API_TOKEN = process.env.API_TOKEN || 'your-secret-token';
 // Elysia HTTP server
 const app = new Elysia()
   .use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }))
-  .onBeforeHandle(({ request, set }) => {
-    if (new URL(request.url).pathname === '/health') return;
+  .use(healthRoutes)
+  .use(authRoutes)
+  .onBeforeHandle(async ({ request, set }) => {
+    const pathname = new URL(request.url).pathname;
+
+    // Skip auth for health and auth routes
+    if (pathname === '/health' || pathname.startsWith('/api/auth')) return;
 
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
     if (!token) {
       set.status = 401;
       return { error: 'Access token required' };
     }
-    if (token !== API_TOKEN) {
-      set.status = 403;
-      return { error: 'Invalid token' };
-    }
+
+    // Allow server-to-server API_TOKEN
+    if (token === API_TOKEN) return;
+
+    // Allow valid user session token
+    const user = await validateSession(db, token);
+    if (user) return;
+
+    set.status = 403;
+    return { error: 'Invalid token' };
   })
-  .use(healthRoutes)
+  .use(dashboardRoutes)
+  .use(widgetRoutes)
+  .use(groupRoutes)
+  .use(accountRoutes)
+  .use(settingsRoutes)
+  .use(providerRoutes)
   .use(exchangeRoutes)
   .use(websocketRoutes)
   .use(proxyRoutes)
@@ -121,6 +147,9 @@ io.on('connection', (socket) => {
 
 // Cleanup cache every 10 minutes
 setInterval(cleanupCache, 10 * 60 * 1000);
+
+// Cleanup expired sessions every hour
+setInterval(() => deleteExpiredSessions(db), 60 * 60 * 1000);
 
 console.log(`Profitmaker API server running on port ${PORT} (Elysia/Bun)`);
 console.log(`WebSocket server running on port ${PORT + 1} (Socket.IO)`);
