@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/license-MIT%20with%20Commons%20Clause-blue.svg)](./LICENSE)
 [![Discord](https://img.shields.io/discord/430374279343898624.svg?color=4D64BA&label=discord)](https://discord.gg/2PtuMAg)
 
-Modular, widget-based trading terminal with support for **100+ crypto exchanges** via [CCXT](https://github.com/ccxt/ccxt). API keys never leave your machine -- everything is encrypted locally with AES-256-GCM.
+Modular, widget-based trading terminal with support for **100+ crypto exchanges** via [CCXT](https://github.com/ccxt/ccxt). All user state is managed through a REST API backed by PostgreSQL -- every dashboard, widget, group, and setting is persisted per-user.
 
 **[Live Demo](https://v3-demo.profitmaker.cc/)** | **[Docs](https://www.profitmaker.cc/docs/)** | **[Discord](https://discord.gg/2PtuMAg)** | **[Telegram](https://t.me/suenot)**
 
@@ -13,21 +13,24 @@ Modular, widget-based trading terminal with support for **100+ crypto exchanges*
 
 ## API-First Architecture
 
-Profitmaker is an **API-managed project**. All functionality is exposed through a REST/WebSocket API on the backend. This design enables:
+Profitmaker is an **API-managed project**. All functionality is exposed through a REST/WebSocket API on the backend, backed by **PostgreSQL** for persistent storage. This design enables:
 
-- **LLM Integration** -- AI agents (Claude Code, etc.) can manage the entire platform via API: create dashboards, place orders, manage providers, subscribe to market data
+- **LLM Integration** -- AI agents (Claude Code, etc.) can manage the entire platform via API: register users, create dashboards, arrange widgets, place orders, manage exchange accounts
 - **Headless Mode** -- run the backend without the browser UI for automated trading, data collection, or bot integration
 - **Multi-Client** -- the same API serves the React frontend, CLI tools, mobile apps, or third-party integrations
-- **Testability** -- every feature is testable via API without rendering a browser
-
-The backend is built with **Bun + Elysia** (the fastest Bun-native HTTP framework) and **Socket.IO** for real-time WebSocket streaming.
+- **Per-User Persistence** -- every user gets their own dashboards, widgets, groups, exchange accounts, and settings stored in PostgreSQL
 
 ```bash
-# Get BTC price from Binance in one line
-curl -s -X POST http://localhost:3001/api/exchange/fetchTicker \
-  -H "Authorization: Bearer your-secret-token" \
+# Register a user and get a session token
+curl -s -X POST http://localhost:3001/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"config":{"exchangeId":"binance","marketType":"spot","ccxtType":"regular"},"symbol":"BTC/USDT"}'
+  -d '{"email":"trader@example.com","password":"secret123","name":"Trader"}'
+
+# Use the token to create a dashboard
+curl -s -X POST http://localhost:3001/api/dashboards \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"My Dashboard"}'
 ```
 
 See [docs/server-api.md](docs/server-api.md) for the full API reference.
@@ -41,72 +44,66 @@ See [docs/server-api.md](docs/server-api.md) for the full API reference.
 | UI Framework | React 18, TypeScript |
 | Build | Vite 5 + SWC |
 | Components | shadcn/ui (Radix UI + Tailwind CSS) |
-| State | Zustand 5 + Immer (12 stores, persisted to localStorage) |
+| State | Zustand 5 + Immer, synced to API |
 | Data Fetching | TanStack React Query |
 | Charts | Night Vision (OHLCV candlestick) + Recharts (pie, bar) |
 | Exchange API | CCXT 4.4 (100+ exchanges, REST + WebSocket) |
 | Backend | **Bun + Elysia** (HTTP API) + Socket.IO (WebSocket streaming) |
-| Encryption | Web Crypto API -- AES-256-GCM with master password |
+| Database | **PostgreSQL** via Drizzle ORM |
+| Auth | Session tokens (bcrypt + per-user sessions) |
+| Encryption | Web Crypto API -- AES-256-GCM for exchange API keys |
 | Testing | Vitest + JSDOM |
 | Monorepo | Bun workspaces (4 packages) |
 
 ## Features
 
 ### Widget System
-- **Drag & drop** positioning with snap-to-grid and snap-to-widget alignment
+- **Drag & drop** positioning with snap-to-grid alignment
 - **Resize** from all 8 directions (edges + corners)
 - **Maximize, minimize, collapse** -- collapsed widgets dock to bottom bar
 - **Multiple dashboards** with tab navigation, create/duplicate/rename/delete
 - **Right-click context menu** to add new widgets
-- **Widget settings drawer** with per-widget configuration
+- **Per-widget settings** stored per-user in database
 - **Editable titles** -- double-click any widget header
 
 ### Trading Widgets
 
 | Widget | Description |
 |--------|-------------|
-| **Chart** | OHLCV candlestick chart (Night Vision), 13 timeframes (1m--1M), theme-aware colors, infinite scroll for history |
-| **Order Book** | Real-time bid/ask depth with cumulative volume, spread display, price level highlighting |
-| **Trades** | Live trade feed with filtering and sorting, aggregated mode |
-| **Order Form** | Market, limit, stop-loss, take-profit, trailing stop, iceberg orders. Validation against exchange constraints |
+| **Chart** | OHLCV candlestick (Night Vision), 13 timeframes, infinite scroll |
+| **Order Book** | Real-time bid/ask depth, spread display |
+| **Trades** | Live trade feed with filtering, aggregated mode |
+| **Order Form** | Market, limit, stop-loss, take-profit, trailing stop, iceberg |
 | **Portfolio** | Balance overview across all connected accounts |
-| **User Balances** | Detailed balance view with pie chart breakdown by currency |
-| **User Trading Data** | My trades, open orders, positions (futures) per account |
-| **Deals** | Deal tracking with entry/exit analysis and statistics |
-| **Transaction History** | Full transaction log with filtering |
+| **User Balances** | Detailed balance with pie chart breakdown |
+| **User Trading Data** | My trades, open orders, positions (futures) |
+| **Deals** | Deal tracking with entry/exit analysis |
 
 ### Data Provider System
-- **CCXT Browser** -- direct exchange API calls from the browser (limited by CORS)
-- **CCXT Server** -- proxied through Elysia backend, bypasses CORS, supports WebSocket via CCXT Pro
-- **Pluggable architecture** -- provider priority system, automatic fallback from WebSocket to REST
-- **Subscription deduplication** -- multiple widgets sharing the same data stream get a single connection
-- **Market data types**: candles, trades, order book, ticker, balance
-- **13 timeframes**: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 12h, 1d, 1w, 1M
-
-### Groups (Instrument Linking)
-Color-coded groups link widgets to the same instrument (exchange + market + pair + account). Change the pair in one widget -- all widgets in that group follow.
+- **CCXT Browser** -- direct exchange API calls from the browser
+- **CCXT Server** -- proxied through Elysia backend, bypasses CORS, WebSocket via CCXT Pro
+- **Pluggable architecture** -- provider priority, automatic fallback WS to REST
+- **Subscription deduplication** -- one connection per data stream, shared across widgets
 
 ### Security
-- **API keys encrypted** with AES-256-GCM using a user-set master password (Web Crypto API)
-- **Keys never leave your machine** -- stored in browser localStorage, encrypted at rest
-- **Bearer token auth** on the API server
-
-### Other
-- Dark / light theme with Tailwind CSS variables
-- Notification system with history (success, error, warning, info)
-- Exchange capabilities detection (spot, futures, margin, options, swap)
+- **User authentication** -- register/login with bcrypt-hashed passwords
+- **Session tokens** -- 30-day sessions, stored in PostgreSQL
+- **Exchange API keys encrypted** with AES-256-GCM
+- **Dual auth** -- API_TOKEN for server-to-server + session tokens for users
 
 ## Quick Start
 
 ### Prerequisites
 - [Bun](https://bun.sh/) 1.0+
+- [PostgreSQL](https://www.postgresql.org/) 15+
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `DATABASE_URL` | -- | PostgreSQL connection string (required) |
 | `PORT` | `3001` | API server port |
-| `API_TOKEN` | `your-secret-token` | Bearer token for API authentication |
+| `API_TOKEN` | `your-secret-token` | Server-to-server auth token |
 
 ### Install & Run
 
@@ -118,14 +115,18 @@ cd profitmaker
 # Install dependencies
 bun install
 
-# Start the frontend (port 8080)
-bun dev
+# Set up database
+export DATABASE_URL="postgresql://user:password@localhost:5432/profitmaker"
+cd packages/server && bun db:push && cd ../..
 
 # Start the API server (port 3001)
 bun server:dev
+
+# Start the frontend (port 8080)
+bun dev
 ```
 
-Open http://localhost:8080
+Open http://localhost:8080 -- register an account to get a default dashboard with 6 widgets.
 
 ### Scripts
 
@@ -137,6 +138,9 @@ Open http://localhost:8080
 | `bun server:dev` | Start API server with auto-reload |
 | `bun test` | Run tests (Vitest) |
 | `bun lint` | ESLint check |
+| `bun db:push` | Push schema to PostgreSQL (in packages/server) |
+| `bun db:generate` | Generate migration files |
+| `bun db:studio` | Open Drizzle Studio (database GUI) |
 
 ## Architecture
 
@@ -145,71 +149,76 @@ Open http://localhost:8080
 ```
 profitmaker/
 ├── packages/
-│   ├── client/             # @profitmaker/client -- React frontend (Vite + SWC)
+│   ├── client/             # @profitmaker/client -- React frontend
 │   │   └── src/
-│   │       ├── components/widgets/  # 20+ trading widgets
-│   │       ├── store/
-│   │       │   ├── actions/
-│   │       │   │   ├── data/        # Settings, getters, updaters, initializers, user trading
-│   │       │   │   ├── fetching/    # WebSocket + REST data fetching
-│   │       │   │   └── provider/    # CRUD + query provider management
-│   │       │   ├── providers/       # CCXT Browser & Server implementations
-│   │       │   └── utils/           # Instance manager, account manager
-│   │       ├── types/               # TypeScript interfaces
-│   │       └── hooks/               # Custom React hooks
-│   ├── server/             # @profitmaker/server -- Elysia API server
+│   │       ├── components/   # Widgets, UI, AuthPage, AuthGate
+│   │       ├── store/        # Zustand stores (synced to API)
+│   │       ├── services/     # API client, apiSync, storeSync
+│   │       └── hooks/        # Custom React hooks
+│   ├── server/             # @profitmaker/server -- Elysia API
 │   │   └── src/
-│   │       ├── routes/
-│   │       │   ├── health.ts        # Health check
-│   │       │   ├── exchange.ts      # Market data REST endpoints
-│   │       │   ├── websocket.ts     # CCXT Pro watch endpoints
-│   │       │   └── proxy.ts         # CORS proxy
-│   │       ├── services/
-│   │       │   ├── ccxtCache.ts     # CCXT instance cache (24h TTL)
-│   │       │   └── wsSubscriptions.ts # WebSocket subscription manager
-│   │       ├── middleware/
-│   │       │   └── auth.ts          # Bearer token authentication
-│   │       └── index.ts             # Server entry point
-│   ├── types/              # @profitmaker/types -- shared TypeScript types + Zod schemas
-│   └── core/               # @profitmaker/core -- shared utilities (encryption, formatters, CCXT)
+│   │       ├── db/schema/    # Drizzle ORM (9 tables)
+│   │       ├── routes/       # auth, dashboards, widgets, groups,
+│   │       │                 # accounts, settings, providers,
+│   │       │                 # exchange, websocket, proxy, health
+│   │       ├── services/     # auth, ccxtCache, wsSubscriptions,
+│   │       │                 # defaultDashboard
+│   │       └── middleware/    # requireUser (session validation)
+│   ├── types/              # @profitmaker/types -- shared types
+│   └── core/               # @profitmaker/core -- shared utilities
 ├── package.json            # Bun workspace root
 └── vite.config.ts          # Frontend build config
+```
+
+### Database Schema
+
+```
+users
+├── sessions              (auth tokens, 30-day expiry)
+├── dashboards
+│   └── widgets           (position, config, per-dashboard)
+├── groups                (instrument linking)
+├── exchange_accounts     (encrypted API keys)
+├── data_providers        (CCXT browser/server configs)
+├── user_settings         (key-value: theme, activeDashboardId, etc.)
+└── widget_settings       (per-widget, per-user configs)
 ```
 
 ### Data Flow
 
 ```
-Exchange API
-    │
-    ├─── CCXT Browser Provider ──┐
-    │    (direct, limited CORS)  │
-    │                            ├──> dataProviderStore ──> Widget Components
-    └─── CCXT Server Provider ───┘         │
-         (Elysia API + Socket.IO)          │
-                                     Zustand stores
-                                     (candles, trades,
-                                      orderbook, ticker,
-                                      balance)
+Browser                          Server                      Database
+  │                                │                            │
+  ├── Login ──────────────────────>│── Verify password ────────>│
+  │<── Token + user ──────────────│<── Session created ────────│
+  │                                │                            │
+  ├── Load state ─────────────────>│── Query dashboards, ──────>│
+  │<── Dashboards, widgets, ──────│<── widgets, groups, ───────│
+  │    groups, settings            │    settings, providers     │
+  │                                │                            │
+  ├── Drag widget ─── Zustand ───>│── PUT /api/widgets/:id ──>│
+  │    (local state)  (debounced)  │    (position update)       │
+  │                                │                            │
+  ├── Subscribe data ─────────────>│── CCXT/Socket.IO ────────>│ Exchange
+  │<── Real-time stream ──────────│<── Market data ────────────│ API
 ```
 
-### API Server (port 3001)
+### API Endpoints
 
-REST endpoints (POST, Bearer token auth):
+| Group | Endpoints | Description |
+|-------|-----------|-------------|
+| **Auth** | `POST /api/auth/register, login, logout` `GET /api/auth/me` | User authentication |
+| **Dashboards** | `GET, POST, PUT, DELETE /api/dashboards` | CRUD per-user dashboards |
+| **Widgets** | `GET, POST, PUT, DELETE /api/widgets` `PUT /api/widgets/batch` | CRUD + batch position update |
+| **Groups** | `GET, POST, PUT, DELETE /api/groups` | Instrument linking groups |
+| **Accounts** | `GET, POST, PUT, DELETE /api/accounts` | Exchange API accounts |
+| **Settings** | `GET, PUT, DELETE /api/settings/:key` `PUT /api/settings` (bulk) | Per-user key-value settings |
+| **Providers** | `GET, POST, PUT, DELETE /api/providers` | Data provider configs |
+| **Exchange** | `POST /api/exchange/fetch*` `POST /api/exchange/watch*` | CCXT market data |
+| **Proxy** | `POST /api/proxy/request` | CORS bypass proxy |
+| **Health** | `GET /health` | Server health (no auth) |
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /health` | Health check (no auth) |
-| `/api/exchange/instance` | Create/get cached CCXT instance |
-| `/api/exchange/fetchTicker` | Fetch ticker data |
-| `/api/exchange/fetchOrderBook` | Fetch order book |
-| `/api/exchange/fetchTrades` | Fetch recent trades |
-| `/api/exchange/fetchOHLCV` | Fetch candlestick data |
-| `/api/exchange/fetchBalance` | Fetch account balance (requires API keys) |
-| `/api/exchange/capabilities` | Get exchange capabilities |
-| `/api/exchange/watch*` | WebSocket watch endpoints (CCXT Pro) |
-| `/api/proxy/request` | Generic HTTP proxy for CORS bypass |
-
-Socket.IO events: `subscribe`, `unsubscribe`, `data`, `error`
+Socket.IO (port 3002): `subscribe`, `unsubscribe`, `data`, `error`
 
 ## Supported Exchanges
 
