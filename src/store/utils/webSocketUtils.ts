@@ -285,7 +285,10 @@ export const createWebSocketManager = (): WebSocketConnectionManager => {
       // Закрываем все активные подписки
       for (const [id, subscription] of subscriptions) {
         if (subscription.isActive) {
-          await this.unsubscribe(id);
+          subscriptions.set(id, {
+            ...subscription,
+            isActive: false
+          });
         }
       }
       

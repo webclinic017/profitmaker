@@ -69,8 +69,30 @@ export interface DataActions {
   updateTicker: (exchange: string, symbol: string, ticker: Ticker, market?: MarketType) => void;
   
   // Utilities
-  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
+  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, providerId?: string) => string;
   getActiveSubscriptionsList: () => ActiveSubscription[];
+}
+
+function updateMatchingSubscriptionTimestamps(
+  activeSubscriptions: Record<string, ActiveSubscription>,
+  exchange: string,
+  symbol: string,
+  dataType: DataType,
+  timeframe: Timeframe | undefined,
+  market: MarketType
+) {
+  const now = Date.now();
+  Object.values(activeSubscriptions).forEach((subscription) => {
+    if (
+      subscription.key.exchange === exchange &&
+      subscription.key.symbol === symbol &&
+      subscription.key.dataType === dataType &&
+      subscription.key.timeframe === timeframe &&
+      subscription.key.market === market
+    ) {
+      subscription.lastUpdate = now;
+    }
+  });
 }
 
 export const createDataActions: StateCreator<
@@ -322,11 +344,7 @@ export const createDataActions: StateCreator<
         console.log(`🔄 [updateCandles] WebSocket update: ${candles.length} new/updated candles, total: ${mergedCandles.length} for ${exchange}:${market}:${symbol}:${timeframe}, event: ${eventType}`);
       }
       
-      // Update last update timestamp
-      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, 'candles', timeframe, market);
-      if (state.activeSubscriptions[subscriptionKey]) {
-        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
-      }
+      updateMatchingSubscriptionTimestamps(state.activeSubscriptions, exchange, symbol, 'candles', timeframe, market);
     });
 
     // Emit event for Chart widgets after store update
@@ -355,11 +373,7 @@ export const createDataActions: StateCreator<
       const combined = [...existing, ...trades];
       state.marketData.trades[exchange][market][symbol] = combined.slice(-1000); // Keep last 1000
       
-      // Update last update timestamp
-      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, 'trades', undefined, market);
-      if (state.activeSubscriptions[subscriptionKey]) {
-        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
-      }
+      updateMatchingSubscriptionTimestamps(state.activeSubscriptions, exchange, symbol, 'trades', undefined, market);
     });
   },
 
@@ -391,11 +405,7 @@ export const createDataActions: StateCreator<
         allExchanges: Object.keys(state.marketData.orderbook)
       });
       
-      // Update last update timestamp
-      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, 'orderbook', undefined, market);
-      if (state.activeSubscriptions[subscriptionKey]) {
-        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
-      }
+      updateMatchingSubscriptionTimestamps(state.activeSubscriptions, exchange, symbol, 'orderbook', undefined, market);
     });
   },
 
@@ -422,11 +432,7 @@ export const createDataActions: StateCreator<
         allAccounts: Object.keys(state.marketData.balance)
       });
       
-      // Update last update timestamp
-      const subscriptionKey = get().getSubscriptionKey('', accountId, 'balance', undefined, effectiveWalletType as MarketType);
-      if (state.activeSubscriptions[subscriptionKey]) {
-        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
-      }
+      updateMatchingSubscriptionTimestamps(state.activeSubscriptions, '', accountId, 'balance', undefined, effectiveWalletType as MarketType);
     });
   },
 
@@ -464,19 +470,18 @@ export const createDataActions: StateCreator<
         allExchanges: Object.keys(state.marketData.ticker)
       });
       
-      // Update last update timestamp for subscription
-      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, 'ticker', undefined, market);
-      if (state.activeSubscriptions[subscriptionKey]) {
-        state.activeSubscriptions[subscriptionKey].lastUpdate = Date.now();
-      }
+      updateMatchingSubscriptionTimestamps(state.activeSubscriptions, exchange, symbol, 'ticker', undefined, market);
     });
   },
 
   // Utilities
-  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot'): string => {
+  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot', providerId?: string): string => {
     let key = `${exchange}:${market}:${symbol}:${dataType}`;
     if (dataType === 'candles' && timeframe) {
       key += `:${timeframe}`;
+    }
+    if (providerId) {
+      key += `:provider:${providerId}`;
     }
     return key;
   },

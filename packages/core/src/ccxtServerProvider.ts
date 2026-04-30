@@ -13,6 +13,18 @@ interface ServerResponse<T = any> {
   details?: string;
 }
 
+export function deriveSocketUrl(serverUrl: string): string {
+  try {
+    const url = new URL(serverUrl);
+    if (url.port) {
+      url.port = String(Number(url.port) + 1);
+    }
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return serverUrl.replace(/\/$/, '');
+  }
+}
+
 /**
  * CCXT Server Provider Implementation
  * Взаимодействует с Express сервером для выполнения CCXT операций
@@ -21,6 +33,7 @@ interface ServerResponse<T = any> {
 export class CCXTServerProviderImpl {
   private provider: CCXTServerProvider;
   private baseUrl: string;
+  private socketUrl: string;
   private token?: string;
   private timeout: number;
   private socket?: Socket;
@@ -29,6 +42,7 @@ export class CCXTServerProviderImpl {
   constructor(provider: CCXTServerProvider) {
     this.provider = provider;
     this.baseUrl = provider.config.serverUrl.replace(/\/$/, ''); // Remove trailing slash
+    this.socketUrl = (provider.config.socketUrl || deriveSocketUrl(provider.config.serverUrl)).replace(/\/$/, '');
     this.token = provider.config.token;
     this.timeout = provider.config.timeout || 30000;
   }
@@ -112,9 +126,9 @@ export class CCXTServerProviderImpl {
       return this.socket;
     }
 
-    console.log(`🔌 [CCXTServer] Connecting to WebSocket: ${this.baseUrl}`);
+    console.log(`🔌 [CCXTServer] Connecting to WebSocket: ${this.socketUrl}`);
 
-    this.socket = io(this.baseUrl, {
+    this.socket = io(this.socketUrl, {
       transports: ['websocket'],
       timeout: this.timeout,
     });

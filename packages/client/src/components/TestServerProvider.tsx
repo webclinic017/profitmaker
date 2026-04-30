@@ -186,7 +186,7 @@ Low: $${parseFloat(ticker.l[1]).toLocaleString()}
         name: 'Test Server',
         type: 'ccxt-server',
         exchanges: ['kraken'],
-        status: 'active',
+        status: 'connected',
         priority: 1,
         config: {
           serverUrl,

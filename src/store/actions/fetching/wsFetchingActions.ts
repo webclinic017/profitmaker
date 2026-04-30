@@ -35,7 +35,7 @@ export const createWsFetchingActions: StateCreator<
       exchangeInstance = createExchangeInstance(exchange, provider, ccxtPro);
     }
 
-    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
+    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market, provider.id);
 
     // Check WebSocket support
     let watchMethod: string;

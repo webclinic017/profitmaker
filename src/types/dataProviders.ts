@@ -123,6 +123,7 @@ export interface CCXTBrowserConfig {
 // Configuration for CCXT Server - УПРОЩЕННАЯ ВЕРСИЯ
 export interface CCXTServerConfig {
   serverUrl: string;
+  socketUrl?: string; // Optional Socket.IO URL; defaults to serverUrl port + 1 when a port is present
   token?: string; // Authentication token for server
   timeout?: number;
   sandbox?: boolean;
@@ -255,7 +256,7 @@ export interface DataFetchSettings {
   method: DataFetchMethod;
   restIntervals: {
     trades: number; // milliseconds
-    candles: number; // milliseconds  
+    candles: number; // milliseconds
     orderbook: number; // milliseconds
     balance: number; // milliseconds
     ticker: number; // milliseconds
@@ -270,6 +271,13 @@ export interface SubscriptionKey {
   market?: MarketType; // Тип рынка (spot/futures)
 }
 
+export interface SubscriptionConfig {
+  providerId?: string; // Force a specific provider instead of auto-selection
+  isAggregated?: boolean; // для trades: использовать ли aggregate режим
+  tradesLimit?: number; // для trades: лимит количества
+  [key: string]: any; // дополнительные параметры
+}
+
 export interface ActiveSubscription {
   key: SubscriptionKey;
   subscriberCount: number;
@@ -281,15 +289,11 @@ export interface ActiveSubscription {
   wsConnection?: WebSocket; // для WebSocket соединений
   ccxtMethod?: string; // какой именно CCXT метод используется (watchOrderBook, watchBidsAsks, etc.)
   providerId?: string; // ID провайдера обслуживающего эту подписку
-  config?: {
-    isAggregated?: boolean; // для trades: использовать ли aggregate режим
-    tradesLimit?: number; // для trades: лимит количества
-    [key: string]: any; // дополнительные параметры
-  };
+  config?: SubscriptionConfig;
 }
 
 // CCXT specific types
-export type CCXTOrderBookMethod = 
+export type CCXTOrderBookMethod =
   | 'watchOrderBookForSymbols'  // Приоритет 1: diff обновления
   | 'watchOrderBook'            // Приоритет 2: полные снепшоты
   | 'fetchOrderBook';           // Fallback: REST
@@ -317,7 +321,7 @@ export interface RestCycleManager {
   subscriberIds: Set<string>;
 }
 
-// Event system for Chart widgets  
+// Event system for Chart widgets
 export type ChartUpdateEventType = 'initial_load' | 'new_candles' | 'update_last_candle' | 'full_refresh';
 
 export interface ChartUpdateEvent {
@@ -335,4 +339,4 @@ export interface ChartUpdateEvent {
   timestamp: number;
 }
 
-export type ChartUpdateListener = (event: ChartUpdateEvent) => void; 
+export type ChartUpdateListener = (event: ChartUpdateEvent) => void;
