@@ -145,6 +145,8 @@ export class CCXTServerProviderImpl {
         // Authenticate
         if (this.token) {
           this.socket!.emit('authenticate', { token: this.token });
+        } else {
+          resolve(this.socket!);
         }
       });
 

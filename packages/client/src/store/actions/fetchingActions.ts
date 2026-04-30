@@ -131,7 +131,7 @@ export const createFetchingActions: StateCreator<
         exchangeInstance = createExchangeInstance(exchange, provider, ccxtPro);
       }
       
-      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
+      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market, provider.id);
 
       // CCXT Pro supports WebSocket by default for all major exchanges
       console.log(`📡 Starting CCXT Pro WebSocket stream: ${exchange} ${symbol} ${dataType}`);
@@ -404,7 +404,7 @@ export const createFetchingActions: StateCreator<
         exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
       }
 
-      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
+      const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market, provider.id);
       const interval = get().dataFetchSettings.restIntervals[dataType];
 
       console.log(`🔄 Starting REST polling: ${exchange} ${symbol} ${dataType} every ${interval}ms`);
@@ -739,4 +739,4 @@ export const createFetchingActions: StateCreator<
       console.error(`❌ [Balance] Error fetching balance for account ${accountId}:`, error);
     }
   }
-}); 
+});

@@ -4,8 +4,27 @@ import type { DataType, ProviderOperationResult, Timeframe, MarketType, Subscrip
 
 export interface SubscriptionActions {
   subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, config?: SubscriptionConfig) => Promise<ProviderOperationResult>;
-  unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => void;
+  unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, config?: Pick<SubscriptionConfig, 'providerId'>) => void;
   forceCloseSubscription: (subscriptionKey: string) => void;
+}
+
+function findSubscriptionKey(
+  activeSubscriptions: DataProviderStore['activeSubscriptions'],
+  exchange: string,
+  symbol: string,
+  dataType: DataType,
+  timeframe: Timeframe | undefined,
+  market: MarketType,
+  providerId?: string
+): string | undefined {
+  return Object.entries(activeSubscriptions).find(([, subscription]) => (
+    subscription.key.exchange === exchange &&
+    subscription.key.symbol === symbol &&
+    subscription.key.dataType === dataType &&
+    subscription.key.timeframe === timeframe &&
+    subscription.key.market === market &&
+    (!providerId || subscription.providerId === providerId)
+  ))?.[0];
 }
 
 export const createSubscriptionActions: StateCreator<
@@ -16,9 +35,10 @@ export const createSubscriptionActions: StateCreator<
 > = (set, get) => ({
   // Deduplicated subscriptions management
   subscribe: async (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot', config?: SubscriptionConfig): Promise<ProviderOperationResult> => {
-    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
     const currentMethod = get().dataFetchSettings.method;
     const { providerId, ...subscriptionConfig } = config ?? {};
+    const effectiveProviderId = providerId ?? get().getProviderForExchange(exchange)?.id;
+    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market, effectiveProviderId);
     const hasSubscriptionConfig = Object.keys(subscriptionConfig).length > 0;
 
     try {
@@ -47,7 +67,7 @@ export const createSubscriptionActions: StateCreator<
             isFallback: false, // Initially not fallback
             isActive: false,
             lastUpdate: 0,
-            providerId,
+            providerId: effectiveProviderId,
             config: hasSubscriptionConfig ? subscriptionConfig : undefined
           };
           needsStart = true;
@@ -74,8 +94,16 @@ export const createSubscriptionActions: StateCreator<
     }
   },
 
-  unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot') => {
-    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
+  unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot', config?: Pick<SubscriptionConfig, 'providerId'>) => {
+    const effectiveProviderId = config?.providerId ?? get().getProviderForExchange(exchange)?.id;
+    const providerSubscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market, effectiveProviderId);
+    const legacySubscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
+    const activeSubscriptions = get().activeSubscriptions;
+    const subscriptionKey = activeSubscriptions[providerSubscriptionKey]
+      ? providerSubscriptionKey
+      : activeSubscriptions[legacySubscriptionKey]
+        ? legacySubscriptionKey
+        : findSubscriptionKey(activeSubscriptions, exchange, symbol, dataType, timeframe, market, effectiveProviderId) ?? providerSubscriptionKey;
 
     set(state => {
       if (state.activeSubscriptions[subscriptionKey]) {

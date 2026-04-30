@@ -9,7 +9,7 @@ export interface DataGetterActions {
   getBalance: (accountId: string, walletType?: WalletType) => ExchangeBalances | null;
   getTicker: (exchange: string, symbol: string, market?: MarketType, maxAge?: number) => Ticker | null;
   getTickerWithRefresh: (exchange: string, symbol: string, market?: MarketType, forceRefresh?: boolean) => Promise<Ticker | null>;
-  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
+  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, providerId?: string) => string;
   getActiveSubscriptionsList: () => ActiveSubscription[];
 }
 
@@ -65,9 +65,10 @@ export const createDataGetterActions: StateCreator<
     }
   },
 
-  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot'): string => {
+  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market: MarketType = 'spot', providerId?: string): string => {
     let key = `${exchange}:${market}:${symbol}:${dataType}`;
     if (dataType === 'candles' && timeframe) key += `:${timeframe}`;
+    if (providerId) key += `:provider:${providerId}`;
     return key;
   },
 

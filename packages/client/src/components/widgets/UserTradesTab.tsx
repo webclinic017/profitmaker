@@ -45,7 +45,12 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
 
   // Load trades for accounts
   const loadTrades = useCallback(async () => {
-    if (!accounts.length) return;
+    if (!accounts.length) {
+      setTrades([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);

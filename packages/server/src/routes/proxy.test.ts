@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import {
   isBlockedProxyHostname,
+  resolveProxyTarget,
   sanitizeProxyHeaders,
+  validateProxyRequest,
   validateProxyRequestBody,
 } from './proxy';
 
@@ -42,6 +44,32 @@ describe('proxy request validation', () => {
 
     for (const url of blockedUrls) {
       expect(validateProxyRequestBody({ url }).ok).toBe(false);
+    }
+  });
+
+  test('rejects public hostnames that resolve to private addresses', async () => {
+    const resolver = {
+      resolve4: async () => ['127.0.0.1'],
+      resolve6: async () => [],
+    };
+
+    const result = await validateProxyRequest({ url: 'https://attacker.example' }, resolver);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('Proxy URL host is not allowed');
+    }
+  });
+
+  test('pins resolved public addresses for outbound requests', async () => {
+    const target = await resolveProxyTarget('api.example', {
+      resolve4: async () => ['8.8.8.8'],
+      resolve6: async () => ['2001:4860:4860::8888'],
+    });
+
+    expect(target.ok).toBe(true);
+    if (target.ok) {
+      expect(target.address).toBe('8.8.8.8');
+      expect(target.family).toBe(4);
     }
   });
 

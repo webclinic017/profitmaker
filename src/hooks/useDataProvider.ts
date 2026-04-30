@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useDataProviderStore } from '../store/dataProviderStore';
 import {
   DataType,
@@ -47,7 +47,8 @@ export const useCandles = (
   } = useDataProviderStore();
 
   const actualProviderId = providerId || activeProviderId;
-  const subscriptionKey = getSubscriptionKey(exchange, symbol, 'candles', DEFAULT_TIMEFRAME, DEFAULT_MARKET);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const subscriptionKey = getSubscriptionKey(exchange, symbol, 'candles', DEFAULT_TIMEFRAME, DEFAULT_MARKET, actualProviderId || undefined);
   const subscription = activeSubscriptions[subscriptionKey];
   const candleData = getCandles(exchange, symbol, DEFAULT_TIMEFRAME, DEFAULT_MARKET);
 
@@ -57,10 +58,13 @@ export const useCandles = (
   );
 
   const subscribe = useCallback(async (): Promise<ProviderOperationResult | undefined> => {
-    if (!enabled || !symbol || !exchange) return;
+    if (!enabled || !symbol || !exchange) {
+      setLastError(null);
+      return;
+    }
 
     try {
-      return await subscribeToData(
+      const result = await subscribeToData(
         subscriptionId,
         exchange,
         symbol,
@@ -69,29 +73,46 @@ export const useCandles = (
         DEFAULT_MARKET,
         actualProviderId ? { providerId: actualProviderId } : undefined
       );
+      setLastError(result.success ? null : result.error || 'Subscription failed');
+      return result;
     } catch (error) {
       console.error('🛡️ Safe error handling for candles subscription:', error);
-      return { success: false, error: `Subscription error: ${error}` };
+      const message = `Subscription error: ${error instanceof Error ? error.message : String(error)}`;
+      setLastError(message);
+      return { success: false, error: message };
     }
   }, [actualProviderId, enabled, exchange, symbol, subscriptionId, subscribeToData]);
 
   const unsubscribe = useCallback(() => {
+    setLastError(null);
     if (!enabled || !symbol || !exchange) return;
-    unsubscribeFromData(subscriptionId, exchange, symbol, 'candles', DEFAULT_TIMEFRAME, DEFAULT_MARKET);
-  }, [enabled, exchange, symbol, subscriptionId, unsubscribeFromData]);
+    unsubscribeFromData(
+      subscriptionId,
+      exchange,
+      symbol,
+      'candles',
+      DEFAULT_TIMEFRAME,
+      DEFAULT_MARKET,
+      actualProviderId ? { providerId: actualProviderId } : undefined
+    );
+  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, unsubscribeFromData]);
 
   // Automatic subscription/unsubscription
   useEffect(() => {
-    if (enabled && subscriptionId) {
-      subscribe();
-      return () => unsubscribe();
+    if (!enabled || !subscriptionId) {
+      setLastError(null);
+      return;
     }
+    void subscribe().catch((error) => {
+      setLastError(`Subscription error: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    return () => unsubscribe();
   }, [enabled, subscribe, subscriptionId, unsubscribe]);
 
   return {
     data: candleData.length > 0 ? candleData : null,
     loading: enabled && !!subscription && subscription.lastUpdate === 0,
-    error: null,
+    error: lastError,
     lastUpdate: subscription?.lastUpdate || 0,
     subscribe,
     unsubscribe,
@@ -118,7 +139,8 @@ export const useTrades = (
   } = useDataProviderStore();
 
   const actualProviderId = providerId || activeProviderId;
-  const subscriptionKey = getSubscriptionKey(exchange, symbol, 'trades', undefined, DEFAULT_MARKET);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const subscriptionKey = getSubscriptionKey(exchange, symbol, 'trades', undefined, DEFAULT_MARKET, actualProviderId || undefined);
   const subscription = activeSubscriptions[subscriptionKey];
   const tradeData = getTrades(exchange, symbol, DEFAULT_MARKET);
 
@@ -128,9 +150,34 @@ export const useTrades = (
   );
 
   const subscribe = useCallback(async (): Promise<ProviderOperationResult | undefined> => {
-    if (!enabled || !symbol || !exchange) return;
+    if (!enabled || !symbol || !exchange) {
+      setLastError(null);
+      return;
+    }
 
-    return await subscribeToData(
+    try {
+      const result = await subscribeToData(
+        subscriptionId,
+        exchange,
+        symbol,
+        'trades',
+        undefined,
+        DEFAULT_MARKET,
+        actualProviderId ? { providerId: actualProviderId } : undefined
+      );
+      setLastError(result.success ? null : result.error || 'Subscription failed');
+      return result;
+    } catch (error) {
+      const message = `Subscription error: ${error instanceof Error ? error.message : String(error)}`;
+      setLastError(message);
+      return { success: false, error: message };
+    }
+  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, subscribeToData]);
+
+  const unsubscribe = useCallback(() => {
+    setLastError(null);
+    if (!enabled || !symbol || !exchange) return;
+    unsubscribeFromData(
       subscriptionId,
       exchange,
       symbol,
@@ -139,24 +186,23 @@ export const useTrades = (
       DEFAULT_MARKET,
       actualProviderId ? { providerId: actualProviderId } : undefined
     );
-  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, subscribeToData]);
-
-  const unsubscribe = useCallback(() => {
-    if (!enabled || !symbol || !exchange) return;
-    unsubscribeFromData(subscriptionId, exchange, symbol, 'trades', undefined, DEFAULT_MARKET);
-  }, [enabled, exchange, symbol, subscriptionId, unsubscribeFromData]);
+  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, unsubscribeFromData]);
 
   useEffect(() => {
-    if (enabled && subscriptionId) {
-      subscribe();
-      return () => unsubscribe();
+    if (!enabled || !subscriptionId) {
+      setLastError(null);
+      return;
     }
+    void subscribe().catch((error) => {
+      setLastError(`Subscription error: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    return () => unsubscribe();
   }, [enabled, subscribe, subscriptionId, unsubscribe]);
 
   return {
     data: tradeData.length > 0 ? tradeData : null,
     loading: enabled && !!subscription && subscription.lastUpdate === 0,
-    error: null,
+    error: lastError,
     lastUpdate: subscription?.lastUpdate || 0,
     subscribe,
     unsubscribe,
@@ -183,7 +229,8 @@ export const useOrderBook = (
   } = useDataProviderStore();
 
   const actualProviderId = providerId || activeProviderId;
-  const subscriptionKey = getSubscriptionKey(exchange, symbol, 'orderbook', undefined, DEFAULT_MARKET);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const subscriptionKey = getSubscriptionKey(exchange, symbol, 'orderbook', undefined, DEFAULT_MARKET, actualProviderId || undefined);
   const subscription = activeSubscriptions[subscriptionKey];
   const orderBookData = getOrderBook(exchange, symbol, DEFAULT_MARKET);
 
@@ -193,9 +240,34 @@ export const useOrderBook = (
   );
 
   const subscribe = useCallback(async (): Promise<ProviderOperationResult | undefined> => {
-    if (!enabled || !symbol || !exchange) return;
+    if (!enabled || !symbol || !exchange) {
+      setLastError(null);
+      return;
+    }
 
-    return await subscribeToData(
+    try {
+      const result = await subscribeToData(
+        subscriptionId,
+        exchange,
+        symbol,
+        'orderbook',
+        undefined,
+        DEFAULT_MARKET,
+        actualProviderId ? { providerId: actualProviderId } : undefined
+      );
+      setLastError(result.success ? null : result.error || 'Subscription failed');
+      return result;
+    } catch (error) {
+      const message = `Subscription error: ${error instanceof Error ? error.message : String(error)}`;
+      setLastError(message);
+      return { success: false, error: message };
+    }
+  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, subscribeToData]);
+
+  const unsubscribe = useCallback(() => {
+    setLastError(null);
+    if (!enabled || !symbol || !exchange) return;
+    unsubscribeFromData(
       subscriptionId,
       exchange,
       symbol,
@@ -204,24 +276,23 @@ export const useOrderBook = (
       DEFAULT_MARKET,
       actualProviderId ? { providerId: actualProviderId } : undefined
     );
-  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, subscribeToData]);
-
-  const unsubscribe = useCallback(() => {
-    if (!enabled || !symbol || !exchange) return;
-    unsubscribeFromData(subscriptionId, exchange, symbol, 'orderbook', undefined, DEFAULT_MARKET);
-  }, [enabled, exchange, symbol, subscriptionId, unsubscribeFromData]);
+  }, [actualProviderId, enabled, exchange, symbol, subscriptionId, unsubscribeFromData]);
 
   useEffect(() => {
-    if (enabled && subscriptionId) {
-      subscribe();
-      return () => unsubscribe();
+    if (!enabled || !subscriptionId) {
+      setLastError(null);
+      return;
     }
+    void subscribe().catch((error) => {
+      setLastError(`Subscription error: ${error instanceof Error ? error.message : String(error)}`);
+    });
+    return () => unsubscribe();
   }, [enabled, subscribe, subscriptionId, unsubscribe]);
 
   return {
     data: orderBookData,
     loading: enabled && !!subscription && subscription.lastUpdate === 0,
-    error: null,
+    error: lastError,
     lastUpdate: subscription?.lastUpdate || 0,
     subscribe,
     unsubscribe,
@@ -327,7 +398,7 @@ export const useConnectionStats = () => {
 
     return {
       total: subscriptionList.length,
-      connected: subscriptionList.filter(s => s.isActive && !s.isFallback).length,
+      connected: subscriptionList.filter(s => s.isActive && !s.isFallback && s.lastUpdate !== 0).length,
       connecting: subscriptionList.filter(s => s.isActive && s.lastUpdate === 0).length,
       error: 0,
       disconnected: subscriptionList.filter(s => !s.isActive).length,

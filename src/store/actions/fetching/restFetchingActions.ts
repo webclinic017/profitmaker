@@ -40,7 +40,7 @@ export const createRestFetchingActions: StateCreator<
       exchangeInstance = createExchangeInstance(exchange, provider, ccxt);
     }
 
-    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market);
+    const subscriptionKey = get().getSubscriptionKey(exchange, symbol, dataType, timeframe, market, provider.id);
     const interval = get().dataFetchSettings.restIntervals[dataType];
 
     const fetchData = async () => {

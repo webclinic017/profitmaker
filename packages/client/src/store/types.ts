@@ -89,7 +89,7 @@ export interface DataProviderActions {
 
   // Deduplicated subscriptions management
   subscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, config?: SubscriptionConfig) => Promise<ProviderOperationResult>;
-  unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => void;
+  unsubscribe: (subscriberId: string, exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, config?: Pick<SubscriptionConfig, 'providerId'>) => void;
   forceCloseSubscription: (subscriptionKey: string) => void;
 
   // Data retrieval from store
@@ -132,7 +132,7 @@ export interface DataProviderActions {
   updateTicker: (exchange: string, symbol: string, ticker: Ticker, market?: MarketType) => void;
 
   // Utilities
-  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType) => string;
+  getSubscriptionKey: (exchange: string, symbol: string, dataType: DataType, timeframe?: Timeframe, market?: MarketType, providerId?: string) => string;
   getActiveSubscriptionsList: () => ActiveSubscription[];
 
   // Event system for Chart widgets
