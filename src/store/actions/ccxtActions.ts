@@ -16,7 +16,7 @@ export const createCCXTActions: StateCreator<
   // Intelligent CCXT method selection
   selectOptimalOrderBookMethod: (exchange: string, exchangeInstance: any): OrderBookMethodSelection => {
     console.log(`🔍 Analyzing ${exchange} capabilities to select optimal orderbook method...`);
-    
+
     // Check available exchange capabilities
     const capabilities: CCXTMethodCapabilities = {
       watchOrderBookForSymbols: !!exchangeInstance.has?.['watchOrderBookForSymbols'],
@@ -68,10 +68,12 @@ export const createCCXTActions: StateCreator<
       state.marketData = {
         candles: {},
         trades: {},
-        orderbook: {}
+        orderbook: {},
+        balance: {},
+        ticker: {}
       };
     });
 
     console.log(`🧹 Data provider store cleaned up`);
   }
-}); 
+});

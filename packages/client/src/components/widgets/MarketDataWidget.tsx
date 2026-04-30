@@ -7,11 +7,11 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useCandles, useTrades, useOrderBook, useDataProviders } from '../../hooks/useDataProvider';
 import { formatTimestamp, formatPrice, formatVolume } from '../../utils/formatters';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Activity, 
-  Clock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Clock,
   Wifi,
   WifiOff,
   BarChart3,
@@ -46,32 +46,35 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
 
   // Data subscriptions
   const candles = useCandles(
-    symbol, 
-    exchange, 
-    selectedProvider, 
-    dashboardId, 
-    `${widgetId}-candles`
+    symbol,
+    exchange,
+    selectedProvider,
+    dashboardId,
+    `${widgetId}-candles`,
+    showCandles
   );
 
   const trades = useTrades(
-    symbol, 
-    exchange, 
-    selectedProvider, 
-    dashboardId, 
-    `${widgetId}-trades`
+    symbol,
+    exchange,
+    selectedProvider,
+    dashboardId,
+    `${widgetId}-trades`,
+    showTrades
   );
 
   const orderbook = useOrderBook(
-    symbol, 
-    exchange, 
-    selectedProvider, 
-    dashboardId, 
-    `${widgetId}-orderbook`
+    symbol,
+    exchange,
+    selectedProvider,
+    dashboardId,
+    `${widgetId}-orderbook`,
+    showOrderBook
   );
 
   // Get last candle for price display
-  const lastCandle = candles.data && candles.data.length > 0 
-    ? candles.data[candles.data.length - 1] 
+  const lastCandle = candles.data && candles.data.length > 0
+    ? candles.data[candles.data.length - 1]
     : null;
 
   const priceChange = lastCandle && candles.data && candles.data.length > 1
@@ -94,7 +97,7 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
     const anyConnected = (showCandles && candles.isSubscribed) ||
                         (showTrades && trades.isSubscribed) ||
                         (showOrderBook && orderbook.isSubscribed);
-    
+
     const anyLoading = (showCandles && candles.loading) ||
                       (showTrades && trades.loading) ||
                       (showOrderBook && orderbook.loading);
@@ -188,7 +191,7 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
                     </span>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-4 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Open</p>
@@ -309,8 +312,8 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
                 {recentTrades.map((trade, index) => (
                   <div key={trade.id || index} className="flex justify-between items-center py-1 text-sm">
                     <div className="flex items-center gap-2">
-                      <Badge 
-                        variant={trade.side === 'buy' ? 'default' : 'destructive'} 
+                      <Badge
+                        variant={trade.side === 'buy' ? 'default' : 'destructive'}
                         className="text-xs px-1 py-0"
                       >
                         {trade.side}
@@ -341,4 +344,4 @@ export const MarketDataWidget: React.FC<MarketDataWidgetProps> = ({
       )}
     </div>
   );
-}; 
+};

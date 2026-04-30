@@ -32,64 +32,77 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
   accounts,
   settings
 }) => {
-  const [trades, setTrades] = useState<Array<Trade & { 
+  const [trades, setTrades] = useState<Array<Trade & {
     accountId: string;
     exchange: string;
     email: string;
   }>>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Data provider integration - get methods only
   const dataProvider = useDataProviderStore();
 
   // Load trades for accounts
   const loadTrades = useCallback(async () => {
     if (!accounts.length) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log(`📊 Loading trades for ${accounts.length} account(s)`);
-      
+
       const allTrades: (Trade & { accountId: string; exchange: string; email: string; })[] = [];
-      
+
       // Load trades from each account
       for (const account of accounts) {
         try {
           console.log(`🔄 Fetching trades for account ${account.id} (${account.exchange})`);
-          
+
           const trades = await dataProvider.fetchMyTrades(
             account.id,
             undefined, // symbol - get all symbols
             undefined, // since - get recent trades
             settings.tradesLimit
           );
-          
+
           // Transform and add account info
-          const tradesWithAccount = trades.map(trade => ({
-            ...trade,
-            accountId: account.id,
-            exchange: account.exchange || 'Unknown',
-            email: account.email || 'Unknown'
-          }));
-          
+          const tradesWithAccount = trades.map(trade => {
+            const rawTrade = trade as Partial<Trade> & typeof trade;
+
+            return {
+              id: trade.id,
+              timestamp: trade.timestamp,
+              symbol: rawTrade.symbol || 'Unknown',
+              side: trade.side,
+              amount: trade.amount,
+              price: trade.price,
+              cost: typeof rawTrade.cost === 'number' ? rawTrade.cost : trade.price * trade.amount,
+              fee: rawTrade.fee,
+              order: rawTrade.order,
+              info: rawTrade.info,
+              accountId: account.id,
+              exchange: account.exchange || 'Unknown',
+              email: account.email || 'Unknown'
+            };
+          });
+
           allTrades.push(...tradesWithAccount);
-          
+
           console.log(`✅ Loaded ${trades.length} trades for account ${account.id}`);
         } catch (error) {
           console.error(`❌ Failed to load trades for account ${account.id}:`, error);
           // Continue with other accounts even if one fails
         }
       }
-      
+
       // Sort trades by timestamp (newest first)
       allTrades.sort((a, b) => b.timestamp - a.timestamp);
-      
+
       setTrades(allTrades);
       console.log(`✅ Total trades loaded: ${allTrades.length}`);
-      
+
     } catch (error) {
       console.error('❌ Failed to load trades:', error);
       setError(error instanceof Error ? error.message : 'Failed to load trades');
@@ -109,13 +122,13 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
   // Format currency value
   const formatCurrency = useCallback((value: number, currency?: string) => {
     if (value === 0) return '0';
-    
+
     if (value < 0.001) {
       return value.toFixed(8);
     } else if (value < 1) {
       return value.toFixed(6);
     } else if (value < 1000) {
-      return value.toFixed(4);  
+      return value.toFixed(4);
     } else {
       return value.toFixed(2);
     }
@@ -135,10 +148,10 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
     overscan: 5,
   });
 
-  const renderTradeRow = useCallback((trade: Trade & { 
-    accountId: string; 
-    exchange: string; 
-    email: string; 
+  const renderTradeRow = useCallback((trade: Trade & {
+    accountId: string;
+    exchange: string;
+    email: string;
   }, index: number, style?: React.CSSProperties) => (
     <div
       key={trade.id}
@@ -162,33 +175,33 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
       <div className="text-center min-w-0 flex-1">
         <div className="font-medium text-terminal-text">{trade.symbol}</div>
         <div className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${
-          trade.side === 'buy' 
-            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' 
+          trade.side === 'buy'
+            ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200'
             : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200'
         }`}>
           {trade.side === 'buy' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
           {trade.side.toUpperCase()}
         </div>
       </div>
-      
+
       {/* Amount */}
       <div className="text-right min-w-0 flex-1">
         <div className="text-terminal-text">{formatCurrency(trade.amount)}</div>
         <div className="text-xs text-terminal-muted">Amount</div>
       </div>
-      
+
       {/* Price */}
       <div className="text-right min-w-0 flex-1">
         <div className="text-terminal-text">{formatCurrency(trade.price)}</div>
         <div className="text-xs text-terminal-muted">Price</div>
       </div>
-      
+
       {/* Cost */}
       <div className="text-right min-w-0 flex-1">
         <div className="font-medium text-terminal-text">{formatCurrency(trade.cost)}</div>
         <div className="text-xs text-terminal-muted">Total</div>
       </div>
-      
+
       {/* Fee */}
       <div className="text-right min-w-0 flex-1">
         <div className="text-terminal-text">
@@ -218,7 +231,7 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
         <div className="text-center">
           <TrendingDown className="w-8 h-8 text-red-500 mb-2 mx-auto" />
           <p className="text-red-500">Error: {error}</p>
-          <button 
+          <button
             onClick={loadTrades}
             className="mt-2 px-3 py-1 bg-terminal-accent/20 hover:bg-terminal-accent/30 rounded text-xs"
           >
@@ -280,7 +293,7 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
         ) : (
           // Render normally for smaller lists
           <div className="overflow-auto">
-            {trades.map((trade, index) => 
+            {trades.map((trade, index) =>
               renderTradeRow(trade, index)
             )}
           </div>
@@ -290,4 +303,4 @@ const UserTradesTab: React.FC<UserTradesTabProps> = ({
   );
 };
 
-export default UserTradesTab; 
+export default UserTradesTab;

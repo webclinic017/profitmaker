@@ -123,6 +123,7 @@ export interface CCXTBrowserConfig {
 // Configuration for CCXT Server - УПРОЩЕННАЯ ВЕРСИЯ
 export interface CCXTServerConfig {
   serverUrl: string;
+  socketUrl?: string; // Optional Socket.IO URL; defaults to serverUrl port + 1 when a port is present
   token?: string; // Authentication token for server
   timeout?: number;
   sandbox?: boolean;
@@ -335,4 +336,4 @@ export interface ChartUpdateEvent {
   timestamp: number;
 }
 
-export type ChartUpdateListener = (event: ChartUpdateEvent) => void; 
+export type ChartUpdateListener = (event: ChartUpdateEvent) => void;
