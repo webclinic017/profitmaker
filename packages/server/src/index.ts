@@ -86,21 +86,23 @@ const app = new Elysia()
   .use(exchangeRoutes)
   .use(websocketRoutes)
   .use(proxyRoutes)
-  // Serve static frontend files
-  .get('/*', ({ request }) => {
+  // Serve static frontend files via onError fallback
+  .onError(({ code, request }) => {
+    if (code !== 'NOT_FOUND') return;
     const pathname = new URL(request.url).pathname;
+
+    // Skip API routes
+    if (pathname.startsWith('/api/') || pathname === '/health') return;
+
     const filePath = join(STATIC_DIR, pathname);
 
-    // Try exact file first (not directory)
+    // Try exact file first
     try {
-      const file = Bun.file(filePath);
-      if (existsSync(filePath) && !pathname.endsWith('/')) {
-        const ext = extname(filePath);
-        if (ext) {
-          return new Response(file, {
-            headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
-          });
-        }
+      const ext = extname(filePath);
+      if (ext && existsSync(filePath)) {
+        return new Response(Bun.file(filePath), {
+          headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
+        });
       }
     } catch {}
 
@@ -111,8 +113,6 @@ const app = new Elysia()
         headers: { 'Content-Type': 'text/html' },
       });
     }
-
-    return new Response('Not Found', { status: 404 });
   })
   .listen(PORT);
 
