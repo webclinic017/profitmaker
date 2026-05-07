@@ -89,15 +89,20 @@ const app = new Elysia()
   // Serve static frontend files
   .get('/*', ({ request }) => {
     const pathname = new URL(request.url).pathname;
-    let filePath = join(STATIC_DIR, pathname);
+    const filePath = join(STATIC_DIR, pathname);
 
-    // Try exact file first
-    if (existsSync(filePath) && !Bun.file(filePath).size === undefined) {
-      const ext = extname(filePath);
-      return new Response(Bun.file(filePath), {
-        headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
-      });
-    }
+    // Try exact file first (not directory)
+    try {
+      const file = Bun.file(filePath);
+      if (existsSync(filePath) && !pathname.endsWith('/')) {
+        const ext = extname(filePath);
+        if (ext) {
+          return new Response(file, {
+            headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
+          });
+        }
+      }
+    } catch {}
 
     // SPA fallback: serve index.html
     const indexPath = join(STATIC_DIR, 'index.html');
