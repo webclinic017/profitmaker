@@ -23,7 +23,7 @@ COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/packages ./packages
 COPY --from=base /app/package.json ./
 
-# Server serves built frontend from packages/client/dist/
+# Server serves built frontend + API
 ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001

@@ -1,6 +1,8 @@
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { Server as SocketIOServer } from 'socket.io';
+import { existsSync } from 'fs';
+import { join, extname } from 'path';
 
 import { healthRoutes } from './routes/health';
 import { authRoutes } from './routes/auth';
@@ -28,6 +30,22 @@ import {
 
 const PORT = Number(process.env.PORT) || 3001;
 const API_TOKEN = process.env.API_TOKEN || 'your-secret-token';
+const STATIC_DIR = join(import.meta.dir, '../../../client/dist');
+
+const MIME_TYPES: Record<string, string> = {
+  '.html': 'text/html',
+  '.css': 'text/css',
+  '.js': 'application/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+};
 
 // Elysia HTTP server
 const app = new Elysia()
@@ -37,8 +55,9 @@ const app = new Elysia()
   .onBeforeHandle(async ({ request, set }) => {
     const pathname = new URL(request.url).pathname;
 
-    // Skip auth for health and auth routes
+    // Skip auth for health, auth routes, and static files
     if (pathname === '/health' || pathname.startsWith('/api/auth')) return;
+    if (!pathname.startsWith('/api/') && !pathname.startsWith('/ws')) return;
 
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
@@ -67,6 +86,29 @@ const app = new Elysia()
   .use(exchangeRoutes)
   .use(websocketRoutes)
   .use(proxyRoutes)
+  // Serve static frontend files
+  .get('/*', ({ request }) => {
+    const pathname = new URL(request.url).pathname;
+    let filePath = join(STATIC_DIR, pathname);
+
+    // Try exact file first
+    if (existsSync(filePath) && !Bun.file(filePath).size === undefined) {
+      const ext = extname(filePath);
+      return new Response(Bun.file(filePath), {
+        headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
+      });
+    }
+
+    // SPA fallback: serve index.html
+    const indexPath = join(STATIC_DIR, 'index.html');
+    if (existsSync(indexPath)) {
+      return new Response(Bun.file(indexPath), {
+        headers: { 'Content-Type': 'text/html' },
+      });
+    }
+
+    return new Response('Not Found', { status: 404 });
+  })
   .listen(PORT);
 
 // Socket.IO attaches to the same Bun server via its underlying http handling
