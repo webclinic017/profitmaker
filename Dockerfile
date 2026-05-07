@@ -12,7 +12,7 @@ RUN bun install --frozen-lockfile || bun install
 # Copy all source
 COPY . .
 
-# Build frontend
+# Build frontend (output goes to packages/client/dist/)
 RUN bun run build
 
 # --- Production stage ---
@@ -22,9 +22,8 @@ WORKDIR /app
 COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/packages ./packages
 COPY --from=base /app/package.json ./
-COPY --from=base /app/dist ./dist
 
-# Server serves built frontend + API
+# Server serves built frontend from packages/client/dist/
 ENV NODE_ENV=production
 ENV PORT=3001
 EXPOSE 3001
