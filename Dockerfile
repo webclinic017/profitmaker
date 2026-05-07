@@ -26,6 +26,7 @@ COPY --from=base /app/package.json ./
 # Server serves built frontend + API
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV STATIC_DIR=/app/packages/client/dist
 EXPOSE 3001
 
 # Run db:push (migrations) then start server

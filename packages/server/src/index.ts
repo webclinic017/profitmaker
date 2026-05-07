@@ -30,7 +30,7 @@ import {
 
 const PORT = Number(process.env.PORT) || 3001;
 const API_TOKEN = process.env.API_TOKEN || 'your-secret-token';
-const STATIC_DIR = join(import.meta.dir, '../../../client/dist');
+const STATIC_DIR = process.env.STATIC_DIR || join(import.meta.dir, '../../client/dist');
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
