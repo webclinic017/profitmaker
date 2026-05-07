@@ -85,36 +85,49 @@ const app = new Elysia()
   .use(providerRoutes)
   .use(exchangeRoutes)
   .use(websocketRoutes)
-  .use(proxyRoutes)
-  // Serve static frontend files via onError fallback
-  .onError(({ code, request }) => {
-    if (code !== 'NOT_FOUND') return;
-    const pathname = new URL(request.url).pathname;
+  .use(proxyRoutes);
 
-    // Skip API routes
-    if (pathname.startsWith('/api/') || pathname === '/health') return;
+// Helper: serve static file
+function serveStatic(pathname: string): Response | null {
+  const filePath = join(STATIC_DIR, pathname);
+  const ext = extname(filePath);
+  if (ext && existsSync(filePath)) {
+    return new Response(Bun.file(filePath), {
+      headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
+    });
+  }
+  return null;
+}
 
-    const filePath = join(STATIC_DIR, pathname);
+function serveIndex(): Response {
+  const indexPath = join(STATIC_DIR, 'index.html');
+  if (existsSync(indexPath)) {
+    return new Response(Bun.file(indexPath), {
+      headers: { 'Content-Type': 'text/html' },
+    });
+  }
+  return new Response('Not Found', { status: 404 });
+}
 
-    // Try exact file first
-    try {
-      const ext = extname(filePath);
-      if (ext && existsSync(filePath)) {
-        return new Response(Bun.file(filePath), {
-          headers: { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' },
-        });
-      }
-    } catch {}
+// Use Bun.serve to wrap Elysia with static file fallback
+Bun.serve({
+  port: PORT,
+  async fetch(req) {
+    const pathname = new URL(req.url).pathname;
 
-    // SPA fallback: serve index.html
-    const indexPath = join(STATIC_DIR, 'index.html');
-    if (existsSync(indexPath)) {
-      return new Response(Bun.file(indexPath), {
-        headers: { 'Content-Type': 'text/html' },
-      });
+    // API routes go to Elysia
+    if (pathname.startsWith('/api/') || pathname === '/health') {
+      return app.handle(req);
     }
-  })
-  .listen(PORT);
+
+    // Try static file first
+    const staticResp = serveStatic(pathname);
+    if (staticResp) return staticResp;
+
+    // SPA fallback
+    return serveIndex();
+  },
+});
 
 // Socket.IO attaches to the same Bun server via its underlying http handling
 const io = new SocketIOServer(PORT + 1, {
